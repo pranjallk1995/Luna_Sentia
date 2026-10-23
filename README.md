@@ -18,6 +18,7 @@ Ollama: they join `luna_sentia_network` and call
 | --- | --- |
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | Image captions and tags (`VISION_MODEL`) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Parsing ambiguous bank messages (`OLLAMA_MODEL`) |
+| Luna Lexia | Classifying documents and extracting their details (`DOCUMENT_MODEL`) |
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | The shared network only (reaches Luna Visia through it) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | The shared network only |
 | Luna Lexia (upcoming) | Document intelligence |
@@ -37,7 +38,7 @@ Ollama: they join `luna_sentia_network` and call
 | Network | `luna_sentia_network` | Shared private network every Luna app joins as an external network |
 
 ```text
-Luna Visia / Luna Fiora / Luna Lexia (upcoming) / future apps
+Luna Visia / Luna Fiora / Luna Lexia / future apps
         -> luna_sentia_network
         -> luna-sentia-ollama:11434 (Ollama)
         -> luna_sentia_ollama_data (models)
@@ -55,7 +56,7 @@ works from this repository (`./luna.sh`) or copied into the folder that holds
 `Luna_Sentia` and the app folders (`../luna.sh` from here, as below):
 
 ```sh
-../luna.sh start                    # Sentia + visia, vita, lumia, fiora
+../luna.sh start                    # Sentia + visia, vita, lumia, fiora, lexia
 ../luna.sh start vita lumia         # Sentia + only the named apps
 ../luna.sh start --no-build         # skip image rebuilds
 ../luna.sh start --watch            # then run Compose Watch for every app
@@ -115,7 +116,7 @@ SENTIA_MODELS=qwen2.5vl:7b llama3.2-vision:11b
 
 Restart with `docker compose up -d` to pull the new models. Each app then
 selects which served model it uses in its own `.env` (`VISION_MODEL` in Visia,
-`OLLAMA_MODEL` in Fiora). A model an app asks for that is not listed here fails
+`OLLAMA_MODEL` in Fiora, `DOCUMENT_MODEL` in Lexia). A model an app asks for that is not listed here fails
 when that app first calls it.
 
 Ollama loads models on demand and unloads them after a few idle minutes, so
@@ -139,6 +140,7 @@ alias as Server, and that app's credentials:
 | Luna Vita | `luna-vita-db` | `lunavita` | `POSTGRES_PASSWORD` (`lunavita-dev`) |
 | Luna Lumia | `luna-lumia-db` | `lunalumia` | `POSTGRES_PASSWORD` (`lunalumia-dev`) |
 | Luna Fiora | `luna-fiora-db` | `lunafiora` | `POSTGRES_PASSWORD` (`lunafiora-dev`) |
+| Luna Lexia | `luna-lexia-db` | `lunalexia` | `POSTGRES_PASSWORD` (`lunalexia-dev`) |
 
 Use the alias, not `postgres`: every app has a service called `postgres`, so
 that name is ambiguous on the shared network. A database is reachable only

@@ -5,7 +5,7 @@
 #   ./luna.sh stop [APP...]                           stop the apps, then Sentia
 #   ./luna.sh status [APP...]                         show each stack's containers
 #
-# APP is a short name such as visia or vita (default: visia vita lumia fiora). Sentia
+# APP is a short name such as visia or vita (default: visia vita lumia fiora lexia). Sentia
 # always starts first because the apps join its external luna_sentia_network.
 set -euo pipefail
 
@@ -15,7 +15,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ $(basename "$HERE") == Luna_Sentia ]]; then ROOT="$(dirname "$HERE")"; else ROOT="$HERE"; fi
 SENTIA_DIR="$ROOT/Luna_Sentia"
 # Override with e.g. LUNA_APPS="visia vita" ./luna.sh start
-DEFAULT_APPS=(${LUNA_APPS:-visia vita lumia fiora})
+DEFAULT_APPS=(${LUNA_APPS:-visia vita lumia fiora lexia})
 
 usage() {
     sed -n '2,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
