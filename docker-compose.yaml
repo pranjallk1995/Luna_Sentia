@@ -1,0 +1,55 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    gpus: all
+    expose:
+      - "11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      sentia_network:
+        aliases:
+          - luna-sentia-ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # Pulls every model in SENTIA_MODELS once; already-downloaded models finish immediately.
+  ollama-pull:
+    image: ollama/ollama:latest
+    entrypoint: ["/bin/sh", "-c"]
+    command: ['for model in $$SENTIA_MODELS; do ollama pull "$$model" || exit 1; done']
+    environment:
+      OLLAMA_HOST: http://luna-sentia-ollama:11434
+      SENTIA_MODELS: ${SENTIA_MODELS:-qwen2.5vl:7b}
+    networks:
+      sentia_network:
+        aliases:
+          - luna-sentia-model-pull
+    depends_on:
+      ollama:
+        condition: service_healthy
+
+  # One database UI for every Luna app's PostgreSQL, reached by its alias (e.g. luna-vita-db).
+  adminer:
+    image: adminer:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:19080:8080"
+    networks:
+      sentia_network:
+        aliases:
+          - luna-sentia-adminer
+
+volumes:
+  ollama_data:
+    name: luna_sentia_ollama_data
+
+# The shared network every Luna app joins as an external network.
+networks:
+  sentia_network:
+    name: luna_sentia_network
+    driver: bridge

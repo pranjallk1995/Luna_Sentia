@@ -1,0 +1,138 @@
+#!/usr/bin/env bash
+# Start, stop, or inspect Luna Sentia and the Luna apps that share its network.
+#
+#   ./luna.sh start [--watch] [--no-build] [APP...]   start Sentia, then the apps
+#   ./luna.sh stop [APP...]                           stop the apps, then Sentia
+#   ./luna.sh status [APP...]                         show each stack's containers
+#
+# APP is a short name such as visia or vita (default: visia vita lumia fiora). Sentia
+# always starts first because the apps join its external luna_sentia_network.
+set -euo pipefail
+
+# Runs from inside Luna_Sentia or from the folder that holds Luna_Sentia and
+# the Luna_<App> folders; either way ROOT is that holding folder.
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ $(basename "$HERE") == Luna_Sentia ]]; then ROOT="$(dirname "$HERE")"; else ROOT="$HERE"; fi
+SENTIA_DIR="$ROOT/Luna_Sentia"
+# Override with e.g. LUNA_APPS="visia vita" ./luna.sh start
+DEFAULT_APPS=(${LUNA_APPS:-visia vita lumia fiora})
+
+usage() {
+    sed -n '2,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    exit "${1:-0}"
+}
+
+log() { printf '\033[1;35m[luna]\033[0m %s\n' "$*"; }
+
+app_dir() { echo "$ROOT/Luna_${1^}"; }
+
+# Resolve the requested apps (or the defaults) to existing Compose directories.
+resolve_apps() {
+    local name dir
+    local names=("$@")
+    ((${#names[@]})) || names=("${DEFAULT_APPS[@]}")
+    APPS=()
+    for name in "${names[@]}"; do
+        name="${name,,}"
+        name="${name#luna_}"
+        [[ $name == sentia ]] && continue
+        dir="$(app_dir "$name")"
+        if [[ -f $dir/docker-compose.yaml ]]; then
+            APPS+=("$name")
+        else
+            log "Skipping $name: no docker-compose.yaml in $dir"
+        fi
+    done
+}
+
+compose() {
+    local dir="$1"
+    shift
+    docker compose --project-directory "$dir" -f "$dir/docker-compose.yaml" "$@"
+}
+
+start_sentia() {
+    log "Starting Luna Sentia (Ollama, Adminer, luna_sentia_network)"
+    compose "$SENTIA_DIR" up -d --wait ollama adminer
+    # The model pull runs in the background; apps start without waiting for it.
+    compose "$SENTIA_DIR" up -d ollama-pull
+}
+
+start() {
+    local watch=false build=(--build) names=() app
+    while (($#)); do
+        case "$1" in
+            --watch) watch=true ;;
+            --no-build) build=() ;;
+            -h | --help) usage ;;
+            -*) log "Unknown option: $1"; usage 1 ;;
+            *) names+=("$1") ;;
+        esac
+        shift
+    done
+    resolve_apps "${names[@]}"
+
+    start_sentia
+    for app in "${APPS[@]}"; do
+        log "Starting Luna ${app^}"
+        compose "$(app_dir "$app")" up -d "${build[@]}" --wait
+    done
+
+    if ! $watch; then
+        log "All stacks are up. Run '$0 status' to inspect them."
+        return
+    fi
+    watch_apps
+}
+
+# Run one Compose Watch per app in the background, with prefixed output, until Ctrl+C.
+watch_apps() {
+    local app
+    WATCHERS=()
+    trap stop_watchers INT TERM
+    for app in "${APPS[@]}"; do
+        (compose "$(app_dir "$app")" watch --no-up --quiet 2>&1 | sed -u "s/^/[${app}] /") &
+        WATCHERS+=($!)
+    done
+    log "Watching ${APPS[*]} for source changes. Press Ctrl+C to stop watching."
+    wait
+}
+
+stop_watchers() {
+    local pid
+    log "Stopping watchers; containers keep running."
+    for pid in "${WATCHERS[@]}"; do pkill -TERM -P "$pid" 2>/dev/null || true; done
+    wait
+    exit 0
+}
+
+stop() {
+    local app i
+    local stop_sentia=false
+    (($#)) || stop_sentia=true
+    for app in "$@"; do [[ ${app,,} == sentia ]] && stop_sentia=true; done
+    resolve_apps "$@"
+    for ((i = ${#APPS[@]} - 1; i >= 0; i--)); do
+        log "Stopping Luna ${APPS[i]^}"
+        compose "$(app_dir "${APPS[i]}")" down
+    done
+    if $stop_sentia; then
+        log "Stopping Luna Sentia"
+        compose "$SENTIA_DIR" down
+    fi
+}
+
+status() {
+    local app
+    resolve_apps "$@"
+    for app in sentia "${APPS[@]}"; do
+        log "Luna ${app^}"
+        compose "$(app_dir "$app")" ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}'
+    done
+}
+
+case "${1:-}" in
+    start | stop | status) command="$1"; shift; "$command" "$@" ;;
+    -h | --help | help | "") usage ;;
+    *) log "Unknown command: $1"; usage 1 ;;
+esac
