@@ -18,10 +18,9 @@ Ollama: they join `luna_sentia_network` and call
 | --- | --- |
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | Image captions and tags (`VISION_MODEL`) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Parsing ambiguous bank messages (`OLLAMA_MODEL`) |
-| Luna Lexia | Classifying documents and extracting their details (`DOCUMENT_MODEL`) |
+| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | Classifying documents and extracting their details (`DOCUMENT_MODEL`) |
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | The shared network only (reaches Luna Visia through it) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | The shared network only |
-| Luna Lexia (upcoming) | Document intelligence |
 
 > **GPU requirement for the default model:** `qwen2.5vl:7b` is larger than 6 GB
 > and, with the default `gpus: all` setting, needs an NVIDIA GPU with at least
