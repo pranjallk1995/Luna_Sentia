@@ -7,18 +7,19 @@
 ![NVIDIA GPU optional](https://img.shields.io/badge/NVIDIA_GPU-optional-76B900?logo=nvidia&logoColor=white)
 ![Status: usable](https://img.shields.io/badge/Status-usable-2EA043)
 
-## The shared models, database, and network for the Luna apps
+## The shared models, database, sign-in, and network for the Luna apps
 
 Luna Sentia runs the services every Luna app depends on: one PostgreSQL server
-holding each app's database, one Ollama server and its models, one Adminer for
-browsing the databases, and the private Docker network the apps share. The apps
-bundle none of these: they join `luna_sentia_network`, keep their data in
-`luna-sentia-db`, and call `http://luna-sentia-ollama:11434`.
+holding each app's database, one Ollama server and its models, single sign-on
+for every app, one Adminer for browsing the databases, and the private Docker
+network the apps share. The apps bundle none of these: they join
+`luna_sentia_network`, keep their data in `luna-sentia-db`, sign people in
+through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 
 > **Sentia must be running and healthy before any app starts.** Every app
-> stores its data in Sentia's PostgreSQL and joins Sentia's network; an app
-> started without them cannot reach its database and keeps restarting until
-> Sentia is up. `luna.sh start` handles the order for you; see
+> stores its data in Sentia's PostgreSQL, signs people in through Sentia's auth
+> service, and joins Sentia's network; an app started without them cannot reach
+> its database and keeps restarting until Sentia is up. `luna.sh start` handles the order for you; see
 > [Is Sentia healthy?](#is-sentia-healthy) to check by hand.
 
 | App | Uses Sentia for |
@@ -39,6 +40,7 @@ bundle none of these: they join `luna_sentia_network`, keep their data in
 | --- | --- | --- |
 | Database | PostgreSQL 17 (`luna-sentia-db`) | One server; each app has its own role and database; never published on a host port |
 | Database setup | `postgres-init` (one-shot) | Creates each app's role and database and syncs role passwords, then exits |
+| Single sign-on | Starlette (`luna-sentia-auth`) | One Google sign-in for every app; host port 19090 |
 | Model server | Ollama | Serves local models to every Luna app; never published on a host port |
 | Model pull | Ollama CLI (one-shot) | Pulls every model in `SENTIA_MODELS` at startup, then exits |
 | Database UI | Adminer | Browses every app's database, on localhost port 19080 |
@@ -50,6 +52,7 @@ Luna Visia / Vita / Lumia / Fiora / Lexia
         -> luna_sentia_network
         -> luna-sentia-db:5432 (PostgreSQL: lunavisia, lunavita, lunalumia, lunafiora, lunalexia)
         -> luna-sentia-ollama:11434 (Ollama)
+        -> luna-sentia-auth:8000 (who is signed in)
 ```
 
 Every service on the network uses a unique, project-prefixed alias, such as
@@ -59,8 +62,8 @@ collide.
 ## Start everything
 
 `luna.sh` starts Sentia first and waits until PostgreSQL and Ollama are healthy
-and Adminer is up, runs `postgres-init` so every app's database exists, then
-builds and starts each app in turn, waiting until its services are running or
+and Adminer is up, runs `postgres-init` so every app's database exists, starts
+the sign-on service and waits for it, then builds and starts each app in turn, waiting until its services are running or
 healthy. It
 works from this repository (`./luna.sh`) or copied into the folder that holds
 `Luna_Sentia` and the app folders (`../luna.sh` from here, as below):
@@ -93,6 +96,7 @@ Copy `.env.example` to `.env` and set the database passwords (see
 ```sh
 docker compose up -d --wait postgres ollama adminer
 docker compose run --rm postgres-init
+docker compose up -d --build --wait auth
 ```
 
 ## Is Sentia healthy?
@@ -100,11 +104,12 @@ docker compose run --rm postgres-init
 Start an app only once Sentia reports healthy:
 
 ```sh
-docker compose ps        # postgres and ollama: "Up ... (healthy)"; adminer: "Up"
+docker compose ps        # postgres, ollama, auth: "Up ... (healthy)"; adminer: "Up"
 ```
 
 - `postgres (healthy)`: the server accepts connections (`pg_isready`).
 - `ollama (healthy)`: the model server answers (`ollama list`).
+- `auth (healthy)`: the sign-on service answers <http://127.0.0.1:19090/health>.
 - `postgres-init` printed `Ready: luna<app>` for every app with a password set.
 
 If `postgres` is not healthy, check `docker compose logs postgres`; an app
@@ -184,6 +189,51 @@ docker compose exec -T postgres pg_restore -U sentia -d lunavita --clean --if-ex
 
 Open a SQL shell: `docker compose exec postgres psql -U sentia -d lunavita`.
 
+## Single sign-on
+
+`auth` gives every Luna app one shared sign-in. The first app you open sends you
+to Sentia, which signs you in with Google once and sets an HTTP-only, secure
+`luna_sso` cookie for the parent domain of all the apps (`lunaapps.fyi`). Every
+app then reads that cookie, asks Sentia over `luna_sentia_network` whose session
+it is (`GET /session`), and applies its own `LUNA<APP>_ALLOWED_EMAILS`. Opening
+another app needs no second sign-in, and **Sign out** in any app ends the session
+for all of them (other open apps notice within a minute). Sessions last
+`SENTIA_AUTH_SESSION_DAYS` (30) and are stored, hashed, in the `lunaauth`
+database.
+
+| Route | Purpose |
+| --- | --- |
+| `/login?next=<app url>` | Sign in with Google (skipped when already signed in), then return to the app |
+| `/callback` | Google's redirect back to Sentia |
+| `/logout?next=<app url>` | End the session for every app, then return |
+| `/session` | For app servers: the account behind the `X-Luna-Session` token |
+| `/` | Who is signed in, with a sign-out link |
+
+Only addresses under `SENTIA_AUTH_COOKIE_DOMAIN` (or localhost, when it is
+blank) are accepted as `next`, so the service cannot be used to redirect
+anywhere else.
+
+Set up once:
+
+1. **Public address.** Route a public hostname to `http://localhost:19090`, for
+   example `auth.lunaapps.fyi` as a Public Hostname of your Cloudflare tunnel,
+   and set it as `SENTIA_AUTH_PUBLIC_URL`. It must share the apps' parent
+   domain, set as `SENTIA_AUTH_COOKIE_DOMAIN`.
+2. **Google client.** Use a Google OAuth "Web application" client (one of the
+   apps' UI clients works) and add `<SENTIA_AUTH_PUBLIC_URL>/callback` to its
+   authorized redirect URIs. Set `SENTIA_AUTH_GOOGLE_CLIENT_ID` and
+   `SENTIA_AUTH_GOOGLE_CLIENT_SECRET`.
+3. **Secrets and accounts.** Set `SENTIA_AUTH_SECRET` (`openssl rand -hex 32`),
+   `LUNAAUTH_DB_PASSWORD`, and `SENTIA_AUTH_ALLOWED_EMAILS`, the accounts that
+   may sign in at all; each app narrows this with its own allowlist.
+4. **Apps.** In each app's `.env`, set `LUNA_SSO_URL` to the public address and
+   `LUNA_SSO_INTERNAL_URL` to `http://luna-sentia-auth:8000`.
+
+For use only on localhost, leave `SENTIA_AUTH_COOKIE_DOMAIN` blank and set
+`SENTIA_AUTH_PUBLIC_URL` and every `LUNA_SSO_URL` to `http://localhost:19090`;
+browsers share localhost cookies across ports, so the apps still share one
+sign-in. Tests: `docker compose run --rm --no-deps -v "$PWD/auth/tests:/workspace/auth/tests" auth python -m unittest discover -s tests -t .`
+
 ## Database UI
 
 Adminer is available at <http://127.0.0.1:19080> and is bound to localhost. It
@@ -207,7 +257,8 @@ Username `sentia` with `SENTIA_POSTGRES_PASSWORD` sees every database.
   order). `docker compose down` stops PostgreSQL and Ollama but keeps their
   volumes; the network is removed only when no Luna app is still attached.
 - **Privacy:** PostgreSQL and Ollama have no host port; only containers on
-  `luna_sentia_network` can reach them. Adminer listens only on localhost.
+  `luna_sentia_network` can reach them. Adminer and the sign-on service listen
+  only on localhost; publish the sign-on service through your tunnel.
 - **Adding an app:** add it to the loop in `postgres/init-databases.sh` and its
   `LUNA<APP>_DB_PASSWORD` to `.env`, `.env.example`, and the `postgres-init`
   service, run `postgres-init`, then join the external network in the app's

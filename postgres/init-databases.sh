@@ -1,10 +1,11 @@
 #!/bin/sh
-# Give every Luna app its own login role and database on the shared server.
+# Give every Luna app, and Sentia's sign-on service (auth), its own login role and
+# database on the shared server.
 # Idempotent: existing roles get their password re-synced, existing databases are kept.
 # LUNA<APP>_DB_PASSWORD must match POSTGRES_PASSWORD in that app's .env.
 set -eu
 
-for app in visia vita lumia fiora lexia; do
+for app in auth visia vita lumia fiora lexia; do
     name="luna$app"
     password=$(printenv "$(echo "LUNA${app}_DB_PASSWORD" | tr '[:lower:]' '[:upper:]')" || true)
     if [ -z "$password" ]; then

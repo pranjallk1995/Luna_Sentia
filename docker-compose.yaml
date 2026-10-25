@@ -66,6 +66,7 @@ services:
       PGUSER: sentia
       PGDATABASE: sentia
       PGPASSWORD: ${SENTIA_POSTGRES_PASSWORD:?Set SENTIA_POSTGRES_PASSWORD in Luna_Sentia/.env}
+      LUNAAUTH_DB_PASSWORD: ${LUNAAUTH_DB_PASSWORD:-}
       LUNAVISIA_DB_PASSWORD: ${LUNAVISIA_DB_PASSWORD:-}
       LUNAVITA_DB_PASSWORD: ${LUNAVITA_DB_PASSWORD:-}
       LUNALUMIA_DB_PASSWORD: ${LUNALUMIA_DB_PASSWORD:-}
@@ -80,6 +81,37 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  # Single sign-on for every Luna app: one Google sign-in sets the luna_sso cookie for
+  # SENTIA_AUTH_COOKIE_DOMAIN, and the apps check it here over the private network.
+  auth:
+    build: ./auth
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://lunaauth:${LUNAAUTH_DB_PASSWORD:?Set LUNAAUTH_DB_PASSWORD in Luna_Sentia/.env}@luna-sentia-db:5432/lunaauth
+      SENTIA_AUTH_PUBLIC_URL: ${SENTIA_AUTH_PUBLIC_URL:-http://localhost:19090}
+      SENTIA_AUTH_COOKIE_DOMAIN: ${SENTIA_AUTH_COOKIE_DOMAIN:-}
+      SENTIA_AUTH_GOOGLE_CLIENT_ID: ${SENTIA_AUTH_GOOGLE_CLIENT_ID:?Set SENTIA_AUTH_GOOGLE_CLIENT_ID in Luna_Sentia/.env}
+      SENTIA_AUTH_GOOGLE_CLIENT_SECRET: ${SENTIA_AUTH_GOOGLE_CLIENT_SECRET:?Set SENTIA_AUTH_GOOGLE_CLIENT_SECRET in Luna_Sentia/.env}
+      SENTIA_AUTH_SECRET: ${SENTIA_AUTH_SECRET:?Set SENTIA_AUTH_SECRET in Luna_Sentia/.env}
+      SENTIA_AUTH_ALLOWED_EMAILS: ${SENTIA_AUTH_ALLOWED_EMAILS:?Set SENTIA_AUTH_ALLOWED_EMAILS in Luna_Sentia/.env}
+      SENTIA_AUTH_SESSION_DAYS: ${SENTIA_AUTH_SESSION_DAYS:-30}
+    ports:
+      - "127.0.0.1:19090:8000"
+    networks:
+      sentia_network:
+        aliases:
+          - luna-sentia-auth
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      postgres:
+        condition: service_healthy
+      postgres-init:
+        condition: service_completed_successfully
 
   # One database UI for every Luna app's database on luna-sentia-db.
   adminer:

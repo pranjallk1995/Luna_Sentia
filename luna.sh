@@ -7,7 +7,7 @@
 #
 # APP is a short name such as visia or vita (default: visia vita lumia fiora lexia). Sentia
 # always starts first and must be healthy: the apps join its luna_sentia_network and keep
-# their data in its PostgreSQL (luna-sentia-db).
+# their data in its PostgreSQL (luna-sentia-db) and sign people in through its auth service.
 set -euo pipefail
 
 # Runs from inside Luna_Sentia or from the folder that holds Luna_Sentia and
@@ -53,10 +53,12 @@ compose() {
 }
 
 start_sentia() {
-    log "Starting Luna Sentia (PostgreSQL, Ollama, Adminer, luna_sentia_network)"
+    log "Starting Luna Sentia (PostgreSQL, Ollama, sign-on, Adminer, luna_sentia_network)"
     compose "$SENTIA_DIR" up -d --wait postgres ollama adminer
     # Every app's role and database must exist before any app starts.
     compose "$SENTIA_DIR" run --rm postgres-init
+    # Every app signs people in through Sentia's sign-on service.
+    compose "$SENTIA_DIR" up -d --build --wait auth
     # The model pull runs in the background; apps start without waiting for it.
     compose "$SENTIA_DIR" up -d ollama-pull
 }
