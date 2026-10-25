@@ -33,7 +33,55 @@ services:
       ollama:
         condition: service_healthy
 
-  # One database UI for every Luna app's PostgreSQL, reached by its alias (e.g. luna-vita-db).
+  # The one PostgreSQL server for every Luna app. Each app has its own role and
+  # database (lunavisia, lunavita, ...), created by postgres-init.
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sentia
+      POSTGRES_DB: sentia
+      POSTGRES_PASSWORD: ${SENTIA_POSTGRES_PASSWORD:?Set SENTIA_POSTGRES_PASSWORD in Luna_Sentia/.env}
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      sentia_network:
+        aliases:
+          - luna-sentia-db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentia -d sentia"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  # Creates each app's role and database, and keeps role passwords in sync with the
+  # LUNA<APP>_DB_PASSWORD values; safe to run on every start.
+  postgres-init:
+    image: postgres:17-alpine
+    entrypoint: ["/bin/sh", "/init-databases.sh"]
+    environment:
+      PGHOST: luna-sentia-db
+      PGUSER: sentia
+      PGDATABASE: sentia
+      PGPASSWORD: ${SENTIA_POSTGRES_PASSWORD:?Set SENTIA_POSTGRES_PASSWORD in Luna_Sentia/.env}
+      LUNAVISIA_DB_PASSWORD: ${LUNAVISIA_DB_PASSWORD:-}
+      LUNAVITA_DB_PASSWORD: ${LUNAVITA_DB_PASSWORD:-}
+      LUNALUMIA_DB_PASSWORD: ${LUNALUMIA_DB_PASSWORD:-}
+      LUNAFIORA_DB_PASSWORD: ${LUNAFIORA_DB_PASSWORD:-}
+      LUNALEXIA_DB_PASSWORD: ${LUNALEXIA_DB_PASSWORD:-}
+    volumes:
+      - ./postgres/init-databases.sh:/init-databases.sh:ro
+    networks:
+      sentia_network:
+        aliases:
+          - luna-sentia-db-init
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # One database UI for every Luna app's database on luna-sentia-db.
   adminer:
     image: adminer:latest
     restart: unless-stopped
@@ -47,6 +95,8 @@ services:
 volumes:
   ollama_data:
     name: luna_sentia_ollama_data
+  postgres_data:
+    name: luna_sentia_postgres_data
 
 # The shared network every Luna app joins as an external network.
 networks:
