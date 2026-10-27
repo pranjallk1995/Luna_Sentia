@@ -26,7 +26,7 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 | --- | --- |
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | Its database; image captions and tags (`VISION_MODEL`) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Its database; parsing ambiguous bank messages (`OLLAMA_MODEL`) |
-| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | Its database; classifying documents and extracting their details (`DOCUMENT_MODEL`) |
+| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | Its database; classifying documents and extracting their details (`DOCUMENT_MODEL`); semantic search (`EMBEDDING_MODEL`, pgvector) |
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | Its database and the shared network (reaches Luna Visia through it) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | Its database and the shared network |
 
@@ -38,7 +38,7 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 
 | Component | Technology | Purpose |
 | --- | --- | --- |
-| Database | PostgreSQL 17 (`luna-sentia-db`) | One server; each app has its own role and database; never published on a host port |
+| Database | PostgreSQL 17 + pgvector (`luna-sentia-db`) | One server; each app has its own role and database, with the `vector` extension; never published on a host port |
 | Database setup | `postgres-init` (one-shot) | Creates each app's role and database and syncs role passwords, then exits |
 | Single sign-on | Starlette (`luna-sentia-auth`) | One Google sign-in for every app; host port 19090 |
 | Model server | Ollama | Serves local models to every Luna app; never published on a host port |
@@ -116,7 +116,7 @@ If `postgres` is not healthy, check `docker compose logs postgres`; an app
 started now will restart until the database answers. Models can still be
 downloading; that only delays the first model call, not startup.
 
-The first start pulls every model in `SENTIA_MODELS` (`qwen2.5vl:7b` by
+The first start pulls every model in `SENTIA_MODELS` (`qwen2.5vl:7b` and `qwen3-embedding:0.6b` by
 default), which can take several minutes. Follow progress with:
 
 ```sh
@@ -143,12 +143,14 @@ nvidia-smi
 copy `.env.example` to `.env` and edit it:
 
 ```dotenv
-SENTIA_MODELS=qwen2.5vl:7b llama3.2-vision:11b
+SENTIA_MODELS=qwen2.5vl:7b qwen3-embedding:0.6b llama3.2-vision:11b
 ```
 
 Restart with `docker compose up -d` to pull the new models. Each app then
 selects which served model it uses in its own `.env` (`VISION_MODEL` in Visia,
-`OLLAMA_MODEL` in Fiora, `DOCUMENT_MODEL` in Lexia). A model an app asks for that is not listed here fails
+`OLLAMA_MODEL` in Fiora, `DOCUMENT_MODEL` and `EMBEDDING_MODEL` in Lexia).
+The default list includes `qwen3-embedding:0.6b` (about 640 MB), the embedding
+model behind Lexia's semantic search. A model an app asks for that is not listed here fails
 when that app first calls it.
 
 Ollama loads models on demand and unloads them after a few idle minutes, so
@@ -166,6 +168,12 @@ gets its own login role and database of the same name (`lunavisia`, `lunavita`,
 `lunalumia`, `lunafiora`, `lunalexia`) and owns only that database, so apps
 cannot read each other's data. Each app creates and upgrades its own tables
 when it starts.
+
+The server is the official `postgres:17-alpine` image with
+[pgvector](https://github.com/pgvector/pgvector) 0.8.1 compiled in
+(`postgres/Dockerfile`), so the existing databases keep their collation. pgvector
+is not a trusted extension, so `postgres-init` installs `vector` in every app
+database as the superuser.
 
 `postgres-init` (`postgres/init-databases.sh`) creates any missing role or
 database and resets each role's password from Sentia's `.env`; it never drops
