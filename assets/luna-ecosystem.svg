@@ -118,6 +118,8 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="lk" x="420" y="468" text-anchor="middle">room cards use Visia public image URLs</text>
   <polyline class="plan" points="1018,410 1018,432 834,432 834,414" marker-end="url(#ahp)"/>
   <text class="pl" x="926" y="427" text-anchor="middle">planned: extracted tax details</text>
+  <polyline class="plan" points="82,410 82,442 794,442 794,414" marker-end="url(#ahp)"/>
+  <text class="pl" x="690" y="437" text-anchor="middle">planned: transaction images and icons</text>
 
   <!-- Bus to Sentia -->
   <line x1="50" y1="486" x2="1130" y2="486" class="rule" stroke-opacity=".45"/>

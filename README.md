@@ -43,7 +43,8 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 Every Luna app is a Streamlit UI plus a FastMCP service on Luna Sentia's
 `luna_sentia_network`: its data lives in Sentia's PostgreSQL, people sign in
 through Sentia's `auth`, and model calls go to Sentia's Ollama. Orange lines are
-the calls between apps; the grey dashed line is the planned Lexia-to-Fiora link.
+the calls between apps; grey dashed lines are planned links into Fiora: Lexia's
+extracted tax details and Visia's transaction images and icons.
 
 | Component | Technology | Purpose |
 | --- | --- | --- |
