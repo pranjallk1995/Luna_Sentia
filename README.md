@@ -96,7 +96,13 @@ Every push to `main` that changes a service's folder builds its image in GitHub
 Actions (`.github/workflows/images.yml` in each repository) and publishes it to
 GitHub Container Registry as `ghcr.io/pranjallk1995/luna-<app>-<service>`,
 tagged `latest` and with the commit SHA. The images are public and hold no
-secrets: `.env` files and `secrets.toml` are passed in at runtime.
+secrets: every setting and credential comes from each stack's `.env` at runtime.
+
+A machine that only runs Luna therefore needs no source code: each stack's
+`docker-compose.yaml` and `.env`, in folders named `Luna_Sentia` and
+`Luna_<App>`, plus `luna.sh` beside them. Sentia's `postgres-init` script is part
+of the postgres image. The source is needed only for `start --build` and
+`--watch`.
 
 `start` pulls the latest images (for Sentia, only its own `postgres` and `auth`;
 Ollama and Adminer update when you pull them yourself) and recreates any

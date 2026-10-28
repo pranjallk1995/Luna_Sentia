@@ -11,3 +11,7 @@ RUN apk add --no-cache --virtual .pgvector-build build-base git \
     && make -C /tmp/pgvector install with_llvm=no \
     && rm -rf /tmp/pgvector \
     && apk del .pgvector-build
+
+# Run by the postgres-init service (not by PostgreSQL's own first-start hooks), so
+# the published image is all a machine needs to create the apps' roles and databases.
+COPY init-databases.sh /init-databases.sh
