@@ -74,7 +74,7 @@ collide.
 
 `luna.sh` starts Sentia first and waits until PostgreSQL and Ollama are healthy
 and Adminer is up, runs `postgres-init` so every app's database exists, starts
-the sign-on service and waits for it, then builds and starts each app in turn, waiting until its services are running or
+the sign-on service and waits for it, then starts each app in turn, waiting until its services are running or
 healthy. It
 works from this repository (`./luna.sh`) or copied into the folder that holds
 `Luna_Sentia` and the app folders (`../luna.sh` from here, as below):
@@ -82,12 +82,28 @@ works from this repository (`./luna.sh`) or copied into the folder that holds
 ```sh
 ../luna.sh start                    # Sentia + visia, vita, lumia, fiora, lexia
 ../luna.sh start vita lumia         # Sentia + only the named apps
-../luna.sh start --no-build         # skip image rebuilds
+../luna.sh start --build            # build images from the local source instead
+../luna.sh start --no-pull          # use the images already on this machine
 ../luna.sh start --watch            # then run Compose Watch for every app
 ../luna.sh status                   # containers of each stack
 ../luna.sh stop                     # stop every app, then Sentia
 ../luna.sh stop vita                # stop one app; Sentia keeps running
 ```
+
+### Published images
+
+Every push to `main` that changes a service's folder builds its image in GitHub
+Actions (`.github/workflows/images.yml` in each repository) and publishes it to
+GitHub Container Registry as `ghcr.io/pranjallk1995/luna-<app>-<service>`,
+tagged `latest` and with the commit SHA. The images are public and hold no
+secrets: `.env` files and `secrets.toml` are passed in at runtime.
+
+`start` pulls the latest images (for Sentia, only its own `postgres` and `auth`;
+Ollama and Adminer update when you pull them yourself) and recreates any
+container whose image changed, so running it again is also how you update. A
+pull that fails, offline or before an image is first published, is skipped and
+Compose builds that image locally. Use `--build` while changing code, so the
+containers run your local source.
 
 With `--watch`, the script stays in the foreground and runs one
 `docker compose watch` per app, prefixing each line with the app's name (for

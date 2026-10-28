@@ -45,7 +45,7 @@ services:
   # has its own role and database (lunavisia, lunavita, ...), created by postgres-init.
   postgres:
     build: ./postgres
-    image: luna_sentia-postgres:17-pgvector
+    image: ghcr.io/pranjallk1995/luna-sentia-postgres:latest
     restart: unless-stopped
     environment:
       POSTGRES_USER: sentia
@@ -68,7 +68,7 @@ services:
   # Creates each app's role and database, and keeps role passwords in sync with the
   # LUNA<APP>_DB_PASSWORD values; safe to run on every start.
   postgres-init:
-    image: luna_sentia-postgres:17-pgvector
+    image: ghcr.io/pranjallk1995/luna-sentia-postgres:latest
     entrypoint: ["/bin/sh", "/init-databases.sh"]
     environment:
       PGHOST: luna-sentia-db
@@ -95,6 +95,7 @@ services:
   # SENTIA_AUTH_COOKIE_DOMAIN, and the apps check it here over the private network.
   auth:
     build: ./auth
+    image: ghcr.io/pranjallk1995/luna-sentia-auth:latest
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://lunaauth:${LUNAAUTH_DB_PASSWORD:?Set LUNAAUTH_DB_PASSWORD in Luna_Sentia/.env}@luna-sentia-db:5432/lunaauth

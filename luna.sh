@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Start, stop, or inspect Luna Sentia and the Luna apps that share its network.
 #
-#   ./luna.sh start [--watch] [--no-build] [APP...]   start Sentia, then the apps
-#   ./luna.sh stop [APP...]                           stop the apps, then Sentia
-#   ./luna.sh status [APP...]                         show each stack's containers
+#   ./luna.sh start [--watch] [--build | --no-pull] [APP...]   start Sentia, then the apps
+#   ./luna.sh stop [APP...]                                    stop the apps, then Sentia
+#   ./luna.sh status [APP...]                                  show each stack's containers
 #
+# start pulls each app's published images from GitHub Container Registry (ghcr.io)
+# and recreates containers whose image changed, so it also updates; --build builds
+# them from the local source instead, and --no-pull uses the images already here.
 # APP is a short name such as visia or vita (default: visia vita lumia fiora lexia). Sentia
 # always starts first and must be healthy: the apps join its luna_sentia_network and keep
 # their data in its PostgreSQL (luna-sentia-db) and sign people in through its auth service.
@@ -19,7 +22,7 @@ SENTIA_DIR="$ROOT/Luna_Sentia"
 DEFAULT_APPS=(${LUNA_APPS:-visia vita lumia fiora lexia})
 
 usage() {
-    sed -n '2,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit "${1:-0}"
 }
 
@@ -52,23 +55,40 @@ compose() {
     docker compose --project-directory "$dir" -f "$dir/docker-compose.yaml" "$@"
 }
 
+# Where images come from: pull the published ones (default), build them, or use local ones.
+IMAGES=pull
+
+# Pull or build a stack's images (or the named services'), as IMAGES says. A failed
+# pull (offline, or not published yet) is ignored: up then builds the missing image.
+images() {
+    local dir="$1"
+    shift
+    case "$IMAGES" in
+        pull) compose "$dir" pull --quiet --ignore-pull-failures "$@" ;;
+        build) compose "$dir" build "$@" ;;
+    esac
+}
+
 start_sentia() {
     log "Starting Luna Sentia (PostgreSQL, Ollama, sign-on, Adminer, luna_sentia_network)"
+    # Only Sentia's own images; Ollama and Adminer update when you pull them yourself.
+    images "$SENTIA_DIR" postgres auth
     compose "$SENTIA_DIR" up -d --wait postgres ollama adminer
     # Every app's role and database must exist before any app starts.
     compose "$SENTIA_DIR" run --rm postgres-init
     # Every app signs people in through Sentia's sign-on service.
-    compose "$SENTIA_DIR" up -d --build --wait auth
+    compose "$SENTIA_DIR" up -d --wait auth
     # The model pull runs in the background; apps start without waiting for it.
     compose "$SENTIA_DIR" up -d ollama-pull
 }
 
 start() {
-    local watch=false build=(--build) names=() app
+    local watch=false names=() app
     while (($#)); do
         case "$1" in
             --watch) watch=true ;;
-            --no-build) build=() ;;
+            --build) IMAGES=build ;;
+            --no-pull | --no-build) IMAGES=local ;;
             -h | --help) usage ;;
             -*) log "Unknown option: $1"; usage 1 ;;
             *) names+=("$1") ;;
@@ -80,7 +100,8 @@ start() {
     start_sentia
     for app in "${APPS[@]}"; do
         log "Starting Luna ${app^}"
-        compose "$(app_dir "$app")" up -d "${build[@]}" --wait
+        images "$(app_dir "$app")"
+        compose "$(app_dir "$app")" up -d --wait
     done
 
     if ! $watch; then
