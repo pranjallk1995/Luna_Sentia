@@ -30,8 +30,8 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | Its database and the shared network (reaches Luna Visia through it) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | Its database and the shared network |
 
-> **GPU requirement for the default model:** `qwen2.5vl:7b` is larger than 6 GB
-> and, with the default `gpus: all` setting, needs an NVIDIA GPU with at least
+> **GPU requirement for the default model:** `qwen3-vl:8b-instruct`, which Visia,
+> Lexia, and Fiora all use, is larger than 6 GB and, with the default `gpus: all` setting, needs an NVIDIA GPU with at least
 > 8 GB of VRAM. See [CPU fallback](#cpu-fallback) to run without one.
 
 ## Architecture
@@ -116,7 +116,7 @@ If `postgres` is not healthy, check `docker compose logs postgres`; an app
 started now will restart until the database answers. Models can still be
 downloading; that only delays the first model call, not startup.
 
-The first start pulls every model in `SENTIA_MODELS` (`qwen2.5vl:7b`, `qwen3-vl:8b-instruct`, and `qwen3-embedding:0.6b` by
+The first start pulls every model in `SENTIA_MODELS` (`qwen3-vl:8b-instruct` and `qwen3-embedding:0.6b` by
 default), which can take several minutes. Follow progress with:
 
 ```sh
@@ -143,7 +143,7 @@ nvidia-smi
 copy `.env.example` to `.env` and edit it:
 
 ```dotenv
-SENTIA_MODELS=qwen2.5vl:7b qwen3-vl:8b-instruct qwen3-embedding:0.6b llama3.2-vision:11b
+SENTIA_MODELS=qwen3-vl:8b-instruct qwen3-embedding:0.6b llama3.2-vision:11b
 ```
 
 Restart with `docker compose up -d` to pull the new models. Each app then

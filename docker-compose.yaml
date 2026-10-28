@@ -24,7 +24,7 @@ services:
     command: ['for model in $$SENTIA_MODELS; do ollama pull "$$model" || exit 1; done']
     environment:
       OLLAMA_HOST: http://luna-sentia-ollama:11434
-      SENTIA_MODELS: ${SENTIA_MODELS:-qwen2.5vl:7b qwen3-vl:8b-instruct qwen3-embedding:0.6b}
+      SENTIA_MODELS: ${SENTIA_MODELS:-qwen3-vl:8b-instruct qwen3-embedding:0.6b}
     networks:
       sentia_network:
         aliases:
