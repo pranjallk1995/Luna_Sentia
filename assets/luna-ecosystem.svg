@@ -113,13 +113,13 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 
   <!-- Cross-app links -->
   <polyline class="xlink" points="162,410 162,432 346,432 346,414" marker-end="url(#ahl)"/>
-  <text class="lk" x="254" y="427" text-anchor="middle">Vita uses Visia food images</text>
-  <polyline class="xlink" points="122,410 122,452 570,452 570,414" marker-end="url(#ahl)" stroke-dasharray="6 3"/>
-  <text class="lk" x="420" y="468" text-anchor="middle">room cards use Visia public image URLs</text>
+  <text class="lk" x="254" y="427" text-anchor="middle">food image URLs for Vita</text>
+  <polyline class="xlink" points="122,410 122,452 570,452 570,414" marker-end="url(#ahl)"/>
+  <text class="lk" x="420" y="468" text-anchor="middle">room image URLs for Lumia</text>
   <polyline class="plan" points="1018,410 1018,432 834,432 834,414" marker-end="url(#ahp)"/>
-  <text class="pl" x="926" y="427" text-anchor="middle">planned: extracted tax details</text>
+  <text class="pl" x="926" y="427" text-anchor="middle">planned: tax details for Fiora</text>
   <polyline class="plan" points="82,410 82,442 794,442 794,414" marker-end="url(#ahp)"/>
-  <text class="pl" x="690" y="437" text-anchor="middle">planned: transaction images and icons</text>
+  <text class="pl" x="770" y="460" text-anchor="middle">planned: transaction image and icon URLs for Fiora</text>
 
   <!-- Bus to Sentia -->
   <line x1="50" y1="486" x2="1130" y2="486" class="rule" stroke-opacity=".45"/>
