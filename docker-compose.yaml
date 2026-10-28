@@ -7,6 +7,14 @@ services:
       - "11434"
     volumes:
       - ollama_data:/root/.ollama
+    # Every Luna app shares this server. Flash attention and an 8-bit KV cache halve
+    # the memory of the 16k context the apps request (Qwen3-VL: 7.8 GB -> 6.6 GB).
+    # Ollama runs Qwen3-VL requests one at a time ("model architecture does not
+    # currently support parallel requests"), so NUM_PARALLEL stays 1; requests queue.
+    environment:
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+      OLLAMA_FLASH_ATTENTION: ${OLLAMA_FLASH_ATTENTION:-1}
+      OLLAMA_KV_CACHE_TYPE: ${OLLAMA_KV_CACHE_TYPE:-q8_0}
     networks:
       sentia_network:
         aliases:

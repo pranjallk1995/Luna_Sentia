@@ -166,6 +166,17 @@ when that app first calls it.
 
 Ollama loads models on demand and unloads them after a few idle minutes, so
 apps sharing one model share its memory, while different models compete for VRAM.
+A model is also reloaded whenever a request asks for a different context size,
+so every app asks for the same 16,384 tokens and one copy of Qwen3-VL serves
+them all.
+
+Three settings in `.env` tune the server for a 12 GB GPU:
+
+| Variable | Value | Why |
+| --- | --- | --- |
+| `OLLAMA_FLASH_ATTENTION` | `1` | Needed for a quantized KV cache; less memory per token |
+| `OLLAMA_KV_CACHE_TYPE` | `q8_0` | Halves the KV cache: Qwen3-VL at 16k takes 6.6 GB instead of 7.8 GB |
+| `OLLAMA_NUM_PARALLEL` | `1` | Ollama does not run Qwen3-VL requests in parallel ("model architecture does not currently support parallel requests"), so requests from the apps queue |
 
 ## CPU fallback
 
