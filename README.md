@@ -116,7 +116,7 @@ If `postgres` is not healthy, check `docker compose logs postgres`; an app
 started now will restart until the database answers. Models can still be
 downloading; that only delays the first model call, not startup.
 
-The first start pulls every model in `SENTIA_MODELS` (`qwen2.5vl:7b` and `qwen3-embedding:0.6b` by
+The first start pulls every model in `SENTIA_MODELS` (`qwen2.5vl:7b`, `qwen3-vl:8b-instruct`, and `qwen3-embedding:0.6b` by
 default), which can take several minutes. Follow progress with:
 
 ```sh
@@ -143,7 +143,7 @@ nvidia-smi
 copy `.env.example` to `.env` and edit it:
 
 ```dotenv
-SENTIA_MODELS=qwen2.5vl:7b qwen3-embedding:0.6b llama3.2-vision:11b
+SENTIA_MODELS=qwen2.5vl:7b qwen3-vl:8b-instruct qwen3-embedding:0.6b llama3.2-vision:11b
 ```
 
 Restart with `docker compose up -d` to pull the new models. Each app then
