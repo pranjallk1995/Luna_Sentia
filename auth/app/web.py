@@ -23,11 +23,6 @@ from app.config import AuthConfig
 from app.google import GoogleSignIn
 from app.store import SessionStore
 
-STATE_COOKIE = "luna_sso_state"
-STATE_MAX_AGE = 600
-SESSION_HEADER = "X-Luna-Session"
-
-
 def page(title: str, message: str, status: int = 200) -> HTMLResponse:
     return HTMLResponse(
         "<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
@@ -79,7 +74,7 @@ def create_app(config: AuthConfig, store: SessionStore, google: GoogleSignIn) ->
         nonce = secrets.token_urlsafe(16)
         response = RedirectResponse(google.authorization_url(signer.dumps({"next": target, "nonce": nonce})), 303)
         response.set_cookie(
-            STATE_COOKIE, nonce, max_age=STATE_MAX_AGE, path="/", httponly=True,
+            AuthConfig.STATE_COOKIE, nonce, max_age=AuthConfig.STATE_MAX_AGE_SECONDS, path="/", httponly=True,
             secure=config.secure_cookies, samesite="lax",
         )
         return response
@@ -88,10 +83,10 @@ def create_app(config: AuthConfig, store: SessionStore, google: GoogleSignIn) ->
         if request.query_params.get("error"):
             return page("Not signed in", html.escape(request.query_params["error"]), 400)
         try:
-            state = signer.loads(request.query_params.get("state", ""), max_age=STATE_MAX_AGE)
+            state = signer.loads(request.query_params.get("state", ""), max_age=AuthConfig.STATE_MAX_AGE_SECONDS)
         except BadSignature:
             return page("Not signed in", "This sign-in link expired. Start again from the app.", 400)
-        if not secrets.compare_digest(str(state.get("nonce")), request.cookies.get(STATE_COOKIE, "")):
+        if not secrets.compare_digest(str(state.get("nonce")), request.cookies.get(AuthConfig.STATE_COOKIE, "")):
             return page("Not signed in", "This sign-in did not start in this browser. Start again from the app.", 400)
         try:
             profile = google.user(request.query_params.get("code", ""))
@@ -103,7 +98,7 @@ def create_app(config: AuthConfig, store: SessionStore, google: GoogleSignIn) ->
         token = store.create(email, profile.get("name"), profile.get("picture"), lifetime)
         response = RedirectResponse(state.get("next") or "/", 303)
         session_cookie(response, token)
-        response.delete_cookie(STATE_COOKIE, path="/")
+        response.delete_cookie(AuthConfig.STATE_COOKIE, path="/")
         return response
 
     async def logout(request: Request) -> Response:
@@ -117,7 +112,7 @@ def create_app(config: AuthConfig, store: SessionStore, google: GoogleSignIn) ->
 
     async def session(request: Request) -> Response:
         """For app servers: who the session token in ``X-Luna-Session`` belongs to."""
-        token = request.headers.get(SESSION_HEADER, "")
+        token = request.headers.get(AuthConfig.SESSION_HEADER, "")
         user = store.get(token) if token else None
         if user is None:
             return JSONResponse({"error": "not signed in"}, 401)

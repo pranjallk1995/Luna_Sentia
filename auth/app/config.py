@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import ClassVar
 from urllib.parse import urlparse
 
 LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1"})
@@ -11,6 +12,16 @@ LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1"})
 
 @dataclass(frozen=True)
 class AuthConfig:
+    GOOGLE_AUTHORIZE_URL: ClassVar[str] = "https://accounts.google.com/o/oauth2/v2/auth"
+    GOOGLE_TOKEN_URL: ClassVar[str] = "https://oauth2.googleapis.com/token"
+    GOOGLE_USERINFO_URL: ClassVar[str] = "https://openidconnect.googleapis.com/v1/userinfo"
+    GOOGLE_TIMEOUT_SECONDS: ClassVar[float] = 15.0
+    # Header the app UIs send their luna_sso token in when they call /session.
+    SESSION_HEADER: ClassVar[str] = "X-Luna-Session"
+    # Short-lived cookie that ties Google's callback to the browser that started the sign-in.
+    STATE_COOKIE: ClassVar[str] = "luna_sso_state"
+    STATE_MAX_AGE_SECONDS: ClassVar[int] = 600
+
     database_url: str
     public_url: str
     client_id: str

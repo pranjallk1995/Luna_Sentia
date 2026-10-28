@@ -8,7 +8,7 @@ from starlette.testclient import TestClient
 
 from app.config import AuthConfig
 from app.store import token_hash
-from app.web import STATE_COOKIE, create_app
+from app.web import create_app
 
 APP = "https://vita.lunaapps.fyi/"
 
@@ -106,7 +106,7 @@ class SingleSignOnTests(unittest.TestCase):
     def test_state_must_match_this_browser(self):
         start = self.client.get("/login", params={"next": APP})
         state = parse_qs(urlparse(start.headers["location"]).query)["state"][0]
-        self.client.cookies.delete(STATE_COOKIE)
+        self.client.cookies.delete(AuthConfig.STATE_COOKIE)
         self.assertEqual(self.client.get("/callback", params={"code": "good", "state": state}).status_code, 400)
         self.assertEqual(self.client.get("/callback", params={"code": "good", "state": "forged"}).status_code, 400)
         self.assertEqual(self.sign_in(code="bad").status_code, 502)

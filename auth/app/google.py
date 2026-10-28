@@ -7,9 +7,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-TOKEN_URL = "https://oauth2.googleapis.com/token"
-USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
+from app.config import AuthConfig
 
 
 class GoogleSignIn:
@@ -19,7 +17,7 @@ class GoogleSignIn:
         self.redirect_uri = redirect_uri
 
     def authorization_url(self, state: str) -> str:
-        return AUTHORIZE_URL + "?" + urlencode(
+        return AuthConfig.GOOGLE_AUTHORIZE_URL + "?" + urlencode(
             {
                 "client_id": self.client_id,
                 "redirect_uri": self.redirect_uri,
@@ -32,9 +30,9 @@ class GoogleSignIn:
 
     def user(self, code: str) -> dict[str, Any]:
         """Exchange the code and return Google's verified profile (email, email_verified, name, picture)."""
-        with httpx.Client(timeout=15) as client:
+        with httpx.Client(timeout=AuthConfig.GOOGLE_TIMEOUT_SECONDS) as client:
             token = client.post(
-                TOKEN_URL,
+                AuthConfig.GOOGLE_TOKEN_URL,
                 data={
                     "code": code,
                     "client_id": self.client_id,
@@ -44,6 +42,6 @@ class GoogleSignIn:
                 },
             )
             token.raise_for_status()
-            profile = client.get(USERINFO_URL, headers={"Authorization": f"Bearer {token.json()['access_token']}"})
+            profile = client.get(AuthConfig.GOOGLE_USERINFO_URL, headers={"Authorization": f"Bearer {token.json()['access_token']}"})
             profile.raise_for_status()
             return profile.json()
