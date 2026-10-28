@@ -112,9 +112,9 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   </g>
 
   <!-- Cross-app links -->
-  <polyline class="xlink" points="346,410 346,432 162,432 162,414" marker-end="url(#ahl)"/>
-  <text class="lk" x="254" y="427" text-anchor="middle">verifies food-image URLs</text>
-  <polyline class="xlink" points="570,410 570,452 122,452 122,414" marker-end="url(#ahl)" stroke-dasharray="6 3"/>
+  <polyline class="xlink" points="162,410 162,432 346,432 346,414" marker-end="url(#ahl)"/>
+  <text class="lk" x="254" y="427" text-anchor="middle">Vita uses Visia food images</text>
+  <polyline class="xlink" points="122,410 122,452 570,452 570,414" marker-end="url(#ahl)" stroke-dasharray="6 3"/>
   <text class="lk" x="420" y="468" text-anchor="middle">room cards use Visia public image URLs</text>
   <polyline class="plan" points="1018,410 1018,432 834,432 834,414" marker-end="url(#ahp)"/>
   <text class="pl" x="926" y="427" text-anchor="middle">planned: extracted tax details</text>
