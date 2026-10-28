@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 830" width="1180" height="830" role="img" aria-label="Clients reach five Luna apps through a Cloudflare tunnel. Every app runs a Streamlit UI and a FastMCP service on the shared luna_sentia_network, and relies on Luna Sentia for sign-on, PostgreSQL and Ollama.">
+  <style>
+svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+.b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px}
+.bg{fill:#ffffff}.hc{fill:#1b2230}.hl{fill:#b4661a}.hp{fill:#8a92a3}
+.box{fill:#ffffff;stroke:#c9cfda;stroke-width:1.2}.app{fill:#f5f6f8;stroke:#c9cfda}
+.core{fill:#e3f0f1;stroke:#1f6f78;stroke-width:1.4}.ext{fill:none;stroke:#5d6677;stroke-dasharray:4 3}
+.net{fill:none;stroke:#1f6f78;stroke-width:1.5;stroke-dasharray:8 5}.zone{fill:none;stroke:#1f6f78;stroke-opacity:.5}
+.arrow{stroke:#1b2230;stroke-width:1.3;fill:none}.rule,.rule line{stroke:#1b2230;stroke-opacity:.45}
+.xlink{stroke:#b4661a;stroke-width:1.6;fill:none}.plan{stroke:#8a92a3;stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+.t{fill:#1b2230;font-size:13px}.s{fill:#5d6677;font-size:11px}.m{fill:#5d6677}.mc{fill:#1f6f78}
+.lbl{fill:#1b2230;font-size:11px}.lk{fill:#b4661a;font-size:11px;font-weight:500}.pl{fill:#8a92a3;font-size:11px;font-style:italic}
+.ct{fill:#1f6f78;font-size:12px;font-weight:600;letter-spacing:.08em}
+@media (prefers-color-scheme:dark){
+.bg{fill:#1a2029}.hc{fill:#e4e8ef}.hl{fill:#e3a35f}.hp{fill:#78819a}
+.box{fill:#1a2029;stroke:#343d4b;stroke-width:1.2}.app{fill:#11151c;stroke:#343d4b}
+.core{fill:#17303a;stroke:#5fb8c1;stroke-width:1.4}.ext{fill:none;stroke:#98a2b3;stroke-dasharray:4 3}
+.net{fill:none;stroke:#5fb8c1;stroke-width:1.5;stroke-dasharray:8 5}.zone{fill:none;stroke:#5fb8c1;stroke-opacity:.5}
+.arrow{stroke:#e4e8ef;stroke-width:1.3;fill:none}.rule,.rule line{stroke:#e4e8ef;stroke-opacity:.45}
+.xlink{stroke:#e3a35f;stroke-width:1.6;fill:none}.plan{stroke:#78819a;stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+.t{fill:#e4e8ef;font-size:13px}.s{fill:#98a2b3;font-size:11px}.m{fill:#98a2b3}.mc{fill:#5fb8c1}
+.lbl{fill:#e4e8ef;font-size:11px}.lk{fill:#e3a35f;font-size:11px;font-weight:500}.pl{fill:#78819a;font-size:11px;font-style:italic}
+.ct{fill:#5fb8c1;font-size:12px;font-weight:600;letter-spacing:.08em}
+}
+</style>
+<rect class="bg" x="0" y="0" width="1180" height="830" rx="10"/>
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hc"/></marker>
+    <marker id="ahl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hl"/></marker>
+    <marker id="ahp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hp"/></marker>
+  </defs>
+
+  <!-- Clients -->
+  <rect class="box" x="200" y="18" width="260" height="56" rx="8"/>
+  <text class="t b" x="330" y="42" text-anchor="middle">You, in a browser</text>
+  <text class="s" x="330" y="60" text-anchor="middle">one Google sign-in opens every app</text>
+  <rect class="box" x="720" y="18" width="260" height="56" rx="8"/>
+  <text class="t b" x="850" y="42" text-anchor="middle">AI assistants</text>
+  <text class="s" x="850" y="60" text-anchor="middle">Claude, ChatGPT as MCP clients</text>
+  <line class="arrow" x1="330" y1="74" x2="330" y2="108" marker-end="url(#ah)"/>
+  <line class="arrow" x1="850" y1="74" x2="850" y2="108" marker-end="url(#ah)"/>
+
+  <!-- Tunnel -->
+  <rect class="box" x="50" y="110" width="1080" height="38" rx="6"/>
+  <text class="t" x="590" y="134" text-anchor="middle"><tspan class="b">Cloudflare tunnel</tspan> · <tspan class="m">*.lunaapps.fyi</tspan> → host ports bound to 127.0.0.1</text>
+  <line class="arrow" x1="330" y1="148" x2="330" y2="178" marker-end="url(#ah)"/>
+  <text class="lbl" x="340" y="168">HTTPS → Streamlit UIs</text>
+  <line class="arrow" x1="850" y1="148" x2="850" y2="178" marker-end="url(#ah)"/>
+  <text class="lbl" x="860" y="168">HTTPS → /mcp and REST APIs</text>
+
+  <!-- Network -->
+  <rect class="net" x="30" y="180" width="1120" height="545" rx="12"/>
+  <text class="m mc" x="1136" y="198" text-anchor="end">luna_sentia_network (Docker bridge)</text>
+
+  <!-- App columns: x = 50, 274, 498, 722, 946; width 184 -->
+  <g>
+    <text class="t b" x="142" y="222" text-anchor="middle">Luna Visia</text>
+    <text class="s" x="142" y="238" text-anchor="middle">image vault, AI captions</text>
+    <text class="t b" x="366" y="222" text-anchor="middle">Luna Vita</text>
+    <text class="s" x="366" y="238" text-anchor="middle">nutrition and fitness</text>
+    <text class="t b" x="590" y="222" text-anchor="middle">Luna Lumia</text>
+    <text class="s" x="590" y="238" text-anchor="middle">smart lights</text>
+    <text class="t b" x="814" y="222" text-anchor="middle">Luna Fiora</text>
+    <text class="s" x="814" y="238" text-anchor="middle">personal finance · WIP</text>
+    <text class="t b" x="1038" y="222" text-anchor="middle">Luna Lexia</text>
+    <text class="s" x="1038" y="238" text-anchor="middle">financial documents</text>
+  </g>
+  <!-- UI boxes -->
+  <g>
+    <rect class="app" x="50" y="248" width="184" height="42" rx="6"/>
+    <rect class="app" x="274" y="248" width="184" height="42" rx="6"/>
+    <rect class="app" x="498" y="248" width="184" height="42" rx="6"/>
+    <rect class="app" x="722" y="248" width="184" height="42" rx="6"/>
+    <rect class="app" x="946" y="248" width="184" height="42" rx="6"/>
+    <text class="t" x="142" y="266" text-anchor="middle">Streamlit UI</text><text class="m" x="142" y="282" text-anchor="middle">:18501</text>
+    <text class="t" x="366" y="266" text-anchor="middle">Streamlit UI</text><text class="m" x="366" y="282" text-anchor="middle">:18502</text>
+    <text class="t" x="590" y="266" text-anchor="middle">Streamlit UI</text><text class="m" x="590" y="282" text-anchor="middle">:18503</text>
+    <text class="t" x="814" y="266" text-anchor="middle">Streamlit UI</text><text class="m" x="814" y="282" text-anchor="middle">:18504</text>
+    <text class="t" x="1038" y="266" text-anchor="middle">Streamlit UI</text><text class="m" x="1038" y="282" text-anchor="middle">:18505</text>
+  </g>
+  <!-- UI -> MCP -->
+  <g>
+    <line class="arrow" x1="142" y1="290" x2="142" y2="326" marker-end="url(#ah)"/>
+    <line class="arrow" x1="366" y1="290" x2="366" y2="326" marker-end="url(#ah)"/>
+    <line class="arrow" x1="590" y1="290" x2="590" y2="326" marker-end="url(#ah)"/>
+    <line class="arrow" x1="814" y1="290" x2="814" y2="326" marker-end="url(#ah)"/>
+    <line class="arrow" x1="1038" y1="290" x2="1038" y2="326" marker-end="url(#ah)"/>
+    <text class="s" x="150" y="312">REST + bearer token</text>
+    <text class="s" x="374" y="312">REST + bearer token</text>
+    <text class="s" x="598" y="312">REST + bearer token</text>
+    <text class="s" x="822" y="312">REST + bearer token</text>
+    <text class="s" x="1046" y="312">REST + bearer token</text>
+  </g>
+  <!-- MCP boxes -->
+  <g>
+    <rect class="box" x="50" y="328" width="184" height="82" rx="6"/>
+    <rect class="box" x="274" y="328" width="184" height="82" rx="6"/>
+    <rect class="box" x="498" y="328" width="184" height="82" rx="6"/>
+    <rect class="box" x="722" y="328" width="184" height="82" rx="6"/>
+    <rect class="box" x="946" y="328" width="184" height="82" rx="6"/>
+    <text class="t b" x="142" y="348" text-anchor="middle">FastMCP + REST</text><text class="m" x="142" y="364" text-anchor="middle">luna-visia-mcp :18000</text>
+    <text class="s" x="142" y="384" text-anchor="middle">LangGraph: vision tags</text><text class="s" x="142" y="400" text-anchor="middle">volume: image files</text>
+    <text class="t b" x="366" y="348" text-anchor="middle">FastMCP + REST</text><text class="m" x="366" y="364" text-anchor="middle">luna-vita-mcp :18001</text>
+    <text class="s" x="366" y="384" text-anchor="middle">no local LLM: the assistant</text><text class="s" x="366" y="400" text-anchor="middle">estimates macros</text>
+    <text class="t b" x="590" y="348" text-anchor="middle">FastMCP + REST</text><text class="m" x="590" y="364" text-anchor="middle">luna-lumia-mcp :18002</text>
+    <text class="s" x="590" y="384" text-anchor="middle">→ WiZ bulbs on home LAN</text><text class="s" x="590" y="400" text-anchor="middle">schedules, weather schemes</text>
+    <text class="t b" x="814" y="348" text-anchor="middle">FastMCP + REST</text><text class="m" x="814" y="364" text-anchor="middle">luna-fiora-mcp :18003</text>
+    <text class="s" x="814" y="384" text-anchor="middle">→ Gmail API (read-only)</text><text class="s" x="814" y="400" text-anchor="middle">LangGraph: bank-msg import</text>
+    <text class="t b" x="1038" y="348" text-anchor="middle">FastMCP + REST</text><text class="m" x="1038" y="364" text-anchor="middle">luna-lexia-mcp :18004</text>
+    <text class="s" x="1038" y="384" text-anchor="middle">Docling OCR on GPU · → Drive</text><text class="s" x="1038" y="400" text-anchor="middle">volume: document files</text>
+  </g>
+
+  <!-- Cross-app links -->
+  <polyline class="xlink" points="346,410 346,432 162,432 162,414" marker-end="url(#ahl)"/>
+  <text class="lk" x="254" y="427" text-anchor="middle">verifies food-image URLs</text>
+  <polyline class="xlink" points="570,410 570,452 122,452 122,414" marker-end="url(#ahl)" stroke-dasharray="6 3"/>
+  <text class="lk" x="420" y="468" text-anchor="middle">room cards use Visia public image URLs</text>
+  <polyline class="plan" points="1018,410 1018,432 834,432 834,414" marker-end="url(#ahp)"/>
+  <text class="pl" x="926" y="427" text-anchor="middle">planned: extracted tax details</text>
+
+  <!-- Bus to Sentia -->
+  <line x1="50" y1="486" x2="1130" y2="486" class="rule" stroke-opacity=".45"/>
+  <g class="rule" stroke-opacity=".45">
+    <line x1="142" y1="478" x2="142" y2="486"/><line x1="366" y1="478" x2="366" y2="486"/>
+    <line x1="590" y1="478" x2="590" y2="486"/><line x1="814" y1="478" x2="814" y2="486"/><line x1="1038" y1="478" x2="1038" y2="486"/>
+  </g>
+  <line class="arrow" x1="160" y1="486" x2="160" y2="558" marker-end="url(#ah)"/>
+  <text class="lbl" x="168" y="514">every UI: check luna_sso cookie</text>
+  <line class="arrow" x1="460" y1="486" x2="460" y2="558" marker-end="url(#ah)"/>
+  <text class="lbl" x="468" y="514">every MCP: own role + database</text>
+  <line class="arrow" x1="960" y1="486" x2="960" y2="558" marker-end="url(#ah)"/>
+  <text class="lbl" x="968" y="508">Visia, Fiora, Lexia MCPs:</text>
+  <text class="lbl" x="968" y="522">vision + embeddings</text>
+
+  <!-- Sentia -->
+  <rect class="zone" x="42" y="532" width="1096" height="182" rx="10"/>
+  <text class="ct" x="56" y="550">LUNA SENTIA · STARTS FIRST</text>
+
+  <rect class="core" x="60" y="560" width="200" height="90" rx="8"/>
+  <text class="t b" x="160" y="582" text-anchor="middle">Single sign-on</text>
+  <text class="m" x="160" y="598" text-anchor="middle">luna-sentia-auth :19090</text>
+  <text class="s" x="160" y="618" text-anchor="middle">Starlette · luna_sso cookie</text>
+  <text class="s" x="160" y="634" text-anchor="middle">sign out once = out of all</text>
+
+  <line class="arrow" x1="260" y1="605" x2="318" y2="605" marker-end="url(#ah)"/>
+  <text class="s" x="289" y="598" text-anchor="middle">sessions</text>
+
+  <rect class="core" x="320" y="560" width="280" height="90" rx="8"/>
+  <text class="t b" x="460" y="582" text-anchor="middle">PostgreSQL 17 + pgvector</text>
+  <text class="m" x="460" y="598" text-anchor="middle">luna-sentia-db · no host port</text>
+  <text class="m" x="460" y="618" text-anchor="middle">lunavisia · lunavita · lunalumia</text>
+  <text class="m" x="460" y="634" text-anchor="middle">lunafiora · lunalexia · lunaauth</text>
+
+  <line class="arrow" x1="640" y1="605" x2="602" y2="605" marker-end="url(#ah)"/>
+  <text class="s" x="621" y="598" text-anchor="middle">reads</text>
+  <rect class="box" x="640" y="560" width="120" height="90" rx="8"/>
+  <text class="t b" x="700" y="590" text-anchor="middle">Adminer</text>
+  <text class="m" x="700" y="608" text-anchor="middle">:19080</text>
+  <text class="s" x="700" y="628" text-anchor="middle">browse any DB</text>
+
+  <rect class="core" x="800" y="560" width="320" height="90" rx="8"/>
+  <text class="t b" x="960" y="582" text-anchor="middle">Ollama</text>
+  <text class="m" x="960" y="598" text-anchor="middle">luna-sentia-ollama:11434 · no host port</text>
+  <text class="m" x="960" y="618" text-anchor="middle">qwen3-vl:8b-instruct</text>
+  <text class="m" x="960" y="634" text-anchor="middle">qwen3-embedding:0.6b</text>
+
+  <rect class="ext" x="320" y="666" width="280" height="32" rx="6"/>
+  <text class="s" x="460" y="686" text-anchor="middle">postgres-init (one-shot): creates roles + DBs</text>
+  <line x1="460" y1="650" x2="460" y2="666" class="rule" stroke-opacity=".45"/>
+  <rect class="ext" x="800" y="666" width="200" height="32" rx="6"/>
+  <text class="s" x="900" y="686" text-anchor="middle">ollama-pull (one-shot)</text>
+  <line x1="900" y1="650" x2="900" y2="666" class="rule" stroke-opacity=".45"/>
+
+  <!-- External -->
+  <line class="arrow" x1="160" y1="650" x2="160" y2="762" marker-end="url(#ah)"/>
+  <text class="lbl" x="168" y="745">OpenID Connect</text>
+  <rect class="ext" x="60" y="764" width="200" height="46" rx="6"/>
+  <text class="t" x="160" y="785" text-anchor="middle">Google sign-in</text>
+  <text class="s" x="160" y="801" text-anchor="middle">allowlisted emails only</text>
+
+  <line class="arrow" x1="1060" y1="650" x2="1060" y2="762" marker-end="url(#ah)"/>
+  <text class="lbl" x="1052" y="745" text-anchor="end">gpus: all</text>
+  <rect class="ext" x="920" y="764" width="200" height="46" rx="6"/>
+  <text class="t" x="1020" y="785" text-anchor="middle">NVIDIA GPU (WSL2 host)</text>
+  <text class="s" x="1020" y="801" text-anchor="middle">≥ 8 GB VRAM for qwen3-vl</text>
+
+  <rect class="ext" x="380" y="764" width="420" height="46" rx="6"/>
+  <text class="t" x="590" y="785" text-anchor="middle">Docker volumes survive <tspan class="m">luna.sh stop</tspan></text>
+  <text class="m" x="590" y="801" text-anchor="middle">postgres_data · ollama_data · image + document files</text>
+</svg>
