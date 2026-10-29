@@ -27,7 +27,7 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | Its database; image captions and tags (`VISION_MODEL`) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Its database; parsing ambiguous bank messages (`OLLAMA_MODEL`) |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | Its database; classifying documents and extracting their details (`DOCUMENT_MODEL`); semantic search (`EMBEDDING_MODEL`, pgvector) |
-| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | Its database (pgvector); captions and tags for music (`CAPTION_MODEL`); reaches Luna Visia for cover art; plays tracks on the host's speakers through its own PulseAudio mount, not Sentia |
+| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | Its database (pgvector); captions and tags for music (`CAPTION_MODEL`); listens to and embeds tracks with its own CLAP model on the CPU, not Sentia's Ollama; reaches Luna Visia for cover art; plays tracks on the host's speakers through its own PulseAudio mount, not Sentia |
 | [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | Single sign-on and the shared network, over which it checks every app's and Sentia's health; no database |
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | Its database and the shared network (reaches Luna Visia through it) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | Its database and the shared network |
@@ -188,7 +188,8 @@ selects which served model it uses in its own `.env` (`VISION_MODEL` in Visia,
 `OLLAMA_MODEL` in Fiora, `DOCUMENT_MODEL` and `EMBEDDING_MODEL` in Lexia, `CAPTION_MODEL` in Vibia).
 The default list includes `qwen3-embedding:0.6b` (about 640 MB), the embedding
 model behind Lexia's semantic search. A model an app asks for that is not listed here fails
-when that app first calls it.
+when that app first calls it. Vibia's music model, CLAP (`laion/clap-htsat-unfused`), is not
+served here: it is baked into Vibia's image and runs on the CPU, so it never takes VRAM.
 
 Ollama loads models on demand and unloads them after a few idle minutes, so
 apps sharing one model share its memory, while different models compete for VRAM.

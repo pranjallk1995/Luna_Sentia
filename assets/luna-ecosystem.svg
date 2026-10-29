@@ -160,7 +160,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 
   <!-- Sentia -->
   <rect class="zone" x="42" y="612" width="1216" height="182" rx="10"/>
-  <text class="ct" x="56" y="630">LUNA SENTIA · STARTS FIRST</text>
+  <text class="ct" x="168" y="630">LUNA SENTIA · STARTS FIRST</text>
 
   <rect class="core" x="60" y="640" width="200" height="90" rx="8"/>
   <text class="t b" x="160" y="662" text-anchor="middle">Single sign-on</text>
