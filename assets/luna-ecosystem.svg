@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 910" width="1300" height="910" role="img" aria-label="Clients reach six Luna apps through a Cloudflare tunnel. Luna Unia, one home page, checks which Luna apps are running and opens each one with the shared sign-in. Every app runs a Streamlit UI and a FastMCP service on the shared luna_sentia_network, and relies on Luna Sentia for sign-on, PostgreSQL and Ollama. Every app asks Ollama for the same 16k context, so they share one loaded copy of Qwen3-VL.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 940" width="1300" height="940" role="img" aria-label="Clients reach six Luna apps through a Cloudflare tunnel. Luna Unia, one home page, checks which Luna apps are running and opens each one with the shared sign-in. Every app runs a Streamlit UI and a FastMCP service on the shared luna_sentia_network, and relies on Luna Sentia for sign-on, PostgreSQL and Ollama. Luna Vibia tells Luna Lumia the mood of the playing track for its music schemes. Every app asks Ollama for the same 16k context, so they share one loaded copy of Qwen3-VL.">
   <style>
 svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 .b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px}
@@ -9,6 +9,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 .net{fill:none;stroke:#1f6f78;stroke-width:1.5;stroke-dasharray:8 5}.zone{fill:none;stroke:#1f6f78;stroke-opacity:.5}
 .arrow{stroke:#1b2230;stroke-width:1.3;fill:none}.rule,.rule line{stroke:#1b2230;stroke-opacity:.45}
 .xlink{stroke:#b4661a;stroke-width:1.6;fill:none}.plan{stroke:#8a92a3;stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+.mlink{stroke:#7b4fc9;stroke-width:1.6;fill:none}.hm{fill:#7b4fc9}.lm{fill:#7b4fc9;font-size:11px;font-weight:500}
 .t{fill:#1b2230;font-size:13px}.s{fill:#5d6677;font-size:11px}.m{fill:#5d6677}.mc{fill:#1f6f78}
 .lbl{fill:#1b2230;font-size:11px}.lk{fill:#b4661a;font-size:11px;font-weight:500}.pl{fill:#8a92a3;font-size:11px;font-style:italic}
 .ct{fill:#1f6f78;font-size:12px;font-weight:600;letter-spacing:.08em}
@@ -19,16 +20,18 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 .net{fill:none;stroke:#5fb8c1;stroke-width:1.5;stroke-dasharray:8 5}.zone{fill:none;stroke:#5fb8c1;stroke-opacity:.5}
 .arrow{stroke:#e4e8ef;stroke-width:1.3;fill:none}.rule,.rule line{stroke:#e4e8ef;stroke-opacity:.45}
 .xlink{stroke:#e3a35f;stroke-width:1.6;fill:none}.plan{stroke:#78819a;stroke-width:1.4;fill:none;stroke-dasharray:5 4}
+.mlink{stroke:#b394f0;stroke-width:1.6;fill:none}.hm{fill:#b394f0}.lm{fill:#b394f0;font-size:11px;font-weight:500}
 .t{fill:#e4e8ef;font-size:13px}.s{fill:#98a2b3;font-size:11px}.m{fill:#98a2b3}.mc{fill:#5fb8c1}
 .lbl{fill:#e4e8ef;font-size:11px}.lk{fill:#e3a35f;font-size:11px;font-weight:500}.pl{fill:#78819a;font-size:11px;font-style:italic}
 .ct{fill:#5fb8c1;font-size:12px;font-weight:600;letter-spacing:.08em}
 }
 </style>
-<rect class="bg" x="0" y="0" width="1300" height="910" rx="10"/>
+<rect class="bg" x="0" y="0" width="1300" height="940" rx="10"/>
   <defs>
     <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hc"/></marker>
     <marker id="ahl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hl"/></marker>
     <marker id="ahp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hp"/></marker>
+    <marker id="ahm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hm"/></marker>
   </defs>
 
   <!-- Clients -->
@@ -50,7 +53,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="lbl" x="950" y="168">HTTPS → /mcp and REST APIs</text>
 
   <!-- Network -->
-  <rect class="net" x="30" y="180" width="1240" height="625" rx="12"/>
+  <rect class="net" x="30" y="180" width="1240" height="655" rx="12"/>
   <text class="m mc" x="1256" y="198" text-anchor="end">luna_sentia_network (Docker bridge)</text>
 
   <!-- Luna Unia -->
@@ -124,7 +127,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
     <text class="t b" x="345" y="408" text-anchor="middle">FastMCP + REST</text><text class="m" x="345" y="424" text-anchor="middle">luna-vita-mcp :18001</text>
     <text class="s" x="345" y="444" text-anchor="middle">no local LLM: the assistant</text><text class="s" x="345" y="460" text-anchor="middle">estimates macros</text>
     <text class="t b" x="548" y="408" text-anchor="middle">FastMCP + REST</text><text class="m" x="548" y="424" text-anchor="middle">luna-lumia-mcp :18002</text>
-    <text class="s" x="548" y="444" text-anchor="middle">→ WiZ bulbs on home LAN</text><text class="s" x="548" y="460" text-anchor="middle">schedules, weather schemes</text>
+    <text class="s" x="548" y="444" text-anchor="middle">→ WiZ bulbs on home LAN</text><text class="s" x="548" y="460" text-anchor="middle">schedules · weather · music</text>
     <text class="t b" x="751" y="408" text-anchor="middle">FastMCP + REST</text><text class="m" x="751" y="424" text-anchor="middle">luna-fiora-mcp :18003</text>
     <text class="s" x="751" y="444" text-anchor="middle">→ Gmail API (read-only)</text><text class="s" x="751" y="460" text-anchor="middle">LangGraph: bank-msg import</text>
     <text class="t b" x="954" y="408" text-anchor="middle">FastMCP + REST</text><text class="m" x="954" y="424" text-anchor="middle">luna-lexia-mcp :18004</text>
@@ -141,10 +144,13 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <polyline class="plan" points="954,470 954,492 771,492 771,474" marker-end="url(#ahp)"/>
   <text class="pl" x="862" y="487" text-anchor="middle">planned: tax details for Fiora</text>
   <polyline class="plan" points="82,470 82,502 731,502 731,474" marker-end="url(#ahp)"/>
-  <text class="pl" x="721" y="528" text-anchor="end">planned: transaction image and icon URLs for Fiora</text>
+  <text class="pl" x="741" y="528">planned: image and icon URLs for Fiora</text>
   <polyline class="xlink" points="62,470 62,536 1157,536 1157,474" marker-end="url(#ahl)"/>
   <text class="lk" x="1147" y="528" text-anchor="end">cover art URLs for Vibia</text>
+  <polyline class="mlink" points="1177,470 1177,550 588,550 588,474" marker-end="url(#ahm)"/>
+  <text class="lm" x="882" y="566" text-anchor="middle">playing track's mood for Lumia's music schemes</text>
 
+  <g transform="translate(0,30)">
   <!-- Bus to Sentia -->
   <line x1="50" y1="566" x2="1250" y2="566" class="rule" stroke-opacity=".45"/>
   <g class="rule" stroke-opacity=".45">
@@ -214,4 +220,5 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <rect class="ext" x="420" y="844" width="460" height="46" rx="6"/>
   <text class="t" x="650" y="865" text-anchor="middle">Docker volumes survive <tspan class="m">luna.sh stop</tspan></text>
   <text class="m" x="650" y="881" text-anchor="middle">postgres_data · ollama_data · image, document + track files</text>
+  </g>
 </svg>
