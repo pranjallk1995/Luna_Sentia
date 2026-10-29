@@ -8,7 +8,7 @@
 # start pulls each app's published images from GitHub Container Registry (ghcr.io)
 # and recreates containers whose image changed, so it also updates; --build builds
 # them from the local source instead, and --no-pull uses the images already here.
-# APP is a short name such as visia or vita (default: visia vita lumia fiora lexia). Sentia
+# APP is a short name such as visia or vita (default: visia vita lumia fiora lexia vibia). Sentia
 # always starts first and must be healthy: the apps join its luna_sentia_network and keep
 # their data in its PostgreSQL (luna-sentia-db) and sign people in through its auth service.
 set -euo pipefail
@@ -19,7 +19,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ $(basename "$HERE") == Luna_Sentia ]]; then ROOT="$(dirname "$HERE")"; else ROOT="$HERE"; fi
 SENTIA_DIR="$ROOT/Luna_Sentia"
 # Override with e.g. LUNA_APPS="visia vita" ./luna.sh start
-DEFAULT_APPS=(${LUNA_APPS:-visia vita lumia fiora lexia})
+DEFAULT_APPS=(${LUNA_APPS:-visia vita lumia fiora lexia vibia})
 
 usage() {
     sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'

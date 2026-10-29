@@ -27,11 +27,12 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | Its database; image captions and tags (`VISION_MODEL`) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Its database; parsing ambiguous bank messages (`OLLAMA_MODEL`) |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | Its database; classifying documents and extracting their details (`DOCUMENT_MODEL`); semantic search (`EMBEDDING_MODEL`, pgvector) |
+| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | Its database (pgvector); captions and tags for music (`CAPTION_MODEL`); reaches Luna Visia for cover art; plays tracks on the host's speakers through its own PulseAudio mount, not Sentia |
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | Its database and the shared network (reaches Luna Visia through it) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | Its database and the shared network |
 
 > **GPU requirement for the default model:** `qwen3-vl:8b-instruct`, which Visia,
-> Lexia, and Fiora all use, is larger than 6 GB and, with the default `gpus: all` setting, needs an NVIDIA GPU with at least
+> Lexia, Fiora, and Vibia all use, is larger than 6 GB and, with the default `gpus: all` setting, needs an NVIDIA GPU with at least
 > 8 GB of VRAM. See [CPU fallback](#cpu-fallback) to run without one.
 
 ## Architecture
@@ -43,9 +44,11 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 Every Luna app is a Streamlit UI plus a FastMCP service on Luna Sentia's
 `luna_sentia_network`: its data lives in Sentia's PostgreSQL, people sign in
 through Sentia's `auth`, and model calls go to Sentia's Ollama. Orange lines are
-Visia image URLs that other apps use: food images for Vita and room images for
-Lumia. Grey dashed lines are planned links into Fiora: tax details from Lexia,
-and transaction image and icon URLs from Visia.
+Visia image URLs that other apps use: food images for Vita, room images for
+Lumia, and cover art for Vibia. Grey dashed lines are planned: links into Fiora
+(tax details from Lexia, transaction image and icon URLs from Visia), and a
+proposed unifying app that detects which Luna apps are installed, shows them in
+one home, and opens each one with the shared sign-in.
 
 | Component | Technology | Purpose |
 | --- | --- | --- |
@@ -59,9 +62,9 @@ and transaction image and icon URLs from Visia.
 | Network | `luna_sentia_network` | Shared private network every Luna app joins as an external network |
 
 ```text
-Luna Visia / Vita / Lumia / Fiora / Lexia
+Luna Visia / Vita / Lumia / Fiora / Lexia / Vibia
         -> luna_sentia_network
-        -> luna-sentia-db:5432 (PostgreSQL: lunavisia, lunavita, lunalumia, lunafiora, lunalexia)
+        -> luna-sentia-db:5432 (PostgreSQL: lunavisia, lunavita, lunalumia, lunafiora, lunalexia, lunavibia)
         -> luna-sentia-ollama:11434 (Ollama)
         -> luna-sentia-auth:8000 (who is signed in)
 ```
@@ -80,7 +83,7 @@ works from this repository (`./luna.sh`) or copied into the folder that holds
 `Luna_Sentia` and the app folders (`../luna.sh` from here, as below):
 
 ```sh
-../luna.sh start                    # Sentia + visia, vita, lumia, fiora, lexia
+../luna.sh start                    # Sentia + visia, vita, lumia, fiora, lexia, vibia
 ../luna.sh start vita lumia         # Sentia + only the named apps
 ../luna.sh start --build            # build images from the local source instead
 ../luna.sh start --no-pull          # use the images already on this machine
@@ -181,7 +184,7 @@ SENTIA_MODELS=qwen3-vl:8b-instruct qwen3-embedding:0.6b llama3.2-vision:11b
 
 Restart with `docker compose up -d` to pull the new models. Each app then
 selects which served model it uses in its own `.env` (`VISION_MODEL` in Visia,
-`OLLAMA_MODEL` in Fiora, `DOCUMENT_MODEL` and `EMBEDDING_MODEL` in Lexia).
+`OLLAMA_MODEL` in Fiora, `DOCUMENT_MODEL` and `EMBEDDING_MODEL` in Lexia, `CAPTION_MODEL` in Vibia).
 The default list includes `qwen3-embedding:0.6b` (about 640 MB), the embedding
 model behind Lexia's semantic search. A model an app asks for that is not listed here fails
 when that app first calls it.
@@ -209,7 +212,7 @@ service. Every app keeps working, but model calls are slower.
 
 One PostgreSQL 17 server, `luna-sentia-db`, holds every app's data. Each app
 gets its own login role and database of the same name (`lunavisia`, `lunavita`,
-`lunalumia`, `lunafiora`, `lunalexia`) and owns only that database, so apps
+`lunalumia`, `lunafiora`, `lunalexia`, `lunavibia`) and owns only that database, so apps
 cannot read each other's data. Each app creates and upgrades its own tables
 when it starts.
 
@@ -226,7 +229,7 @@ or changes data, so it is safe to run on every start. Set in `.env`:
 | Variable | Purpose |
 | --- | --- |
 | `SENTIA_POSTGRES_PASSWORD` | The `sentia` superuser; used only by `postgres-init` and for maintenance |
-| `LUNAVISIA_DB_PASSWORD`, `LUNAVITA_DB_PASSWORD`, `LUNALUMIA_DB_PASSWORD`, `LUNAFIORA_DB_PASSWORD`, `LUNALEXIA_DB_PASSWORD` | Each app's role password; **must equal `POSTGRES_PASSWORD` in that app's `.env`** |
+| `LUNAVISIA_DB_PASSWORD`, `LUNAVITA_DB_PASSWORD`, `LUNALUMIA_DB_PASSWORD`, `LUNAFIORA_DB_PASSWORD`, `LUNALEXIA_DB_PASSWORD`, `LUNAVIBIA_DB_PASSWORD` | Each app's role password; **must equal `POSTGRES_PASSWORD` in that app's `.env`** |
 
 An app whose password is unset is skipped. After changing a password in both
 places, run `docker compose run --rm postgres-init` and restart that app.
@@ -300,6 +303,7 @@ published to the host. Sign in with System `PostgreSQL`, Server
 | Luna Lumia | `lunalumia` | `POSTGRES_PASSWORD` (`lunalumia-dev`) |
 | Luna Fiora | `lunafiora` | `POSTGRES_PASSWORD` (`lunafiora-dev`) |
 | Luna Lexia | `lunalexia` | `POSTGRES_PASSWORD` (`lunalexia-dev`) |
+| Luna Vibia | `lunavibia` | `POSTGRES_PASSWORD` (`lunavibia-dev`) |
 
 Username `sentia` with `SENTIA_POSTGRES_PASSWORD` sees every database.
 
