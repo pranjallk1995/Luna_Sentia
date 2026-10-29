@@ -28,6 +28,7 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Its database; parsing ambiguous bank messages (`OLLAMA_MODEL`) |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | Its database; classifying documents and extracting their details (`DOCUMENT_MODEL`); semantic search (`EMBEDDING_MODEL`, pgvector) |
 | [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | Its database (pgvector); captions and tags for music (`CAPTION_MODEL`); reaches Luna Visia for cover art; plays tracks on the host's speakers through its own PulseAudio mount, not Sentia |
+| [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | Single sign-on and the shared network, over which it checks every app's and Sentia's health; no database |
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | Its database and the shared network (reaches Luna Visia through it) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | Its database and the shared network |
 
@@ -46,9 +47,9 @@ Every Luna app is a Streamlit UI plus a FastMCP service on Luna Sentia's
 through Sentia's `auth`, and model calls go to Sentia's Ollama. Orange lines are
 Visia image URLs that other apps use: food images for Vita, room images for
 Lumia, and cover art for Vibia. Grey dashed lines are planned: links into Fiora
-(tax details from Lexia, transaction image and icon URLs from Visia), and a
-proposed unifying app that detects which Luna apps are installed, shows them in
-one home, and opens each one with the shared sign-in.
+(tax details from Lexia, transaction image and icon URLs from Visia). Luna Unia
+is the one home for all of them, on port 42069: it checks which Luna stacks are
+running and opens each one with the shared sign-in.
 
 | Component | Technology | Purpose |
 | --- | --- | --- |
@@ -83,7 +84,7 @@ works from this repository (`./luna.sh`) or copied into the folder that holds
 `Luna_Sentia` and the app folders (`../luna.sh` from here, as below):
 
 ```sh
-../luna.sh start                    # Sentia + visia, vita, lumia, fiora, lexia, vibia
+../luna.sh start                    # Sentia + visia, vita, lumia, fiora, lexia, vibia, unia
 ../luna.sh start vita lumia         # Sentia + only the named apps
 ../luna.sh start --build            # build images from the local source instead
 ../luna.sh start --no-pull          # use the images already on this machine
@@ -318,7 +319,9 @@ Username `sentia` with `SENTIA_POSTGRES_PASSWORD` sees every database.
 - **Adding an app:** add it to the loop in `postgres/init-databases.sh` and its
   `LUNA<APP>_DB_PASSWORD` to `.env`, `.env.example`, and the `postgres-init`
   service, run `postgres-init`, then join the external network in the app's
-  Compose file with a unique alias per service:
+  Compose file with a unique alias per service. Name them `luna-<app>-ui` and
+  `luna-<app>-mcp` and add the app to `LUNA_APPS` in Luna Unia's
+  `ui/config.py`, so Unia finds it and links to it:
 
 ```yaml
 services:
