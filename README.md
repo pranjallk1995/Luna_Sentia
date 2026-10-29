@@ -27,7 +27,7 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | Its database; image captions and tags (`VISION_MODEL`) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Its database; parsing ambiguous bank messages (`OLLAMA_MODEL`) |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | Its database; classifying documents and extracting their details (`DOCUMENT_MODEL`); semantic search (`EMBEDDING_MODEL`, pgvector) |
-| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | Its database (pgvector); captions and tags for music (`CAPTION_MODEL`); listens to and embeds tracks with its own CLAP model on the CPU, not Sentia's Ollama; reaches Luna Visia for cover art; plays tracks on the host's speakers through its own PulseAudio mount, not Sentia |
+| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | Its database (pgvector); captions and tags for music (`CAPTION_MODEL`); listens to and embeds tracks with its own CLAP model on the GPU, not through Sentia's Ollama; reaches Luna Visia for cover art; plays tracks on the host's speakers through its own PulseAudio mount, not Sentia |
 | [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | Single sign-on and the shared network, over which it checks every app's and Sentia's health; no database |
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | Its database and the shared network (reaches Luna Visia through it) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | Its database and the shared network (reaches Luna Vibia through it, so the lights follow the mood of the music Vibia plays) |
@@ -49,8 +49,8 @@ Visia image URLs that other apps use: food images for Vita, room images for
 Lumia, and cover art for Vibia. Grey dashed lines are planned: links into Fiora
 (tax details from Lexia, transaction image and icon URLs from Visia). Luna Unia
 is the one home for all of them, on port 42069: it checks which Luna stacks are
-running and opens each one with the shared sign-in. The purple line is the mood of
-the track Vibia plays, which Lumia's music schemes follow.
+running and opens each one with the shared sign-in. The purple line is the mood and
+beats of the track Vibia plays, which Lumia's lights follow.
 
 | Component | Technology | Purpose |
 | --- | --- | --- |

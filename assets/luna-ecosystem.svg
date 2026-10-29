@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 940" width="1300" height="940" role="img" aria-label="Clients reach six Luna apps through a Cloudflare tunnel. Luna Unia, one home page, checks which Luna apps are running and opens each one with the shared sign-in. Every app runs a Streamlit UI and a FastMCP service on the shared luna_sentia_network, and relies on Luna Sentia for sign-on, PostgreSQL and Ollama. Luna Vibia tells Luna Lumia the mood of the playing track for its music schemes. Every app asks Ollama for the same 16k context, so they share one loaded copy of Qwen3-VL.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 940" width="1300" height="940" role="img" aria-label="Clients reach six Luna apps through a Cloudflare tunnel. Luna Unia, one home page, checks which Luna apps are running and opens each one with the shared sign-in. Every app runs a Streamlit UI and a FastMCP service on the shared luna_sentia_network, and relies on Luna Sentia for sign-on, PostgreSQL and Ollama. Luna Vibia tells Luna Lumia the mood and beats of the playing track, so the lights follow the music. Every app asks Ollama for the same 16k context, so they share one loaded copy of Qwen3-VL.">
   <style>
 svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 .b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px}
@@ -133,7 +133,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
     <text class="t b" x="954" y="408" text-anchor="middle">FastMCP + REST</text><text class="m" x="954" y="424" text-anchor="middle">luna-lexia-mcp :18004</text>
     <text class="s" x="954" y="444" text-anchor="middle">Docling · LibreOffice · → Drive</text><text class="s" x="954" y="460" text-anchor="middle">reads next file during AI calls</text>
     <text class="t b" x="1157" y="408" text-anchor="middle">FastMCP + REST</text><text class="m" x="1157" y="424" text-anchor="middle">luna-vibia-mcp :18005</text>
-    <text class="s" x="1157" y="444" text-anchor="middle">CLAP on CPU: listen + embed</text><text class="s" x="1157" y="460" text-anchor="middle">LangGraph: captions, tags</text>
+    <text class="s" x="1157" y="444" text-anchor="middle">CLAP on GPU: listen + embed</text><text class="s" x="1157" y="460" text-anchor="middle">LangGraph: captions, tags</text>
   </g>
 
   <!-- Cross-app links -->
@@ -148,7 +148,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <polyline class="xlink" points="62,470 62,536 1157,536 1157,474" marker-end="url(#ahl)"/>
   <text class="lk" x="1147" y="528" text-anchor="end">cover art URLs for Vibia</text>
   <polyline class="mlink" points="1177,470 1177,550 588,550 588,474" marker-end="url(#ahm)"/>
-  <text class="lm" x="882" y="566" text-anchor="middle">playing track's mood for Lumia's music schemes</text>
+  <text class="lm" x="882" y="566" text-anchor="middle">playing track's mood and beats for Lumia's lights</text>
 
   <g transform="translate(0,30)">
   <!-- Bus to Sentia -->
