@@ -82,6 +82,17 @@ start_sentia() {
     compose "$SENTIA_DIR" up -d ollama-pull
 }
 
+start_vibia_speaker_helper() {
+    local unit=luna-vibia-speakers.service
+    if ! systemctl --user cat "$unit" >/dev/null 2>&1; then
+        log "Vibia speaker helper is not installed; see Luna_Vibia/README.md"
+        return
+    fi
+    log "Starting Luna Vibia speaker helper on the WSL host"
+    systemctl --user start "$unit"
+    systemctl --user is-active --quiet "$unit"
+}
+
 start() {
     local watch=false names=() app
     while (($#)); do
@@ -100,6 +111,7 @@ start() {
     start_sentia
     for app in "${APPS[@]}"; do
         log "Starting Luna ${app^}"
+        [[ $app == vibia ]] && start_vibia_speaker_helper
         images "$(app_dir "$app")"
         compose "$(app_dir "$app")" up -d --wait
     done
