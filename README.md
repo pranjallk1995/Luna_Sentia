@@ -85,14 +85,14 @@ works from this repository (`./luna.sh`) or copied into the folder that holds
 `Luna_Sentia` and the app folders (`../luna.sh` from here, as below):
 
 ```sh
-../luna.sh start                    # Sentia + visia, vita, lumia, fiora, lexia, vibia, unia
-../luna.sh start vita lumia         # Sentia + only the named apps
-../luna.sh start --build            # build images from the local source instead
-../luna.sh start --no-pull          # use the images already on this machine
-../luna.sh start --watch            # then run Compose Watch for every app
-../luna.sh status                   # containers of each stack
-../luna.sh stop                     # stop every app, then Sentia
-../luna.sh stop vita                # stop one app; Sentia keeps running
+./luna.sh start                    # Sentia + visia, vita, lumia, fiora, lexia, vibia, unia
+./luna.sh start vita lumia         # Sentia + only the named apps
+./luna.sh start --build            # build images from the local source instead
+./luna.sh start --no-pull          # use the images already on this machine
+./luna.sh start --watch            # then run Compose Watch for every app
+./luna.sh status                   # containers of each stack
+./luna.sh stop                     # stop every app, then Sentia
+./luna.sh stop vita                # stop one app; Sentia keeps running
 ```
 
 ### Published images
