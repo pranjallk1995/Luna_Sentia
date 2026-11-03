@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 940" width="1300" height="940" role="img" aria-label="Clients reach six Luna apps through a Cloudflare tunnel. Luna Unia, one home page, checks which Luna apps are running and opens each one with the shared sign-in. Every app runs a Streamlit UI and a FastMCP service on the shared luna_sentia_network, and relies on Luna Sentia for sign-on, PostgreSQL and Ollama. Luna Vibia tells Luna Lumia the mood and beats of the playing track, so the lights follow the music. Every app asks Ollama for the same 16k context, so they share one loaded copy of Qwen3-VL.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 940" width="1300" height="940" role="img" aria-label="Clients reach six Luna apps through a Cloudflare tunnel. Luna Unia, one home page, checks which Luna apps are running and opens each one with the shared sign-in. Every app runs a Streamlit UI and a FastMCP service on the shared luna_sentia_network, and relies on Luna Sentia for sign-on, PostgreSQL and Ollama. Luna Visia embeds images with SigLIP 2 on the GPU, inside its own service. Luna Vibia tells Luna Lumia the mood and beats of the playing track, so the lights follow the music. Every app asks Ollama for the same 16k context, so they share one loaded copy of Qwen3-VL.">
   <style>
 svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 .b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px}
@@ -123,7 +123,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
     <rect class="box" x="862" y="388" width="184" height="82" rx="6"/>
     <rect class="box" x="1065" y="388" width="184" height="82" rx="6"/>
     <text class="t b" x="142" y="408" text-anchor="middle">FastMCP + REST</text><text class="m" x="142" y="424" text-anchor="middle">luna-visia-mcp :18000</text>
-    <text class="s" x="142" y="444" text-anchor="middle">LangGraph: vision tags</text><text class="s" x="142" y="460" text-anchor="middle">volume: image files</text>
+    <text class="s" x="142" y="444" text-anchor="middle">SigLIP 2 on GPU: embed images</text><text class="s" x="142" y="460" text-anchor="middle">LangGraph: vision tags</text>
     <text class="t b" x="345" y="408" text-anchor="middle">FastMCP + REST</text><text class="m" x="345" y="424" text-anchor="middle">luna-vita-mcp :18001</text>
     <text class="s" x="345" y="444" text-anchor="middle">no local LLM: the assistant</text><text class="s" x="345" y="460" text-anchor="middle">estimates macros</text>
     <text class="t b" x="548" y="408" text-anchor="middle">FastMCP + REST</text><text class="m" x="548" y="424" text-anchor="middle">luna-lumia-mcp :18002</text>

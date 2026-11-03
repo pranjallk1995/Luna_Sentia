@@ -24,7 +24,7 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 
 | App | Uses Sentia for |
 | --- | --- |
-| [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | Its database; image captions and tags (`VISION_MODEL`) |
+| [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | Its database (pgvector); image captions and tags (`VISION_MODEL`); embeds images with its own SigLIP 2 model on the GPU, not through Sentia's Ollama |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Its database; parsing ambiguous bank messages (`OLLAMA_MODEL`) |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | Its database; classifying documents and extracting their details (`DOCUMENT_MODEL`); semantic search (`EMBEDDING_MODEL`, pgvector) |
 | [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | Its database (pgvector); captions and tags for music (`CAPTION_MODEL`); listens to and embeds tracks with its own CLAP model on the GPU, not through Sentia's Ollama; reaches Luna Visia for cover art; plays tracks on the host's speakers through its own PulseAudio mount, not Sentia |
@@ -44,7 +44,8 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 
 Every Luna app is a Streamlit UI plus a FastMCP service on Luna Sentia's
 `luna_sentia_network`: its data lives in Sentia's PostgreSQL, people sign in
-through Sentia's `auth`, and model calls go to Sentia's Ollama. Orange lines are
+through Sentia's `auth`, and model calls go to Sentia's Ollama. Visia's SigLIP 2 image
+embeddings and Vibia's CLAP music embeddings run inside those apps instead. Orange lines are
 Visia image URLs that other apps use: food images for Vita, room images for
 Lumia, and cover art for Vibia. Grey dashed lines are planned: links into Fiora
 (tax details from Lexia, transaction image and icon URLs from Visia). Luna Unia
@@ -189,8 +190,10 @@ selects which served model it uses in its own `.env` (`VISION_MODEL` in Visia,
 `OLLAMA_MODEL` in Fiora, `DOCUMENT_MODEL` and `EMBEDDING_MODEL` in Lexia, `CAPTION_MODEL` in Vibia).
 The default list includes `qwen3-embedding:0.6b` (about 640 MB), the embedding
 model behind Lexia's semantic search. A model an app asks for that is not listed here fails
-when that app first calls it. Vibia's music model, CLAP (`laion/clap-htsat-unfused`), is not
-served here: it is baked into Vibia's image and runs on the CPU, so it never takes VRAM.
+when that app first calls it. Two embedding models are not served here, and each is baked into
+its app's image: Visia's SigLIP 2 (`google/siglip2-base-patch16-224`, GPU only, about 0.75 GB of
+VRAM) and Vibia's CLAP (`laion/clap-htsat-unfused`, GPU or CPU, about 0.85 GB of VRAM on the GPU).
+Both share the GPU with Ollama, so they count against the VRAM left for its models.
 
 Ollama loads models on demand and unloads them after a few idle minutes, so
 apps sharing one model share its memory, while different models compete for VRAM.
