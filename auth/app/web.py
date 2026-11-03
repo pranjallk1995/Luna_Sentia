@@ -13,6 +13,7 @@ import secrets
 from datetime import timedelta
 from typing import Any
 
+import httpx
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -27,7 +28,13 @@ from app.pages import page
 from app.store import OWNER_ID, SessionStore
 
 
-def create_app(config: AuthConfig, store: SessionStore, google: GoogleSignIn, oauth: OAuthStore) -> Starlette:
+def create_app(
+    config: AuthConfig,
+    store: SessionStore,
+    google: GoogleSignIn,
+    oauth: OAuthStore,
+    app_transport: httpx.AsyncBaseTransport | None = None,
+) -> Starlette:
     signer = URLSafeTimedSerializer(config.secret, salt="luna-sso-state")
     lifetime = timedelta(days=config.session_days)
 
@@ -111,7 +118,8 @@ def create_app(config: AuthConfig, store: SessionStore, google: GoogleSignIn, oa
         if user is None:
             return JSONResponse({"error": "not signed in"}, 401)
         return JSONResponse(
-            {"user_id": user["user_id"], "email": user["email"], "email_verified": True, "name": user["name"],
+            {"user_id": user["user_id"], "hidden_apps": store.hidden_from(user["user_id"]),
+             "email": user["email"], "email_verified": True, "name": user["name"],
              "picture": user["picture"],
              "expires_at": user["expires_at"].isoformat()}
         )
@@ -128,6 +136,6 @@ def create_app(config: AuthConfig, store: SessionStore, google: GoogleSignIn, oa
             Route("/session", session),
             Route("/health", health),
             *oauth_routes(config, store, oauth),
-            *admin_routes(config, store, oauth),
+            *admin_routes(config, store, oauth, app_transport),
         ]
     )

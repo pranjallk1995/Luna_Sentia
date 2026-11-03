@@ -29,6 +29,10 @@ CREATE TABLE IF NOT EXISTS users (
     active boolean NOT NULL DEFAULT true,
     created_at timestamptz NOT NULL DEFAULT now()
 );
+-- Set while someone is being deleted: the apps that have not yet removed their data.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS removing text[];
+-- Apps the owner has hidden from everyone else.
+CREATE TABLE IF NOT EXISTS hidden_apps (app text PRIMARY KEY);
 """
 
 OWNER_ID = "owner"
@@ -76,19 +80,13 @@ class SessionStore:
 
     # Accounts
 
-    def sync_users(self, owner_email: str, allowed_emails: frozenset[str]) -> None:
-        """Make sure the owner and every listed account exist; never removes anyone."""
+    def sync_owner(self, owner_email: str) -> None:
         with self._connect() as connection:
             connection.execute(
                 """INSERT INTO users (id, email) VALUES (%s, %s)
                    ON CONFLICT (id) DO UPDATE SET email = EXCLUDED.email, active = true""",
                 (OWNER_ID, owner_email),
             )
-            for email in sorted(allowed_emails):
-                connection.execute(
-                    "INSERT INTO users (id, email) VALUES (%s, %s) ON CONFLICT DO NOTHING",
-                    (secrets.token_hex(8), email),
-                )
 
     def active_user(self, email: str) -> dict[str, Any] | None:
         with self._connect() as connection:
@@ -99,7 +97,7 @@ class SessionStore:
     def users(self) -> list[dict[str, Any]]:
         with self._connect() as connection:
             return connection.execute(
-                """SELECT u.id, u.email, u.active, u.created_at, max(s.last_seen_at) AS last_seen_at
+                """SELECT u.id, u.email, u.active, u.removing, u.created_at, max(s.last_seen_at) AS last_seen_at
                    FROM users u LEFT JOIN sessions s ON s.email = u.email
                    GROUP BY u.id ORDER BY u.id <> %s, u.created_at""",
                 (OWNER_ID,),
@@ -108,19 +106,71 @@ class SessionStore:
     def add_user(self, email: str) -> None:
         """Add an account, or let a disabled one sign in again."""
         with self._connect() as connection:
-            connection.execute(
+            added = connection.execute(
                 """INSERT INTO users (id, email) VALUES (%s, %s)
-                   ON CONFLICT (email) DO UPDATE SET active = true""",
+                   ON CONFLICT (email) DO UPDATE SET active = true WHERE users.removing IS NULL
+                   RETURNING id""",
                 (secrets.token_hex(8), email),
-            )
+            ).fetchone()
+        if added is None:
+            raise ValueError("That person is still being deleted. Finish that first.")
 
     def set_active(self, user_id: str, active: bool) -> None:
         """Enable or disable an account; disabling ends its sessions. The owner stays active."""
         if user_id == OWNER_ID:
             raise ValueError("The owner cannot be disabled.")
         with self._connect() as connection:
-            connection.execute("UPDATE users SET active = %s WHERE id = %s", (active, user_id))
+            connection.execute("UPDATE users SET active = %s WHERE id = %s AND removing IS NULL", (active, user_id))
             if not active:
                 connection.execute(
                     "DELETE FROM sessions WHERE email = (SELECT email FROM users WHERE id = %s)", (user_id,)
                 )
+
+    def user(self, user_id: str) -> dict[str, Any] | None:
+        with self._connect() as connection:
+            return connection.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
+
+    def start_removal(self, user_id: str, apps: tuple[str, ...]) -> list[str]:
+        """Shut someone out for good; returns the apps still holding their data."""
+        if user_id == OWNER_ID:
+            raise ValueError("The owner cannot be deleted.")
+        with self._connect() as connection:
+            row = connection.execute(
+                """UPDATE users SET active = false, removing = COALESCE(removing, %s)
+                   WHERE id = %s RETURNING email, removing""",
+                (list(apps), user_id),
+            ).fetchone()
+            if row is None:
+                raise ValueError("That person no longer exists.")
+            connection.execute("DELETE FROM sessions WHERE email = %s", (row["email"],))
+        return row["removing"]
+
+    def finish_removal(self, user_id: str, removed: list[str]) -> list[str]:
+        """Record the apps that removed their data; the account goes once none are left."""
+        with self._connect() as connection:
+            row = connection.execute(
+                """UPDATE users SET removing = ARRAY(SELECT unnest(removing) EXCEPT SELECT unnest(%s::text[]))
+                   WHERE id = %s RETURNING removing""",
+                (removed, user_id),
+            ).fetchone()
+            remaining = row["removing"] if row else []
+            if row and not remaining:
+                connection.execute("DELETE FROM users WHERE id = %s", (user_id,))
+        return remaining
+
+    # Hidden apps
+
+    def hidden_apps(self) -> list[str]:
+        with self._connect() as connection:
+            return [row["app"] for row in connection.execute("SELECT app FROM hidden_apps ORDER BY app").fetchall()]
+
+    def hidden_from(self, user_id: str) -> list[str]:
+        """The apps this person cannot use: none for the owner, who hides them."""
+        return [] if user_id == OWNER_ID else self.hidden_apps()
+
+    def set_app_hidden(self, app: str, hidden: bool) -> None:
+        with self._connect() as connection:
+            if hidden:
+                connection.execute("INSERT INTO hidden_apps (app) VALUES (%s) ON CONFLICT DO NOTHING", (app,))
+            else:
+                connection.execute("DELETE FROM hidden_apps WHERE app = %s", (app,))

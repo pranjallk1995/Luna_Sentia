@@ -246,6 +246,10 @@ def oauth_routes(config: AuthConfig, sessions: SessionStore, oauth: OAuthStore) 
         if user is None:
             here = f"{config.public_url}/oauth/authorize?{urlencode(list(params.multi_items()))}"
             return RedirectResponse(f"/login?{urlencode({'next': here})}", 303)
+        # Hostnames are <app>-mcp.<domain>. A courtesy: each MCP server enforces this itself.
+        asked_for = (urlparse(resource).hostname or "").split(".")[0].removesuffix("-mcp") if resource else ""
+        if asked_for in sessions.hidden_from(user["user_id"]):
+            return page("Not available", "This Luna app is not available to your account.", 403)
         signed = consent_signer.dumps(
             {
                 "session": token_hash(token),
@@ -340,7 +344,8 @@ def oauth_routes(config: AuthConfig, sessions: SessionStore, oauth: OAuthStore) 
         if row is None:
             return JSONResponse({"active": False}, headers={"Cache-Control": "no-store"})
         return JSONResponse(
-            {"active": True, "sub": row["user_id"], "email": row["email"], "client_id": row["client_id"],
+            {"active": True, "sub": row["user_id"], "hidden_apps": sessions.hidden_from(row["user_id"]),
+             "email": row["email"], "client_id": row["client_id"],
              "resource": row["resource"], "scope": row["scope"], "exp": int(row["expires_at"].timestamp())},
             headers={"Cache-Control": "no-store"},
         )

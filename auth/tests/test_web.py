@@ -7,6 +7,7 @@ import unittest
 from datetime import UTC, datetime
 from urllib.parse import parse_qs, urlparse
 
+import httpx
 from starlette.testclient import TestClient
 
 from app.config import AuthConfig
@@ -20,7 +21,33 @@ class FakeStore:
     def __init__(self):
         self.rows = {}
         self.accounts = {"me@example.com": {"id": OWNER_ID, "email": "me@example.com", "active": True,
-                                            "created_at": None, "last_seen_at": None}}
+                                            "created_at": None, "last_seen_at": None, "removing": None}}
+        self.hidden = set()
+
+    def hidden_apps(self):
+        return sorted(self.hidden)
+
+    def hidden_from(self, user_id):
+        return [] if user_id == OWNER_ID else self.hidden_apps()
+
+    def set_app_hidden(self, app, hidden):
+        (self.hidden.add if hidden else self.hidden.discard)(app)
+
+    def user(self, user_id):
+        return next((row for row in self.accounts.values() if row["id"] == user_id), None)
+
+    def start_removal(self, user_id, apps):
+        row = self.user(user_id)
+        row["active"], row["removing"] = False, row["removing"] or list(apps)
+        self.rows = {key: value for key, value in self.rows.items() if value["email"] != row["email"]}
+        return row["removing"]
+
+    def finish_removal(self, user_id, removed):
+        row = self.user(user_id)
+        row["removing"] = [app for app in row["removing"] if app not in removed]
+        if not row["removing"]:
+            del self.accounts[row["email"]]
+        return row["removing"]
 
     def active_user(self, email):
         account = self.accounts.get(email)
@@ -31,7 +58,9 @@ class FakeStore:
 
     def add_user(self, email):
         account = self.accounts.setdefault(email, {"id": f"u{len(self.accounts)}", "email": email, "active": True,
-                                                   "created_at": None, "last_seen_at": None})
+                                                   "created_at": None, "last_seen_at": None, "removing": None})
+        if account["removing"] is not None:
+            raise ValueError("That person is still being deleted.")
         account["active"] = True
 
     def set_active(self, user_id, active):
@@ -123,8 +152,8 @@ class FakeGoogle:
 def config(**changes):
     values = dict(
         database_url="postgresql://x", public_url="https://auth.lunaapps.fyi", client_id="id", client_secret="s",
-        secret="x" * 32, allowed_emails=frozenset({"me@example.com"}), cookie_domain="lunaapps.fyi",
-        owner_email="me@example.com",
+        secret="x" * 32, cookie_domain="lunaapps.fyi", owner_email="me@example.com",
+        app_tokens={app: "t" * 32 for app in AuthConfig.APPS},
     )
     return AuthConfig(**{**values, **changes})
 
@@ -132,7 +161,14 @@ def config(**changes):
 class SingleSignOnTests(unittest.TestCase):
     def setUp(self):
         self.store, self.google, self.oauth = FakeStore(), FakeGoogle(), FakeOAuth()
-        self.client = TestClient(create_app(config(), self.store, self.google, self.oauth), base_url="https://auth.lunaapps.fyi",
+        self.app_calls, self.apps_down = [], set()
+
+        def app_backend(request):
+            app = request.url.host.removeprefix("luna-").removesuffix("-mcp")
+            self.app_calls.append((app, request.url.path, request.headers["authorization"], request.headers["x-luna-user"]))
+            return httpx.Response(503 if app in self.apps_down else 200, json={})
+
+        self.client = TestClient(create_app(config(), self.store, self.google, self.oauth, httpx.MockTransport(app_backend)), base_url="https://auth.lunaapps.fyi",
                                  follow_redirects=False)
 
     def sign_in(self, next_url=APP, code="good"):
@@ -341,6 +377,78 @@ class AdminTests(SingleSignOnTests):
         self.assertEqual(self.client.post("/admin/add", data={"form": "x", "email": "a@b.co"}).status_code, 403)
         self.assertEqual(self.client.post("/admin/disable", data={"form": self.form(), "user_id": OWNER_ID}).status_code, 400)
         self.assertEqual(self.client.post("/admin/add", data={"form": self.form(), "email": "nonsense"}).status_code, 400)
+
+
+class DeleteAndHideTests(AdminTests):
+    def add_friend(self):
+        self.sign_in()
+        self.client.post("/admin/add", data={"form": self.form(), "email": "friend@example.com"})
+        return self.store.accounts["friend@example.com"]["id"]
+
+    def delete(self, user_id, confirmed=True):
+        data = {"form": self.form(), "user_id": user_id, **({"confirmed": "yes"} if confirmed else {})}
+        return self.client.post("/admin/delete", data=data)
+
+    def test_delete_asks_first_and_changes_nothing_until_confirmed(self):
+        user_id = self.add_friend()
+        answer = self.delete(user_id, confirmed=False)
+        self.assertIn("cannot be undone", answer.text)
+        self.assertIn("friend@example.com", answer.text)
+        self.assertEqual(self.app_calls, [])
+        self.assertTrue(self.store.accounts["friend@example.com"]["active"])
+
+    def test_delete_removes_data_from_every_app_then_the_account(self):
+        user_id = self.add_friend()
+        self.oauth.tokens["t"] = {"user_id": user_id, "kind": "access", "client_id": "c", "resource": None, "scope": None}
+        self.assertEqual(self.delete(user_id).status_code, 303)
+        self.assertEqual({call[0] for call in self.app_calls}, set(AuthConfig.APPS))
+        for _, path, token, acting in self.app_calls:
+            self.assertEqual((path, token, acting), (f"/api/users/{user_id}", "Bearer " + "t" * 32, OWNER_ID))
+        self.assertNotIn("friend@example.com", self.store.accounts)
+        self.assertNotIn("t", self.oauth.tokens)
+
+    def test_a_stopped_app_keeps_the_delete_pending_and_a_retry_finishes_it(self):
+        user_id = self.add_friend()
+        self.apps_down = {"lexia"}
+        answer = self.delete(user_id)
+        self.assertEqual(answer.status_code, 409)
+        self.assertIn("lexia", answer.text)
+        row = self.store.accounts["friend@example.com"]
+        self.assertFalse(row["active"])
+        self.assertEqual(row["removing"], ["lexia"])
+        self.assertIn("Retry delete", self.client.get("/admin").text)
+        self.app_calls.clear()
+        self.apps_down = set()
+        self.assertEqual(self.delete(user_id).status_code, 303)
+        self.assertEqual([call[0] for call in self.app_calls], ["lexia"])
+        self.assertNotIn("friend@example.com", self.store.accounts)
+
+    def test_the_owner_cannot_be_deleted_and_others_cannot_delete(self):
+        self.sign_in()
+        self.assertEqual(self.delete(OWNER_ID).status_code, 400)
+        self.store.add_user("friend@example.com")
+        form = self.form()
+        self.client.get("/logout")
+        self.client.cookies.clear()
+        self.google.profile = {"email": "friend@example.com", "email_verified": True}
+        self.sign_in()
+        data = {"form": form, "user_id": OWNER_ID, "confirmed": "yes"}
+        self.assertEqual(self.client.post("/admin/delete", data=data).status_code, 403)
+        self.assertEqual(self.app_calls, [])
+
+    def test_hiding_an_app_reaches_others_but_never_the_owner(self):
+        user_id = self.add_friend()
+        self.client.post("/admin/apps", data={"form": self.form(), "app": "lumia", "hidden": "yes"})
+        self.assertIn("Hidden from others", self.client.get("/admin").text)
+        mine = self.client.get("/session", headers={"X-Luna-Session": self.client.cookies["luna_sso"]}).json()
+        self.assertEqual(mine["hidden_apps"], [])
+        self.assertEqual(self.store.hidden_from(user_id), ["lumia"])
+        self.client.post("/admin/apps", data={"form": self.form(), "app": "lumia", "hidden": "no"})
+        self.assertEqual(self.store.hidden_from(user_id), [])
+
+    def test_only_real_apps_can_be_hidden(self):
+        self.sign_in()
+        self.assertEqual(self.client.post("/admin/apps", data={"form": self.form(), "app": "nope", "hidden": "yes"}).status_code, 400)
 
 
 if __name__ == "__main__":

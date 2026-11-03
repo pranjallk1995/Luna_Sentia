@@ -285,9 +285,9 @@ Set up once:
    authorized redirect URIs. Set `SENTIA_AUTH_GOOGLE_CLIENT_ID` and
    `SENTIA_AUTH_GOOGLE_CLIENT_SECRET`.
 3. **Secrets and accounts.** Set `SENTIA_AUTH_SECRET` (`openssl rand -hex 32`),
-   `LUNAAUTH_DB_PASSWORD`, and `SENTIA_AUTH_OWNER_EMAIL`, the account that manages
-   everyone else at `/admin`. `SENTIA_AUTH_ALLOWED_EMAILS` optionally adds accounts on
-   startup. Each app can narrow who uses it with `LUNA<APP>_ALLOWED_EMAILS`; `*` allows
+   `LUNAAUTH_DB_PASSWORD`, `SENTIA_AUTH_OWNER_EMAIL`, the account that manages
+   everyone else at `/admin`, and each app's `LUNA<APP>_API_TOKEN`, equal to that app's,
+   so deleting a person reaches its data. Each app can narrow who uses it with `LUNA<APP>_ALLOWED_EMAILS`; `*` allows
    everyone with an account. If the Google client's consent screen is in Testing, add
    each person as a test user there too.
 4. **Apps.** In each app's `.env`, set `LUNA_SSO_URL` to the public address and
@@ -302,9 +302,20 @@ sign-in. Tests: `docker compose run --rm --no-deps -v "$PWD/auth/tests:/workspac
 
 Every person has an account in Sentia and their own space in every app. The `users`
 table in `lunaauth` holds the accounts. The owner (`SENTIA_AUTH_OWNER_EMAIL`, whose id is
-always `owner`) adds and disables everyone else at `<SENTIA_AUTH_PUBLIC_URL>/admin`.
+always `owner`) adds, disables, and deletes everyone else at `<SENTIA_AUTH_PUBLIC_URL>/admin`.
 Disabling someone ends their sessions and connector tokens at once; apps notice within a
 minute. Their data is kept.
+
+**Deleting** someone is permanent. It shuts them out, then asks each app to remove their
+schema, folder, and download archives, which also ends their public links. The account
+goes once every app confirms; until then `/admin` lists the apps still holding data, with
+**Retry delete**, so a stopped app cannot silently keep someone's data. Access they gave a
+Gmail or Drive connection stays on their Google account until they revoke it there.
+
+**Hiding an app** at `/admin` removes it from everyone but the owner: it leaves Unia's home
+page, and its UI and connector refuse them within a minute. Their data stays, and other
+apps can still use it, such as Vita storing food photos in Visia. Sentia's own tile on
+the home page is shown only to the owner.
 
 | Where | One person's space |
 | --- | --- |
@@ -328,8 +339,7 @@ for raises `NoUserError`.
   time, so analysis can queue. There are no per-person storage limits yet.
 
 To check or back up one person: `\dn` in `psql` lists schemas, and
-`pg_dump -n u_<id>` dumps one. Removing someone's data is deliberate and manual: drop
-`u_<id>` from each database and delete the `u_<id>` folders.
+`pg_dump -n u_<id>` dumps one.
 
 ### Connecting an MCP client
 
