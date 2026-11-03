@@ -285,8 +285,11 @@ Set up once:
    authorized redirect URIs. Set `SENTIA_AUTH_GOOGLE_CLIENT_ID` and
    `SENTIA_AUTH_GOOGLE_CLIENT_SECRET`.
 3. **Secrets and accounts.** Set `SENTIA_AUTH_SECRET` (`openssl rand -hex 32`),
-   `LUNAAUTH_DB_PASSWORD`, and `SENTIA_AUTH_ALLOWED_EMAILS`, the accounts that
-   may sign in at all; each app narrows this with its own allowlist.
+   `LUNAAUTH_DB_PASSWORD`, and `SENTIA_AUTH_OWNER_EMAIL`, the account that manages
+   everyone else at `/admin`. `SENTIA_AUTH_ALLOWED_EMAILS` optionally adds accounts on
+   startup. Each app can narrow who uses it with `LUNA<APP>_ALLOWED_EMAILS`; `*` allows
+   everyone with an account. If the Google client's consent screen is in Testing, add
+   each person as a test user there too.
 4. **Apps.** In each app's `.env`, set `LUNA_SSO_URL` to the public address and
    `LUNA_SSO_INTERNAL_URL` to `http://luna-sentia-auth:8000`.
 
@@ -294,6 +297,55 @@ For use only on localhost, leave `SENTIA_AUTH_COOKIE_DOMAIN` blank and set
 `SENTIA_AUTH_PUBLIC_URL` and every `LUNA_SSO_URL` to `http://localhost:19090`;
 browsers share localhost cookies across ports, so the apps still share one
 sign-in. Tests: `docker compose run --rm --no-deps -v "$PWD/auth/tests:/workspace/auth/tests" auth python -m unittest discover -s tests -t .`
+
+## Users and separate storage
+
+Every person has an account in Sentia and their own space in every app. The `users`
+table in `lunaauth` holds the accounts. The owner (`SENTIA_AUTH_OWNER_EMAIL`, whose id is
+always `owner`) adds and disables everyone else at `<SENTIA_AUTH_PUBLIC_URL>/admin`.
+Disabling someone ends their sessions and connector tokens at once; apps notice within a
+minute. Their data is kept.
+
+| Where | One person's space |
+| --- | --- |
+| Each app's database | The schema `u_<id>`, created the first time they use the app |
+| Visia, Vibia, and Lexia files | The folder `u_<id>` in the app's volume |
+| `public` schema | Only the pgvector extension: no tables, so no query can fall through to one |
+
+Each app's backend sets the current person for every request and job, and picks the
+schema and folder from that. Nothing has a default: code that does not say who it acts
+for raises `NoUserError`.
+
+- **UIs:** the gateway checks the `luna_sso` session, then sends the person's id to its
+  backend as `X-Luna-User` beside the app's private token. Browsers cannot set it.
+- **MCP connectors:** see below. Each person adds them to their own client.
+- **Public links** (`/api/public/...`) work without signing in, by unguessable ID, so
+  anyone holding a link can open that file, as before.
+- **The home's hardware is the owner's alone.** Only the owner can find or add lights in
+  Lumia and play on Vibia's speakers. Lumia's schedules and automations run for the owner
+  only, and nobody else can see what the lights or speakers are doing.
+- **Shared and first-come:** everyone shares Ollama, which runs one model request at a
+  time, so analysis can queue. There are no per-person storage limits yet.
+
+To check or back up one person: `\dn` in `psql` lists schemas, and
+`pg_dump -n u_<id>` dumps one. Removing someone's data is deliberate and manual: drop
+`u_<id>` from each database and delete the `u_<id>` folders.
+
+### Connecting an MCP client
+
+Add a server's address, such as `https://vita-mcp.lunaapps.fyi/mcp`, as a custom connector.
+The client registers itself, sends the person to sign in with Google, and shows an
+approval page; the tools then act on that person's data alone. An MCP server without a
+valid token answers 401, and a token is only valid on the server it was issued for.
+
+| Route | Purpose |
+| --- | --- |
+| `/.well-known/oauth-authorization-server` | How clients find the routes below |
+| `/oauth/register` | A client registers itself (RFC 7591) |
+| `/oauth/authorize` | The person signs in and approves the client (PKCE required) |
+| `/oauth/token` | Codes and refresh tokens become access tokens (one hour; refresh tokens last 30 days and rotate) |
+| `/oauth/introspect` | For MCP servers: whose access token this is |
+| `/admin` | The owner adds and disables people |
 
 ## Database UI
 

@@ -21,6 +21,12 @@ class AuthConfig:
     # Short-lived cookie that ties Google's callback to the browser that started the sign-in.
     STATE_COOKIE: ClassVar[str] = "luna_sso_state"
     STATE_MAX_AGE_SECONDS: ClassVar[int] = 600
+    # MCP connectors: authorization codes are brief, and refreshing renews the refresh token.
+    OAUTH_CODE_SECONDS: ClassVar[int] = 300
+    OAUTH_ACCESS_SECONDS: ClassVar[int] = 3600
+    OAUTH_REFRESH_DAYS: ClassVar[int] = 30
+    OAUTH_CONSENT_SECONDS: ClassVar[int] = 600
+    ADMIN_FORM_SECONDS: ClassVar[int] = 3600
 
     database_url: str
     public_url: str
@@ -31,6 +37,8 @@ class AuthConfig:
     cookie_domain: str = ""
     session_days: int = 30
     cookie_name: str = "luna_sso"
+    # The account that owns the home's devices and manages the other accounts at /admin.
+    owner_email: str = ""
 
     @property
     def redirect_uri(self) -> str:
@@ -52,6 +60,10 @@ class AuthConfig:
             return False
         return bool(self.cookie_domain) and (host == self.cookie_domain or host.endswith(f".{self.cookie_domain}"))
 
+    def allows_resource(self, url: str) -> bool:
+        """Connectors may only ask for tokens to Luna's own MCP servers."""
+        return self.allows_next(url)
+
     @classmethod
     def from_env(cls) -> AuthConfig:
         def required(name: str) -> str:
@@ -66,8 +78,7 @@ class AuthConfig:
         emails = frozenset(
             email.strip().casefold() for email in os.getenv("SENTIA_AUTH_ALLOWED_EMAILS", "").split(",") if email.strip()
         )
-        if not emails:
-            raise RuntimeError("SENTIA_AUTH_ALLOWED_EMAILS must list at least one account.")
+        owner_email = required("SENTIA_AUTH_OWNER_EMAIL").casefold()
         return cls(
             database_url=required("DATABASE_URL"),
             public_url=required("SENTIA_AUTH_PUBLIC_URL").rstrip("/"),
@@ -75,6 +86,7 @@ class AuthConfig:
             client_secret=required("SENTIA_AUTH_GOOGLE_CLIENT_SECRET"),
             secret=secret,
             allowed_emails=emails,
+            owner_email=owner_email,
             cookie_domain=os.getenv("SENTIA_AUTH_COOKIE_DOMAIN", "").strip().lstrip(".").lower(),
             session_days=int(os.getenv("SENTIA_AUTH_SESSION_DAYS", "30")),
         )
