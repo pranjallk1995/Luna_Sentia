@@ -24,7 +24,7 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 
 | App | Uses Sentia for |
 | --- | --- |
-| [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | Its database; image captions and tags (`VISION_MODEL`) |
+| [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | Its database (pgvector); image captions and tags (`VISION_MODEL`); embeds images with its own SigLIP 2 model on the GPU, not through Sentia's Ollama |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Its database; parsing ambiguous bank messages (`OLLAMA_MODEL`) |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | Its database; classifying documents and extracting their details (`DOCUMENT_MODEL`); semantic search (`EMBEDDING_MODEL`, pgvector) |
 | [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | Its database (pgvector); captions and tags for music (`CAPTION_MODEL`); listens to and embeds tracks with its own CLAP model on the GPU, not through Sentia's Ollama; reaches Luna Visia for cover art; plays tracks on the host's speakers through its own PulseAudio mount, not Sentia |
@@ -44,7 +44,8 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 
 Every Luna app is a Streamlit UI plus a FastMCP service on Luna Sentia's
 `luna_sentia_network`: its data lives in Sentia's PostgreSQL, people sign in
-through Sentia's `auth`, and model calls go to Sentia's Ollama. Orange lines are
+through Sentia's `auth`, and model calls go to Sentia's Ollama. Visia's SigLIP 2 image
+embeddings and Vibia's CLAP music embeddings run inside those apps instead. Orange lines are
 Visia image URLs that other apps use: food images for Vita, room images for
 Lumia, and cover art for Vibia. Grey dashed lines are planned: links into Fiora
 (tax details from Lexia, transaction image and icon URLs from Visia). Luna Unia
@@ -189,8 +190,10 @@ selects which served model it uses in its own `.env` (`VISION_MODEL` in Visia,
 `OLLAMA_MODEL` in Fiora, `DOCUMENT_MODEL` and `EMBEDDING_MODEL` in Lexia, `CAPTION_MODEL` in Vibia).
 The default list includes `qwen3-embedding:0.6b` (about 640 MB), the embedding
 model behind Lexia's semantic search. A model an app asks for that is not listed here fails
-when that app first calls it. Vibia's music model, CLAP (`laion/clap-htsat-unfused`), is not
-served here: it is baked into Vibia's image and runs on the CPU, so it never takes VRAM.
+when that app first calls it. Two embedding models are not served here, and each is baked into
+its app's image: Visia's SigLIP 2 (`google/siglip2-base-patch16-224`, GPU only, about 0.75 GB of
+VRAM) and Vibia's CLAP (`laion/clap-htsat-unfused`, GPU or CPU, about 0.85 GB of VRAM on the GPU).
+Both share the GPU with Ollama, so they count against the VRAM left for its models.
 
 Ollama loads models on demand and unloads them after a few idle minutes, so
 apps sharing one model share its memory, while different models compete for VRAM.
@@ -282,8 +285,11 @@ Set up once:
    authorized redirect URIs. Set `SENTIA_AUTH_GOOGLE_CLIENT_ID` and
    `SENTIA_AUTH_GOOGLE_CLIENT_SECRET`.
 3. **Secrets and accounts.** Set `SENTIA_AUTH_SECRET` (`openssl rand -hex 32`),
-   `LUNAAUTH_DB_PASSWORD`, and `SENTIA_AUTH_ALLOWED_EMAILS`, the accounts that
-   may sign in at all; each app narrows this with its own allowlist.
+   `LUNAAUTH_DB_PASSWORD`, `SENTIA_AUTH_OWNER_EMAIL`, the account that manages
+   everyone else at `/admin`, and each app's `LUNA<APP>_API_TOKEN`, equal to that app's,
+   so deleting a person reaches its data. Each app can narrow who uses it with `LUNA<APP>_ALLOWED_EMAILS`; `*` allows
+   everyone with an account. If the Google client's consent screen is in Testing, add
+   each person as a test user there too.
 4. **Apps.** In each app's `.env`, set `LUNA_SSO_URL` to the public address and
    `LUNA_SSO_INTERNAL_URL` to `http://luna-sentia-auth:8000`.
 
@@ -291,6 +297,65 @@ For use only on localhost, leave `SENTIA_AUTH_COOKIE_DOMAIN` blank and set
 `SENTIA_AUTH_PUBLIC_URL` and every `LUNA_SSO_URL` to `http://localhost:19090`;
 browsers share localhost cookies across ports, so the apps still share one
 sign-in. Tests: `docker compose run --rm --no-deps -v "$PWD/auth/tests:/workspace/auth/tests" auth python -m unittest discover -s tests -t .`
+
+## Users and separate storage
+
+Every person has an account in Sentia and their own space in every app. The `users`
+table in `lunaauth` holds the accounts. The owner (`SENTIA_AUTH_OWNER_EMAIL`, whose id is
+always `owner`) adds, disables, and deletes everyone else at `<SENTIA_AUTH_PUBLIC_URL>/admin`.
+Disabling someone ends their sessions and connector tokens at once; apps notice within a
+minute. Their data is kept.
+
+**Deleting** someone is permanent. It shuts them out, then asks each app to remove their
+schema, folder, and download archives, which also ends their public links. The account
+goes once every app confirms; until then `/admin` lists the apps still holding data, with
+**Retry delete**, so a stopped app cannot silently keep someone's data. Access they gave a
+Gmail or Drive connection stays on their Google account until they revoke it there.
+
+**Hiding an app** at `/admin` removes it from everyone but the owner: it leaves Unia's home
+page, and its UI and connector refuse them within a minute. Their data stays, and other
+apps can still use it, such as Vita storing food photos in Visia. Sentia's own tile on
+the home page is shown only to the owner.
+
+| Where | One person's space |
+| --- | --- |
+| Each app's database | The schema `u_<id>`, created the first time they use the app |
+| Visia, Vibia, and Lexia files | The folder `u_<id>` in the app's volume |
+| `public` schema | Only the pgvector extension: no tables, so no query can fall through to one |
+
+Each app's backend sets the current person for every request and job, and picks the
+schema and folder from that. Nothing has a default: code that does not say who it acts
+for raises `NoUserError`.
+
+- **UIs:** the gateway checks the `luna_sso` session, then sends the person's id to its
+  backend as `X-Luna-User` beside the app's private token. Browsers cannot set it.
+- **MCP connectors:** see below. Each person adds them to their own client.
+- **Public links** (`/api/public/...`) work without signing in, by unguessable ID, so
+  anyone holding a link can open that file, as before.
+- **The home's hardware is the owner's alone.** Only the owner can find or add lights in
+  Lumia and play on Vibia's speakers. Lumia's schedules and automations run for the owner
+  only, and nobody else can see what the lights or speakers are doing.
+- **Shared and first-come:** everyone shares Ollama, which runs one model request at a
+  time, so analysis can queue. There are no per-person storage limits yet.
+
+To check or back up one person: `\dn` in `psql` lists schemas, and
+`pg_dump -n u_<id>` dumps one.
+
+### Connecting an MCP client
+
+Add a server's address, such as `https://vita-mcp.lunaapps.fyi/mcp`, as a custom connector.
+The client registers itself, sends the person to sign in with Google, and shows an
+approval page; the tools then act on that person's data alone. An MCP server without a
+valid token answers 401, and a token is only valid on the server it was issued for.
+
+| Route | Purpose |
+| --- | --- |
+| `/.well-known/oauth-authorization-server` | How clients find the routes below |
+| `/oauth/register` | A client registers itself (RFC 7591) |
+| `/oauth/authorize` | The person signs in and approves the client (PKCE required) |
+| `/oauth/token` | Codes and refresh tokens become access tokens (one hour; refresh tokens last 30 days and rotate) |
+| `/oauth/introspect` | For MCP servers: whose access token this is |
+| `/admin` | The owner adds and disables people |
 
 ## Database UI
 

@@ -13,28 +13,28 @@ import secrets
 from datetime import timedelta
 from typing import Any
 
+import httpx
 from itsdangerous import BadSignature, URLSafeTimedSerializer
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
 
+from app.admin import admin_routes
 from app.config import AuthConfig
 from app.google import GoogleSignIn
-from app.store import SessionStore
-
-def page(title: str, message: str, status: int = 200) -> HTMLResponse:
-    return HTMLResponse(
-        "<!doctype html><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'>"
-        f"<title>{html.escape(title)}</title>"
-        "<body style='font-family:system-ui,sans-serif;background:#111;color:#f5f5f5;"
-        "display:grid;place-items:center;min-height:90vh;margin:0 16px'>"
-        f"<main style='max-width:32rem'><h1>{html.escape(title)}</h1><p>{message}</p></main>",
-        status_code=status,
-    )
+from app.oauth import OAuthStore, oauth_routes
+from app.pages import page
+from app.store import OWNER_ID, SessionStore
 
 
-def create_app(config: AuthConfig, store: SessionStore, google: GoogleSignIn) -> Starlette:
+def create_app(
+    config: AuthConfig,
+    store: SessionStore,
+    google: GoogleSignIn,
+    oauth: OAuthStore,
+    app_transport: httpx.AsyncBaseTransport | None = None,
+) -> Starlette:
     signer = URLSafeTimedSerializer(config.secret, salt="luna-sso-state")
     lifetime = timedelta(days=config.session_days)
 
@@ -59,10 +59,11 @@ def create_app(config: AuthConfig, store: SessionStore, google: GoogleSignIn) ->
         user = current(request)
         if user is None:
             return page("Luna sign-in", "You are signed out of every Luna app.")
+        admin = " <a style='color:#a5b4fc' href='/admin'>Manage users</a>" if user["user_id"] == OWNER_ID else ""
         return page(
             "Luna sign-in",
             f"Signed in to every Luna app as <b>{html.escape(user['email'])}</b>. "
-            f"<a style='color:#a5b4fc' href='/logout'>Sign out everywhere</a>",
+            f"<a style='color:#a5b4fc' href='/logout'>Sign out everywhere</a>{admin}",
         )
 
     async def login(request: Request) -> Response:
@@ -93,7 +94,7 @@ def create_app(config: AuthConfig, store: SessionStore, google: GoogleSignIn) ->
         except Exception:  # noqa: BLE001 - shown to the person signing in
             return page("Not signed in", "Google did not confirm the sign-in. Start again from the app.", 502)
         email = str(profile.get("email", "")).strip().casefold()
-        if not (email and profile.get("email_verified") is True and email in config.allowed_emails):
+        if not (email and profile.get("email_verified") is True and store.active_user(email)):
             return page("Not authorized", f"{html.escape(email or 'This account')} may not use the Luna apps.", 403)
         token = store.create(email, profile.get("name"), profile.get("picture"), lifetime)
         response = RedirectResponse(state.get("next") or "/", 303)
@@ -117,7 +118,9 @@ def create_app(config: AuthConfig, store: SessionStore, google: GoogleSignIn) ->
         if user is None:
             return JSONResponse({"error": "not signed in"}, 401)
         return JSONResponse(
-            {"email": user["email"], "email_verified": True, "name": user["name"], "picture": user["picture"],
+            {"user_id": user["user_id"], "hidden_apps": store.hidden_from(user["user_id"]),
+             "email": user["email"], "email_verified": True, "name": user["name"],
+             "picture": user["picture"],
              "expires_at": user["expires_at"].isoformat()}
         )
 
@@ -132,5 +135,7 @@ def create_app(config: AuthConfig, store: SessionStore, google: GoogleSignIn) ->
             Route("/logout", logout),
             Route("/session", session),
             Route("/health", health),
+            *oauth_routes(config, store, oauth),
+            *admin_routes(config, store, oauth, app_transport),
         ]
     )
