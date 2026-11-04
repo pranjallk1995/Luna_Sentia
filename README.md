@@ -7,6 +7,12 @@
 ![NVIDIA GPU optional](https://img.shields.io/badge/NVIDIA_GPU-optional-76B900?logo=nvidia&logoColor=white)
 ![Status: usable](https://img.shields.io/badge/Status-usable-2EA043)
 
+<p align="center">
+  <a href="assets/luna-sentia-showcase.mp4"><img src="assets/luna-sentia-showcase.webp" alt="Signing in, adding a person, and hiding an app from everyone but the owner" width="900"></a>
+</p>
+
+<p align="center"><em>Signing in, adding a person, and hiding an app from everyone but the owner. Select it for the sharper video.</em></p>
+
 ## The shared models, database, sign-in, and network for the Luna apps
 
 Luna Sentia runs the services every Luna app depends on: one PostgreSQL server
