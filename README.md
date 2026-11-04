@@ -57,7 +57,7 @@ beats of the track Vibia plays, which Lumia's lights follow.
 | --- | --- | --- |
 | Database | PostgreSQL 17 + pgvector (`luna-sentia-db`) | One server; each app has its own role and database, with the `vector` extension; never published on a host port |
 | Database setup | `postgres-init` (one-shot) | Creates each app's role and database and syncs role passwords, then exits |
-| Single sign-on | Starlette (`luna-sentia-auth`) | One Google sign-in for every app; host port 19090 |
+| Accounts and sign-on | Starlette (`luna-sentia-auth`) | One Google sign-in for every app, the list of people, and sign-in for MCP connectors; host port 19090 |
 | Model server | Ollama | Serves local models to every Luna app; never published on a host port |
 | Model pull | Ollama CLI (one-shot) | Pulls every model in `SENTIA_MODELS` at startup, then exits |
 | Database UI | Adminer | Browses every app's database, on localhost port 19080 |
@@ -339,7 +339,9 @@ for raises `NoUserError`.
   time, so analysis can queue. There are no per-person storage limits yet.
 
 To check or back up one person: `\dn` in `psql` lists schemas, and
-`pg_dump -n u_<id>` dumps one.
+`pg_dump -n u_<id>` dumps one. Each person's tables are in their schema, and the owner's in `u_owner`, so manual SQL names it, as in `SELECT * FROM u_owner.lights`.
+
+**Starter images:** Luna Visia can give everyone the images the owner chooses, as their own copy; see its [Starter library](https://github.com/pranjallk1995/Luna_Visia#starter-library).
 
 ### Connecting an MCP client
 
