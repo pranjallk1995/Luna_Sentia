@@ -5,7 +5,7 @@
 ![Ollama included](https://img.shields.io/badge/Ollama-included-111111?logo=ollama&logoColor=white)
 ![PostgreSQL included](https://img.shields.io/badge/PostgreSQL-included-4169E1?logo=postgresql&logoColor=white)
 ![NVIDIA GPU optional](https://img.shields.io/badge/NVIDIA_GPU-optional-76B900?logo=nvidia&logoColor=white)
-![Status: v1.0](https://img.shields.io/badge/Status-v1.0-2EA043)
+![Status: v1.0.1](https://img.shields.io/badge/Status-v1.0.1-2EA043)
 
 <p align="center">
   <a href="assets/luna-sentia-showcase.mp4"><img src="assets/luna-sentia-showcase.webp" alt="Signing in, adding a person, and hiding an app from everyone but the owner" width="900"></a>

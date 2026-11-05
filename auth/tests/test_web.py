@@ -439,7 +439,11 @@ class DeleteAndHideTests(AdminTests):
     def test_hiding_an_app_reaches_others_but_never_the_owner(self):
         user_id = self.add_friend()
         self.client.post("/admin/apps", data={"form": self.form(), "app": "lumia", "hidden": "yes"})
-        self.assertIn("Hidden from others", self.client.get("/admin").text)
+        page = self.client.get("/admin").text
+        self.assertIn("<th>Status</th><th>Change to</th>", page)
+        self.assertIn("Hidden from others", page)
+        self.assertIn("<button>Show to everyone</button>", page)
+        self.assertIn("<button>Hide from others</button>", page)
         mine = self.client.get("/session", headers={"X-Luna-Session": self.client.cookies["luna_sso"]}).json()
         self.assertEqual(mine["hidden_apps"], [])
         self.assertEqual(self.store.hidden_from(user_id), ["lumia"])

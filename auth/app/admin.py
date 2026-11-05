@@ -101,14 +101,14 @@ def admin_routes(
         hidden = set(sessions.hidden_apps())
         app_rows = "".join(
             f"<tr><td>Luna {app.capitalize()}</td><td>{'Hidden from others' if app in hidden else 'Shown to everyone'}</td><td>"
-            + form(signed, "apps", "Show" if app in hidden else "Hide", app=app, hidden="no" if app in hidden else "yes")
+            + form(signed, "apps", "Show to everyone" if app in hidden else "Hide from others", app=app, hidden="no" if app in hidden else "yes")
             + "</td></tr>"
             for app in AuthConfig.APPS
         )
         apps = (
             "<h2>Apps</h2><p>A hidden app disappears from the home page for everyone but you, and its "
             "UI and connector refuse them within a minute. Their data stays.</p>"
-            f"<table>{app_rows}</table>"
+            f"<table><tr><th>App</th><th>Status</th><th>Change to</th></tr>{app_rows}</table>"
         )
         return page("Luna users", cell + table + add + apps)
 
