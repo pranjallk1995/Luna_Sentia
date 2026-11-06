@@ -100,6 +100,8 @@ code { font-size: 0.95em; color: var(--lv-text); }
 .sm-card h2 { margin: 0; font-size: 0.92rem; font-weight: 650; }
 .sm-card-head { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: baseline; justify-content: space-between; margin-bottom: 0.6rem; }
 .sm-split { display: grid; grid-template-columns: minmax(0, 1fr) 19.5rem; gap: 1rem; align-items: start; }
+.sm-side { display: grid; gap: 1rem; min-width: 0; }
+.sm-side .sm-note { margin: 0 0 0.6rem; }
 .sm-empty { margin: 0; color: var(--lv-muted); font-size: var(--luna-text-small); }
 
 /* Verdict */
@@ -194,7 +196,7 @@ code { font-size: 0.95em; color: var(--lv-text); }
 .sm-tip dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* Guide */
-.sm-guide .sm-card { display: grid; gap: 0.6rem; max-width: 52rem; }
+.sm-guide .sm-card { display: grid; gap: 0.6rem; }
 .sm-guide p, .sm-guide li { margin: 0; color: #d4d4d4; }
 .sm-guide ol { display: grid; gap: 0.5rem; margin: 0; padding-left: 1.3rem; }
 .sm-terms { display: grid; grid-template-columns: 13rem minmax(0, 1fr); gap: 0.6rem 1rem; margin: 0; }

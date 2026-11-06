@@ -388,6 +388,34 @@ function drawModels(container, models, totalVram, now) {
   }).join("")}</div>`;
 }
 
+const APP_NAMES = { visia: "Luna Visia", lexia: "Luna Lexia", vibia: "Luna Vibia" };
+
+/* Models the apps run themselves, outside Ollama, as each app last reported them. */
+function drawAppModels(container, apps, totalVram, now) {
+  if (!apps || !apps.length) {
+    container.innerHTML = `<p class="sm-empty">Waiting for the apps' first report.</p>`;
+    return;
+  }
+  container.innerHTML = `<div class="sm-models">${apps.map((app) => {
+    const title = `<strong>${esc(APP_NAMES[app.app] || app.app)}</strong>`;
+    if (app.problem) return `<div class="sm-model">${title}<span>${esc(app.problem)}</span></div>`;
+    const held = app.gpu ? app.gpu.reserved_mb : null;
+    const share = held && totalVram ? Math.min((held / totalVram) * 100, 100) : 0;
+    const models = app.models.length
+      ? app.models.map((m) => {
+          const used = m.last_used ? `last used ${ms((now - m.last_used) * 1000)} ago` : "not used since the app started";
+          const busy = m.calls ? ` · ${num(m.calls)} call${m.calls === 1 ? "" : "s"}, ${ms(m.busy_seconds * 1000)} busy` : "";
+          const active = m.active ? ` · <b>working now</b>` : "";
+          return `<span>${esc(m.name)}<br>${esc(m.purpose)}<br>${m.loaded ? "Loaded on " : ""}${esc(m.device)}${busy}${active}${m.failures ? ` · ${num(m.failures)} failed` : ""}<br>${esc(used)}</span>`;
+        }).join("")
+      : `<span>No model of its own is set up in this app.</span>`;
+    const memory = held === null ? "<span>Not using the GPU yet</span>"
+      : `<div class="sm-meter" role="img" aria-label="${esc(gb(held))} of VRAM"><i style="width:${share.toFixed(1)}%"></i></div>
+         <span>${gb(held)} of VRAM held by the app's process</span>`;
+    return `<div class="sm-model">${title}${models}${memory}</div>`;
+  }).join("")}</div>`;
+}
+
 /* The verdict: the rules of thumb and the numbers behind them. */
 
 function drawVerdict(container, signals, scope) {
@@ -438,6 +466,7 @@ function applyLive(data, full) {
   live.calls = live.calls.slice(0, 300);
   live.inFlight = data.in_flight;
   live.models = data.models;
+  live.appModels = data.app_models;
   live.signals = data.signals;
   live.parallel = data.parallel;
   live.gpu = data.gpu || {};
@@ -455,6 +484,7 @@ function drawLive() {
   const running = live.inFlight.map((c) => ({ ...c, outcome: "running" }));
   drawTimeline(document.getElementById("live-timeline"), [...running, ...live.calls], { start, end: now, now });
   drawModels(document.getElementById("models"), live.models, last.vram_total_mb, now);
+  drawAppModels(document.getElementById("app-models"), live.appModels, last.vram_total_mb, now);
   callsTable(document.getElementById("live-calls"), [...running, ...live.calls]);
   document.getElementById("live-calls-note").textContent = `The last ${Math.min(live.calls.length, TABLE_ROWS)} of ${live.calls.length} kept in memory`;
   drawVerdict(document.getElementById("live-verdict"), live.signals, "Calls in the last few minutes, from memory");

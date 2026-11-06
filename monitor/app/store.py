@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Any
 
 import psycopg
@@ -52,6 +53,11 @@ CALL_COLUMNS = (
 # How a history range is bucketed: about 360 points whatever its length.
 BUCKETS = ((3600, 10), (6 * 3600, 60), (24 * 3600, 240), (7 * 86400, 1800), (31 * 86400, 7200))
 CALL_ROWS_LIMIT = 5000
+
+
+def plain(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Rows the page can read as JSON: PostgreSQL gives avg() of an integer column as numeric."""
+    return [{key: float(value) if isinstance(value, Decimal) else value for key, value in row.items()} for row in rows]
 
 
 def bucket_seconds(span: int) -> int:
@@ -148,5 +154,5 @@ class MonitorStore:
                    WHERE at >= to_timestamp(%s) AND at < to_timestamp(%s) ORDER BY at""",
                 window,
             ).fetchall()
-        return {"bucket_seconds": size, "samples": samples, "calls": calls, "calls_total": total,
-                "groups": groups, "intervals": intervals, "events": events}
+        return {"bucket_seconds": size, "samples": plain(samples), "calls": plain(calls), "calls_total": total,
+                "groups": plain(groups), "intervals": plain(intervals), "events": plain(events)}

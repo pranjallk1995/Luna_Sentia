@@ -44,7 +44,7 @@ services:
 
   # Every app's model calls pass through the monitor on their way to Ollama: it answers
   # at luna-sentia-ollama:11434, times each call, samples the GPU every second, and
-  # stores both in its lunamonitor database. Its page, for the owner, is on 19091.
+  # stores both in its lunamonitor database. Its page, for the owner, is on 19081.
   monitor:
     build: ./monitor
     image: ghcr.io/pranjallk1995/luna-sentia-monitor:latest
@@ -55,14 +55,18 @@ services:
       DATABASE_URL: postgresql://lunamonitor:${LUNAMONITOR_DB_PASSWORD:?Set LUNAMONITOR_DB_PASSWORD in Luna_Sentia/.env}@luna-sentia-db:5432/lunamonitor
       MONITOR_OLLAMA_URL: http://luna-sentia-ollama-engine:11434
       SENTIA_AUTH_PUBLIC_URL: ${SENTIA_AUTH_PUBLIC_URL:-http://localhost:19090}
-      SENTIA_MONITOR_PUBLIC_URL: ${SENTIA_MONITOR_PUBLIC_URL:-http://localhost:19091}
+      SENTIA_MONITOR_PUBLIC_URL: ${SENTIA_MONITOR_PUBLIC_URL:-http://localhost:19081}
       OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
       MONITOR_SAMPLE_DAYS: ${MONITOR_SAMPLE_DAYS:-30}
       MONITOR_CALL_DAYS: ${MONITOR_CALL_DAYS:-365}
+      # To ask Visia, Lexia, and Vibia about the models they run themselves, outside Ollama.
+      LUNAVISIA_API_TOKEN: ${LUNAVISIA_API_TOKEN:-}
+      LUNALEXIA_API_TOKEN: ${LUNALEXIA_API_TOKEN:-}
+      LUNAVIBIA_API_TOKEN: ${LUNAVIBIA_API_TOKEN:-}
     expose:
       - "11434"
     ports:
-      - "127.0.0.1:19091:8000"
+      - "127.0.0.1:19081:8000"
     networks:
       sentia_network:
         aliases:

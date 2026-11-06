@@ -224,3 +224,62 @@ class SignalTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PlainRowsTests(unittest.TestCase):
+    def test_numeric_values_become_floats_so_history_is_valid_json(self):
+        import json
+        from decimal import Decimal
+
+        from app.store import plain
+
+        rows = plain([{"app": "visia", "images_avg": Decimal("1.5"), "calls": 3, "wall_avg": 2.5, "num_ctx_max": None}])
+        self.assertEqual(rows, [{"app": "visia", "images_avg": 1.5, "calls": 3, "wall_avg": 2.5, "num_ctx_max": None}])
+        json.dumps(rows)
+
+
+class AppModelsTests(unittest.TestCase):
+    """Asking Visia, Lexia, and Vibia about the models they run themselves."""
+
+    def ask(self, handler, token="t" * 32):
+        import asyncio
+
+        import httpx
+
+        from app.main import ask_app
+
+        async def run():
+            async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+                return await ask_app(client, "visia", "http://luna-visia-mcp:8000", token)
+
+        return asyncio.run(run())
+
+    def test_a_report_is_passed_on_and_asked_for_as_the_owner(self):
+        import httpx
+
+        seen = {}
+
+        def handler(request):
+            seen.update(path=request.url.path, user=request.headers["X-Luna-User"], auth=request.headers["Authorization"])
+            return httpx.Response(200, json={"app": "visia", "models": [{"name": "siglip", "calls": 3}], "gpu": {"reserved_mb": 900}})
+
+        entry = self.ask(handler)
+        self.assertEqual(seen, {"path": "/api/models", "user": "owner", "auth": "Bearer " + "t" * 32})
+        self.assertEqual((entry["problem"], entry["models"][0]["calls"], entry["gpu"]["reserved_mb"]), (None, 3, 900))
+
+    def test_problems_say_what_to_fix(self):
+        import httpx
+
+        def refuse(request):
+            return httpx.Response(401)
+
+        def old(request):
+            return httpx.Response(404)
+
+        def down(request):
+            raise httpx.ConnectError("no route")
+
+        self.assertIn("differs", self.ask(refuse)["problem"])
+        self.assertIn("does not report", self.ask(old)["problem"])
+        self.assertEqual(self.ask(down)["problem"], "not running")
+        self.assertIn("is not set", self.ask(refuse, token="")["problem"])

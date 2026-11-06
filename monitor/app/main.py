@@ -69,6 +69,44 @@ async def watch_models(live: LiveState, upstream: str) -> None:
             await asyncio.sleep(MonitorConfig.MODELS_SECONDS)
 
 
+def app_models_entry(app: str, reply: dict | None, problem: str | None) -> dict:
+    """One app's own models as the page shows them, or why they could not be read."""
+    if reply is None:
+        return {"app": app, "problem": problem, "models": [], "gpu": None}
+    return {"app": app, "problem": None, "models": list(reply.get("models") or []), "gpu": reply.get("gpu")}
+
+
+async def ask_app(client: httpx.AsyncClient, app: str, url: str, token: str) -> dict:
+    if not token:
+        return app_models_entry(app, None, f"LUNA{app.upper()}_API_TOKEN is not set in Luna_Sentia/.env")
+    try:
+        reply = await client.get(
+            f"{url}/api/models",
+            headers={"Authorization": f"Bearer {token}", "X-Luna-User": MonitorConfig.OWNER_ID},
+        )
+    except httpx.HTTPError:
+        return app_models_entry(app, None, "not running")
+    if reply.status_code == 401:
+        return app_models_entry(app, None, f"refused: LUNA{app.upper()}_API_TOKEN differs from the app's")
+    if reply.status_code == 404:
+        return app_models_entry(app, None, "this version of the app does not report its models")
+    try:
+        reply.raise_for_status()
+        return app_models_entry(app, reply.json(), None)
+    except (httpx.HTTPError, ValueError):
+        return app_models_entry(app, None, f"answered HTTP {reply.status_code}")
+
+
+async def watch_app_models(live: LiveState, config: MonitorConfig) -> None:
+    """Ask Visia, Lexia, and Vibia about the models they run themselves, outside Ollama."""
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        while True:
+            live.app_models = list(await asyncio.gather(
+                *(ask_app(client, app, url, token) for app, url, token in config.app_tokens)
+            ))
+            await asyncio.sleep(MonitorConfig.APP_MODELS_SECONDS)
+
+
 async def flush(live: LiveState, store: MonitorStore, config: MonitorConfig) -> None:
     ready = False
     last_purge = 0.0
@@ -105,7 +143,8 @@ async def main() -> None:
                                       forwarded_allow_ips="*", log_level="info")),
     ]
     tasks = [asyncio.create_task(job) for job in (
-        sample_gpu(live, GpuReader()), watch_models(live, config.upstream_url), flush(live, store, config))]
+        sample_gpu(live, GpuReader()), watch_models(live, config.upstream_url), watch_app_models(live, config),
+        flush(live, store, config))]
     try:
         await asyncio.gather(*(server.serve() for server in servers))
     finally:

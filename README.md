@@ -65,7 +65,7 @@ beats of the track Vibia plays, which Lumia's lights follow.
 | Database setup | `postgres-init` (one-shot) | Creates each app's role and database and syncs role passwords, then exits |
 | Accounts and sign-on | Starlette (`luna-sentia-auth`) | One Google sign-in for every app, the list of people, and sign-in for MCP connectors; host port 19090 |
 | Model server | Ollama (`luna-sentia-ollama-engine`) | Serves local models to every Luna app; never published on a host port |
-| Model monitor | Starlette (`luna-sentia-ollama`, `luna-sentia-monitor`) | Passes every app's Ollama call through, timing it, samples the GPU, and stores both; the owner's page is on host port 19091 |
+| Model monitor | Starlette (`luna-sentia-ollama`, `luna-sentia-monitor`) | Passes every app's Ollama call through, timing it, samples the GPU, and stores both; the owner's page is on host port 19081 |
 | Model pull | Ollama CLI (one-shot) | Pulls every model in `SENTIA_MODELS` at startup, then exits |
 | Database UI | Adminer | Browses every app's database, on localhost port 19080 |
 | Storage | `luna_sentia_postgres_data`, `luna_sentia_ollama_data` volumes | Every app's data and the downloaded models, kept across restarts |
@@ -156,7 +156,7 @@ docker compose ps        # postgres, ollama, auth, monitor: "Up ... (healthy)"; 
 - `postgres (healthy)`: the server accepts connections (`pg_isready`).
 - `ollama (healthy)`: the model server answers (`ollama list`).
 - `auth (healthy)`: the sign-on service answers <http://127.0.0.1:19090/health>.
-- `monitor (healthy)`: the model monitor answers <http://127.0.0.1:19091/health>. The
+- `monitor (healthy)`: the model monitor answers <http://127.0.0.1:19081/health>. The
   apps reach Ollama through it, so while it is down their model calls fail.
 - `postgres-init` printed `Ready: luna<app>` for every app with a password set.
 
@@ -407,6 +407,14 @@ stored history:
   cannot split VRAM by process, so the total includes Visia's SigLIP, Lexia's Docling,
   Vibia's CLAP, and Windows.
 - **Requests in flight and waiting**, and the models Ollama has loaded.
+- **Models outside Ollama**, which three apps run themselves on the same GPU: Visia's
+  SigLIP 2 (image and text embeddings), Lexia's Docling (layout, table-structure, and
+  OCR models that read each document), and Vibia's CLAP (which hears each track). Their
+  work never passes through the monitor, so each app counts it and reports it at
+  `GET /api/models`, for the owner only. Every ten seconds the monitor asks, with the
+  app's `LUNA<APP>_API_TOKEN` from this `.env`, and shows whether each model is loaded
+  and where, its calls and busy time since the app started, and the GPU memory the
+  app's process holds.
 - **Signals for a batching server such as vLLM**: how often requests overlap, how much
   of their time is spent waiting, and how much VRAM stays free. The page's Guide
   explains each number.
@@ -418,7 +426,7 @@ averages and peaks, kept `MONITOR_SAMPLE_DAYS`, 30 by default), `model_calls` (k
 The page is for the owner only and signs in through Sentia, so like the apps it must
 be reached at an address under `SENTIA_AUTH_COOKIE_DOMAIN`. Route
 `SENTIA_MONITOR_PUBLIC_URL` (such as `https://monitor.example.com`) to
-`http://localhost:19091` in your tunnel. An app can name itself in an `X-Luna-App`
+`http://localhost:19081` in your tunnel. An app can name itself in an `X-Luna-App`
 header; otherwise the monitor names it from its container.
 
 ## Database UI

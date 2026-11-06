@@ -20,6 +20,14 @@ class MonitorConfig:
     # How often each thing is measured, and how much of it the live page keeps.
     SAMPLE_SECONDS: ClassVar[float] = 1.0
     MODELS_SECONDS: ClassVar[float] = 2.0
+    # How often the apps are asked about the models they run themselves, outside Ollama.
+    APP_MODELS_SECONDS: ClassVar[float] = 10.0
+    # The apps with models of their own: Visia's SigLIP 2, Lexia's Docling, Vibia's CLAP.
+    APP_BACKENDS: ClassVar[tuple[tuple[str, str], ...]] = (
+        ("visia", "http://luna-visia-mcp:8000"),
+        ("lexia", "http://luna-lexia-mcp:8000"),
+        ("vibia", "http://luna-vibia-mcp:8000"),
+    )
     LIVE_SAMPLES: ClassVar[int] = 600  # ten minutes of one-second samples
     LIVE_CALLS: ClassVar[int] = 300
     # Samples are stored as five-second summaries; rows are written in batches.
@@ -41,6 +49,8 @@ class MonitorConfig:
     parallel: int = 1
     sample_days: int = 30
     call_days: int = 365
+    # Each app's private API token (LUNA<APP>_API_TOKEN), to ask it about its own models.
+    app_tokens: tuple[tuple[str, str, str], ...] = ()
 
     @classmethod
     def from_env(cls) -> MonitorConfig:
@@ -59,4 +69,7 @@ class MonitorConfig:
             parallel=max(int(os.getenv("OLLAMA_NUM_PARALLEL", "1") or 1), 1),
             sample_days=int(os.getenv("MONITOR_SAMPLE_DAYS", "30")),
             call_days=int(os.getenv("MONITOR_CALL_DAYS", "365")),
+            app_tokens=tuple(
+                (app, url, os.getenv(f"LUNA{app.upper()}_API_TOKEN", "").strip()) for app, url in cls.APP_BACKENDS
+            ),
         )

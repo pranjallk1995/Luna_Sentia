@@ -33,6 +33,8 @@ class LiveState:
         self.gpu_name: str | None = None
         self.gpu_problem: str | None = None
         self.engine_problem: str | None = None
+        # The models each app runs itself, as the apps last reported them.
+        self.app_models: list[dict[str, Any]] = []
         # Rows for the database, taken by the flusher.
         self.pending_calls: list[Call] = []
         self.pending_samples: list[dict[str, Any]] = []
@@ -157,4 +159,5 @@ class LiveState:
                 "calls": [call.view() for seq, call in self.calls if seq > after_call],
                 "last_call": self.calls[-1][0] if self.calls else 0,
                 "models": list(self.models),
+                "app_models": list(self.app_models),
             }

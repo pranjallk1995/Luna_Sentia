@@ -55,10 +55,17 @@
         <div class="sm-card-head"><h2 id="live-timeline-title">Call timeline</h2><div class="sm-legend" data-legend="phases"></div></div>
         <div id="live-timeline"></div>
       </section>
-      <section class="sm-card" aria-labelledby="models-title">
-        <div class="sm-card-head"><h2 id="models-title">Loaded in Ollama</h2></div>
-        <div id="models"></div>
-      </section>
+      <div class="sm-side">
+        <section class="sm-card" aria-labelledby="models-title">
+          <div class="sm-card-head"><h2 id="models-title">Loaded in Ollama</h2></div>
+          <div id="models"></div>
+        </section>
+        <section class="sm-card" aria-labelledby="app-models-title">
+          <div class="sm-card-head"><h2 id="app-models-title">Inside the apps</h2></div>
+          <p class="sm-note">Models the apps run themselves. Their calls never reach Ollama, so they are not in the timeline.</p>
+          <div id="app-models"></div>
+        </section>
+      </div>
     </div>
     <section class="sm-card" aria-labelledby="live-calls-title">
       <div class="sm-card-head"><h2 id="live-calls-title">Recent calls</h2><span class="sm-note" id="live-calls-note"></span></div>
@@ -111,6 +118,19 @@
       </dl>
     </section>
     <section class="sm-card">
+      <h2>Models outside Ollama</h2>
+      <p>Three apps run a model of their own, inside their backend, on the same GPU. Their work never passes through the monitor, so it is missing from the call timeline and the verdict; each app counts it instead, and the <b>Inside the apps</b> card asks them every ten seconds.</p>
+      <dl class="sm-terms">
+        <dt>Luna Visia: SigLIP 2</dt>
+        <dd>Turns every image, and every search, into an embedding for meaning search. GPU only; it loads on the first image or search and stays loaded.</dd>
+        <dt>Luna Lexia: Docling</dt>
+        <dd>Reads each document's pages with its layout, table-structure, and OCR models before Qwen3-VL sees them. It uses the GPU while there is room and moves to the CPU when the GPU is short.</dd>
+        <dt>Luna Vibia: CLAP</dt>
+        <dd>Hears each track and turns it, and every search, into an embedding, with mood hints for the caption model. It runs on the GPU when there is one, with a CPU copy as a last resort.</dd>
+      </dl>
+      <p>For each, the card shows whether it is loaded and where, the GPU memory the app's process holds, and its calls and busy time since the app started. Those counts start again when an app restarts. Lexia's semantic search embeds with <code>qwen3-embedding</code> through Ollama, so that part is in the timeline.</p>
+    </section>
+    <section class="sm-card">
       <h2>The hardware charts</h2>
       <dl class="sm-terms">
         <dt>GPU utilisation</dt>
@@ -118,7 +138,7 @@
         <dt>Memory bandwidth (in the GPU card's details)</dt>
         <dd>The share of time VRAM was being read or written. Writing output is limited by this, which is why batching helps: several requests share each read of the weights.</dd>
         <dt>VRAM</dt>
-        <dd>The solid line is everything on the card: Ollama's models, Visia's SigLIP, Lexia's Docling, Vibia's CLAP, and Windows itself. Under WSL the driver cannot split that by process, so the dashed line shows the share Ollama reports for its loaded models.</dd>
+        <dd>The solid line is everything on the card: Ollama's models, Visia's SigLIP, Lexia's Docling, Vibia's CLAP, and Windows itself. Under WSL the driver cannot split that by process, so the dashed line shows the share Ollama reports for its loaded models, and <b>Inside the apps</b> shows what each app's own process holds, as torch reports it.</dd>
         <dt>Requests</dt>
         <dd>The solid line counts requests in flight; the dashed line counts those waiting, estimated from Ollama's one-at-a-time limit per model (OLLAMA_NUM_PARALLEL). Waiting above zero means apps are queueing behind each other.</dd>
         <dt>Power, temperature, and clocks</dt>
