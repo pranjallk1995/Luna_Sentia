@@ -5,7 +5,7 @@
 ![Ollama included](https://img.shields.io/badge/Ollama-included-111111?logo=ollama&logoColor=white)
 ![PostgreSQL included](https://img.shields.io/badge/PostgreSQL-included-4169E1?logo=postgresql&logoColor=white)
 ![NVIDIA GPU optional](https://img.shields.io/badge/NVIDIA_GPU-optional-76B900?logo=nvidia&logoColor=white)
-![Status: v1.0.1](https://img.shields.io/badge/Status-v1.0.1-2EA043)
+![Status: v1.1](https://img.shields.io/badge/Status-v1.1-2EA043)
 
 <p align="center">
   <a href="assets/luna-sentia-showcase.mp4"><img src="assets/luna-sentia-showcase.webp" alt="Signing in, adding a person, and hiding an app from everyone but the owner" width="900"></a>
@@ -347,6 +347,27 @@ for raises `NoUserError`.
 To check or back up one person: `\dn` in `psql` lists schemas, and
 `pg_dump -n u_<id>` dumps one. Each person's tables are in their schema, and the owner's in `u_owner`, so manual SQL names it, as in `SELECT * FROM u_owner.lights`.
 
+### Hidden-items PIN
+
+Visia, Lexia, and Vibia keep hidden images, documents, and tracks out of every gallery,
+search, and MCP tool. Their Hidden tabs also ask for a PIN, so a signed-in browser left
+open, or a copied session cookie, is not enough to open them. Each person has one PIN for
+all three apps, which they set at `<SENTIA_AUTH_PUBLIC_URL>/pin`, linked from the sign-in
+page and from each Hidden tab.
+
+- **Setting or forgetting it:** setting a first PIN, or a new one without the old one,
+  needs a Google sign-in from the last 10 minutes; the page offers one. Changing it
+  otherwise needs the current PIN. Hidden items are never deleted either way.
+- **Guessing:** a PIN is 6 to 12 digits, stored only as a salted PBKDF2 hash in
+  `hidden_pins`. Five wrong PINs lock it for 15 minutes, and after that each wrong one
+  locks it again until a right one is typed. Every attempt is counted before it is
+  checked, so parallel guesses cannot get past the limit.
+- **In the apps:** typing the PIN unlocks that app's hidden items for this sign-in only,
+  until the person leaves the tab, presses **Lock**, or stays idle for 10 minutes (an
+  hour at most). Until then the gateway also refuses a hidden item's files and
+  thumbnails, and it never lets the browser cache them.
+- **Deleting someone** removes their PIN with their account.
+
 **Starter images:** Luna Visia can give everyone the images the owner chooses, as their own copy; see its [Starter library](https://github.com/pranjallk1995/Luna_Visia#starter-library).
 
 ### Connecting an MCP client
@@ -364,6 +385,8 @@ valid token answers 401, and a token is only valid on the server it was issued f
 | `/oauth/token` | Codes and refresh tokens become access tokens (one hour; refresh tokens last 30 days and rotate) |
 | `/oauth/introspect` | For MCP servers: whose access token this is |
 | `/admin` | The owner adds and disables people |
+| `/pin` | Each person sets or changes their hidden-items PIN |
+| `/pin/status`, `/pin/verify` | For Visia, Lexia, and Vibia: whether a PIN is set, and whether a typed one is right |
 
 ## Database UI
 

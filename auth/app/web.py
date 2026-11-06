@@ -25,6 +25,7 @@ from app.config import AuthConfig
 from app.google import GoogleSignIn
 from app.oauth import OAuthStore, oauth_routes
 from app.pages import page
+from app.pins import pin_routes
 from app.store import OWNER_ID, SessionStore
 
 
@@ -63,14 +64,16 @@ def create_app(
         return page(
             "Luna sign-in",
             f"Signed in to every Luna app as <b>{html.escape(user['email'])}</b>. "
-            f"<a style='color:#a5b4fc' href='/logout'>Sign out everywhere</a>{admin}",
+            f"<a style='color:#a5b4fc' href='/logout'>Sign out everywhere</a>"
+            f" <a style='color:#a5b4fc' href='/pin'>Hidden-items PIN</a>{admin}",
         )
 
     async def login(request: Request) -> Response:
         target = next_url(request)
         if request.query_params.get("next") and target is None:
             return page("Not a Luna app", "That return address is not a Luna app.", 400)
-        if current(request) is not None:
+        # fresh=1 asks Google again even when signed in, to prove it is still this person.
+        if current(request) is not None and request.query_params.get("fresh") != "1":
             return RedirectResponse(target or "/", 303)
         nonce = secrets.token_urlsafe(16)
         response = RedirectResponse(google.authorization_url(signer.dumps({"next": target, "nonce": nonce})), 303)
@@ -96,6 +99,9 @@ def create_app(
         email = str(profile.get("email", "")).strip().casefold()
         if not (email and profile.get("email_verified") is True and store.active_user(email)):
             return page("Not authorized", f"{html.escape(email or 'This account')} may not use the Luna apps.", 403)
+        previous = request.cookies.get(config.cookie_name)
+        if previous:
+            store.delete(previous)
         token = store.create(email, profile.get("name"), profile.get("picture"), lifetime)
         response = RedirectResponse(state.get("next") or "/", 303)
         session_cookie(response, token)
@@ -137,5 +143,6 @@ def create_app(
             Route("/health", health),
             *oauth_routes(config, store, oauth),
             *admin_routes(config, store, oauth, app_transport),
+            *pin_routes(config, store),
         ]
     )

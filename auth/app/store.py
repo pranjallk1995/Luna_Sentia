@@ -33,6 +33,17 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS removing text[];
 -- Apps the owner has hidden from everyone else.
 CREATE TABLE IF NOT EXISTS hidden_apps (app text PRIMARY KEY);
+-- Each person's PIN for the hidden items in Visia, Lexia, and Vibia, stored only as a hash.
+-- failed_attempts counts wrong guesses since the last right one; locked_until stops guessing.
+CREATE TABLE IF NOT EXISTS hidden_pins (
+    user_id text PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    salt bytea NOT NULL,
+    pin_hash bytea NOT NULL,
+    iterations integer NOT NULL,
+    failed_attempts integer NOT NULL DEFAULT 0,
+    locked_until timestamptz,
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
 """
 
 OWNER_ID = "owner"
@@ -70,7 +81,8 @@ class SessionStore:
                 """UPDATE sessions s SET last_seen_at = now()
                    FROM users u
                    WHERE s.token_hash = %s AND s.expires_at > now() AND u.email = s.email AND u.active
-                   RETURNING u.id AS user_id, s.email, s.name, s.picture, s.expires_at""",
+                   RETURNING u.id AS user_id, s.email, s.name, s.picture, s.expires_at,
+                             s.created_at AS signed_in_at""",
                 (token_hash(token),),
             ).fetchone()
 
@@ -174,3 +186,47 @@ class SessionStore:
                 connection.execute("INSERT INTO hidden_apps (app) VALUES (%s) ON CONFLICT DO NOTHING", (app,))
             else:
                 connection.execute("DELETE FROM hidden_apps WHERE app = %s", (app,))
+
+    # Hidden-items PINs
+
+    def pin_state(self, user_id: str) -> dict[str, Any] | None:
+        """Whether this person has a PIN, and how long it stays locked; None without one."""
+        with self._connect() as connection:
+            return connection.execute(
+                """SELECT updated_at,
+                          GREATEST(EXTRACT(EPOCH FROM locked_until - now()), 0)::int AS locked_seconds
+                   FROM hidden_pins WHERE user_id = %s""",
+                (user_id,),
+            ).fetchone()
+
+    def set_pin(self, user_id: str, salt: bytes, pin_hash: bytes, iterations: int) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """INSERT INTO hidden_pins (user_id, salt, pin_hash, iterations) VALUES (%s, %s, %s, %s)
+                   ON CONFLICT (user_id) DO UPDATE SET salt = EXCLUDED.salt, pin_hash = EXCLUDED.pin_hash,
+                       iterations = EXCLUDED.iterations, failed_attempts = 0, locked_until = NULL,
+                       updated_at = now()""",
+                (user_id, salt, pin_hash, iterations),
+            )
+
+    def take_pin_attempt(self, user_id: str, limit: int, lock: timedelta) -> dict[str, Any] | None:
+        """Count one guess before it is checked, so parallel guesses cannot pass the limit.
+
+        Returns the stored hash, or None while locked or without a PIN. The guess that
+        reaches ``limit`` locks the PIN; once that lock ends, each wrong guess locks it again.
+        """
+        with self._connect() as connection:
+            return connection.execute(
+                """UPDATE hidden_pins SET failed_attempts = failed_attempts + 1,
+                       locked_until = CASE WHEN failed_attempts + 1 >= %s THEN now() + %s END
+                   WHERE user_id = %s AND (locked_until IS NULL OR locked_until <= now())
+                   RETURNING salt, pin_hash, iterations, GREATEST(%s - failed_attempts, 0) AS attempts_left""",
+                (limit, lock, user_id, limit),
+            ).fetchone()
+
+    def clear_pin_attempts(self, user_id: str) -> None:
+        """A right guess: forget the wrong ones and any lock they caused."""
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE hidden_pins SET failed_attempts = 0, locked_until = NULL WHERE user_id = %s", (user_id,)
+            )

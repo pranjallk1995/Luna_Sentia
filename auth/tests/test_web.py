@@ -4,13 +4,14 @@ import base64
 import hashlib
 import re
 import unittest
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from urllib.parse import parse_qs, urlparse
 
 import httpx
 from starlette.testclient import TestClient
 
 from app.config import AuthConfig
+from app import pins
 from app.store import OWNER_ID, token_hash
 from app.web import create_app
 
@@ -23,6 +24,32 @@ class FakeStore:
         self.accounts = {"me@example.com": {"id": OWNER_ID, "email": "me@example.com", "active": True,
                                             "created_at": None, "last_seen_at": None, "removing": None}}
         self.hidden = set()
+        self.pins = {}
+
+    # Hidden-items PINs, with the database's counting rules.
+
+    def pin_state(self, user_id):
+        row = self.pins.get(user_id)
+        if row is None:
+            return None
+        left = (row["locked_until"] - datetime.now(UTC)).total_seconds() if row["locked_until"] else 0
+        return {"updated_at": None, "locked_seconds": max(int(left), 0)}
+
+    def set_pin(self, user_id, salt, pin_hash, iterations):
+        self.pins[user_id] = {"salt": salt, "pin_hash": pin_hash, "iterations": iterations,
+                              "failed": 0, "locked_until": None}
+
+    def take_pin_attempt(self, user_id, limit, lock):
+        row = self.pins.get(user_id)
+        if row is None or (row["locked_until"] and row["locked_until"] > datetime.now(UTC)):
+            return None
+        row["failed"] += 1
+        row["locked_until"] = datetime.now(UTC) + lock if row["failed"] >= limit else None
+        return {"salt": row["salt"], "pin_hash": row["pin_hash"], "iterations": row["iterations"],
+                "attempts_left": max(limit - row["failed"], 0)}
+
+    def clear_pin_attempts(self, user_id):
+        self.pins[user_id].update(failed=0, locked_until=None)
 
     def hidden_apps(self):
         return sorted(self.hidden)
@@ -75,7 +102,8 @@ class FakeStore:
         self.created = getattr(self, "created", 0) + 1
         token = f"token-{self.created}"
         self.rows[token_hash(token)] = {"email": email, "name": name, "picture": picture,
-                                        "expires_at": datetime(2030, 1, 1, tzinfo=UTC)}
+                                        "expires_at": datetime(2030, 1, 1, tzinfo=UTC),
+                                        "signed_in_at": datetime.now(UTC)}
         return token
 
     def get(self, token):
@@ -457,3 +485,135 @@ class DeleteAndHideTests(AdminTests):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PinTests(SingleSignOnTests):
+    PIN_PAGE = "https://auth.lunaapps.fyi/pin"
+
+    def setUp(self):
+        super().setUp()
+        pins.ITERATIONS = 1_000  # keep hashing fast in tests
+
+    def form(self, path="/pin"):
+        return re.search(r"name='form' value='([^']+)'", self.client.get(path).text)[1]
+
+    def age_sign_in(self, minutes=30):
+        """Make the current sign-in older than the fresh window."""
+        row = self.store.rows[token_hash(self.client.cookies["luna_sso"])]
+        row["signed_in_at"] = datetime.now(UTC) - timedelta(minutes=minutes)
+
+    def save(self, pin, confirm=None, **fields):
+        data = {"form": self.form(), "pin": pin, "confirm": pin if confirm is None else confirm, **fields}
+        return self.client.post("/pin", data=data)
+
+    def verify(self, pin, token=None):
+        token = token or self.client.cookies["luna_sso"]
+        return self.client.post("/pin/verify", json={"pin": pin}, headers={"X-Luna-Session": token})
+
+    def test_a_fresh_sign_in_sets_a_pin_and_only_its_hash_is_stored(self):
+        self.sign_in()
+        self.assertIn("Save PIN", self.client.get("/pin").text)
+        self.assertEqual(self.save("246810").status_code, 200)
+        stored = self.store.pins[OWNER_ID]
+        self.assertNotIn(b"246810", stored["pin_hash"])
+        self.assertEqual(self.verify("246810").json(), {"ok": True})
+
+    def test_an_old_sign_in_must_sign_in_again_to_set_a_first_pin(self):
+        self.sign_in()
+        form = self.form()
+        self.age_sign_in()
+        page = self.client.get("/pin").text
+        self.assertIn("/login?fresh=1", page)
+        self.assertIn("Confirm with Google", page)
+        self.assertNotIn("Save PIN", page)
+        # A form from before still cannot set it.
+        answer = self.client.post("/pin", data={"form": form, "pin": "246810", "confirm": "246810"})
+        self.assertEqual(answer.status_code, 400)
+        self.assertNotIn(OWNER_ID, self.store.pins)
+
+    def test_signing_in_again_asks_google_and_replaces_the_old_session(self):
+        self.sign_in()
+        old = self.client.cookies["luna_sso"]
+        start = self.client.get("/login", params={"fresh": "1", "next": self.PIN_PAGE})
+        self.assertTrue(start.headers["location"].startswith("https://accounts.google.test/"))
+        state = parse_qs(urlparse(start.headers["location"]).query)["state"][0]
+        done = self.client.get("/callback", params={"code": "good", "state": state})
+        self.assertEqual(done.headers["location"], self.PIN_PAGE)
+        self.assertNotEqual(self.client.cookies["luna_sso"], old)
+        self.assertIsNone(self.store.get(old))
+
+    def test_changing_later_needs_the_current_pin(self):
+        self.sign_in()
+        self.save("246810")
+        self.age_sign_in()
+        self.assertIn("Current PIN", self.client.get("/pin").text)
+        self.assertEqual(self.save("135790", current="000000").status_code, 400)
+        self.assertEqual(self.verify("246810").json(), {"ok": True})
+        self.assertEqual(self.save("135790", current="246810").status_code, 200)
+        self.assertEqual(self.verify("135790").json(), {"ok": True})
+
+    def test_new_pins_must_be_digits_and_match(self):
+        self.sign_in()
+        for pin, confirm in (("12345", "12345"), ("abcdef", "abcdef"), ("246810", "246811")):
+            with self.subTest(pin=pin):
+                self.assertEqual(self.save(pin, confirm).status_code, 400)
+        self.assertNotIn(OWNER_ID, self.store.pins)
+
+    def test_the_form_needs_this_session(self):
+        self.sign_in()
+        self.assertEqual(self.client.post("/pin", data={"form": "forged", "pin": "246810", "confirm": "246810"}).status_code, 403)
+
+    def test_wrong_pins_lock_it_and_a_right_one_resets_the_count(self):
+        self.sign_in()
+        self.save("246810")
+        self.assertEqual(self.verify("111111").json()["attempts_left"], 4)
+        self.verify("246810")
+        for left in (4, 3, 2, 1):
+            answer = self.verify("111111")
+            self.assertEqual((answer.status_code, answer.json()["attempts_left"]), (403, left))
+        locked = self.verify("111111")
+        self.assertEqual(locked.status_code, 423)
+        # Even the right PIN waits out the lock.
+        self.assertEqual(self.verify("246810").status_code, 423)
+        status = self.client.get("/pin/status", headers={"X-Luna-Session": self.client.cookies["luna_sso"]}).json()
+        self.assertTrue(status["pin_set"])
+        self.assertGreater(status["locked_seconds"], 0)
+
+    def test_after_a_lock_each_wrong_pin_locks_it_again(self):
+        self.sign_in()
+        self.save("246810")
+        for _ in range(5):
+            self.verify("111111")
+        self.store.pins[OWNER_ID]["locked_until"] = datetime.now(UTC) - timedelta(seconds=1)
+        self.assertEqual(self.verify("111111").status_code, 423)
+        self.store.pins[OWNER_ID]["locked_until"] = datetime.now(UTC) - timedelta(seconds=1)
+        self.assertEqual(self.verify("246810").json(), {"ok": True})
+        self.assertEqual(self.verify("111111").json()["attempts_left"], 4)
+
+    def test_apps_learn_whether_a_pin_is_set_and_strangers_learn_nothing(self):
+        self.sign_in()
+        token = self.client.cookies["luna_sso"]
+        self.assertFalse(self.client.get("/pin/status", headers={"X-Luna-Session": token}).json()["pin_set"])
+        self.assertEqual(self.verify("246810").status_code, 409)
+        self.assertEqual(self.verify("246810", token="forged").status_code, 401)
+        self.assertEqual(self.client.get("/pin/status", headers={"X-Luna-Session": "forged"}).status_code, 401)
+
+    def test_people_have_their_own_pins(self):
+        self.sign_in()
+        self.save("246810")
+        self.store.add_user("friend@example.com")
+        friend = self.store.create("friend@example.com", None, None, None)
+        self.assertEqual(self.verify("246810", token=friend).status_code, 409)
+
+    def test_the_page_offers_a_way_back_only_to_luna_apps(self):
+        self.sign_in()
+        page = self.client.get("/pin", params={"next": "https://visia.lunaapps.fyi/"}).text
+        self.assertIn("https://visia.lunaapps.fyi/", page)
+        self.assertIn("Back to Luna Visia", page)
+        self.assertNotIn("evil.example", self.client.get("/pin", params={"next": "https://evil.example/"}).text)
+
+    def test_signed_out_people_sign_in_first_and_come_back(self):
+        answer = self.client.get("/pin")
+        self.assertEqual(answer.status_code, 303)
+        self.assertIn("next=https%3A%2F%2Fauth.lunaapps.fyi%2Fpin", answer.headers["location"])
+
