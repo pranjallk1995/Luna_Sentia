@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Luna Sentia Monitor</title>
+  <link rel="icon" href="/static/logo.png">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+<main class="lv-page">
+  <div class="lv-header-row">
+    <div class="lv-header">
+      <img class="lv-mark" src="/static/logo.png" alt="Luna Sentia logo" width="96" height="96">
+      <div>
+        <h1 class="lv-title">Luna Sentia</h1>
+        <p class="lv-subtitle">Private AI-managed model and GPU monitor</p>
+      </div>
+    </div>
+    <div class="lv-header-actions">
+      <span class="sm-status" id="status" role="status"><i></i><span>Connecting</span></span>
+      <a class="lv-button lv-sign-out" href="/logout" aria-label="Sign out">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+        <span>Sign out</span>
+      </a>
+    </div>
+  </div>
+
+  <nav class="lv-nav" aria-label="Section">
+    <button class="lv-nav-item" type="button" data-section="live">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Live</span>
+    </button>
+    <button class="lv-nav-item" type="button" data-section="history">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg><span>History</span>
+    </button>
+    <button class="lv-nav-item" type="button" data-section="guide">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg><span>Guide</span>
+    </button>
+  </nav>
+
+  <section id="live" class="sm-section" aria-label="Live">
+    <div class="sm-bar">
+      <p class="sm-note" id="live-note">Every model call the Luna apps make passes through here.</p>
+      <div class="sm-seg" role="group" aria-label="Window">
+        <button type="button" data-window="60">1 min</button>
+        <button type="button" data-window="300">5 min</button>
+        <button type="button" data-window="600">10 min</button>
+      </div>
+    </div>
+    <div class="sm-verdict" id="live-verdict"></div>
+    <div class="sm-charts" id="live-charts"></div>
+    <div class="sm-split">
+      <section class="sm-card sm-wide" aria-labelledby="live-timeline-title">
+        <div class="sm-card-head"><h2 id="live-timeline-title">Call timeline</h2><div class="sm-legend" data-legend="phases"></div></div>
+        <div id="live-timeline"></div>
+      </section>
+      <section class="sm-card" aria-labelledby="models-title">
+        <div class="sm-card-head"><h2 id="models-title">Loaded in Ollama</h2></div>
+        <div id="models"></div>
+      </section>
+    </div>
+    <section class="sm-card" aria-labelledby="live-calls-title">
+      <div class="sm-card-head"><h2 id="live-calls-title">Recent calls</h2><span class="sm-note" id="live-calls-note"></span></div>
+      <div class="lv-table-scroll" id="live-calls"></div>
+    </section>
+  </section>
+
+  <section id="history" class="sm-section" aria-label="History" hidden>
+    <div class="sm-bar">
+      <p class="sm-note" id="history-note">Stored in the lunamonitor database.</p>
+      <div class="sm-seg" role="group" aria-label="Range">
+        <button type="button" data-range="3600">1 hour</button>
+        <button type="button" data-range="21600">6 hours</button>
+        <button type="button" data-range="86400">24 hours</button>
+        <button type="button" data-range="604800">7 days</button>
+        <button type="button" data-range="2592000">30 days</button>
+      </div>
+    </div>
+    <p class="lv-alert lv-alert-error" id="history-error" hidden></p>
+    <div class="sm-verdict" id="history-verdict"></div>
+    <div class="sm-charts" id="history-charts"></div>
+    <section class="sm-card" aria-labelledby="history-timeline-title" id="history-timeline-card">
+      <div class="sm-card-head"><h2 id="history-timeline-title">Call timeline</h2><div class="sm-legend" data-legend="phases"></div></div>
+      <div id="history-timeline"></div>
+    </section>
+    <section class="sm-card" aria-labelledby="groups-title">
+      <div class="sm-card-head"><h2 id="groups-title">By app and model</h2></div>
+      <div class="lv-table-scroll" id="groups"></div>
+    </section>
+    <section class="sm-card" aria-labelledby="events-title">
+      <div class="sm-card-head"><h2 id="events-title">Model loads and unloads</h2></div>
+      <div class="lv-table-scroll" id="events"></div>
+    </section>
+  </section>
+
+  <section id="guide" class="sm-section sm-guide" aria-label="Guide" hidden>
+    <section class="sm-card">
+      <h2>How the monitor sees your calls</h2>
+      <p>The Luna apps still call <code>luna-sentia-ollama:11434</code>. That address now belongs to the monitor, which passes every request to Ollama unchanged and times it on the way back. It never stores prompts, images, or replies: only their sizes, token counts, and timings.</p>
+      <p>Ollama reports its own timings at the end of each reply. The monitor adds the wall time it measured itself, and splits every call into four parts:</p>
+      <dl class="sm-terms">
+        <dt><i class="sm-swatch sm-wait"></i>Waiting</dt>
+        <dd>Wall time Ollama did not spend on this request: queued behind another request for the same model (Ollama runs Qwen3-VL one request at a time), plus decoding the request and preparing images. <b>This is the part vLLM's batching removes.</b></dd>
+        <dt><i class="sm-swatch sm-load"></i>Loading</dt>
+        <dd>Getting the model ready. Near zero when it is already in VRAM; seconds when Ollama had to load it, after it was unloaded for being idle or to make room.</dd>
+        <dt><i class="sm-swatch sm-read"></i>Reading input</dt>
+        <dd>Processing the prompt, including encoding images for a vision model. Measured in tokens per second; fast, because every input token is processed in parallel.</dd>
+        <dt><i class="sm-swatch sm-write"></i>Writing output</dt>
+        <dd>Generating the reply one token at a time. Usually the slowest part per token, limited by how fast the GPU can read the model's weights from VRAM for each token.</dd>
+      </dl>
+    </section>
+    <section class="sm-card">
+      <h2>The hardware charts</h2>
+      <dl class="sm-terms">
+        <dt>GPU utilisation</dt>
+        <dd>The share of time the GPU was running any work. It reads high while one request writes its reply, even though one request uses only a fraction of the GPU's compute. So a high number does not mean the GPU is full; it means it is never idle.</dd>
+        <dt>Memory bandwidth (in the GPU card's details)</dt>
+        <dd>The share of time VRAM was being read or written. Writing output is limited by this, which is why batching helps: several requests share each read of the weights.</dd>
+        <dt>VRAM</dt>
+        <dd>The solid line is everything on the card: Ollama's models, Visia's SigLIP, Lexia's Docling, Vibia's CLAP, and Windows itself. Under WSL the driver cannot split that by process, so the dashed line shows the share Ollama reports for its loaded models.</dd>
+        <dt>Requests</dt>
+        <dd>The solid line counts requests in flight; the dashed line counts those waiting, estimated from Ollama's one-at-a-time limit per model (OLLAMA_NUM_PARALLEL). Waiting above zero means apps are queueing behind each other.</dd>
+        <dt>Power, temperature, and clocks</dt>
+        <dd>Power rises with how hard the GPU works. A hot GPU (above about 83 °C) lowers its clocks, which slows every request; the SM clock is the core speed.</dd>
+      </dl>
+    </section>
+    <section class="sm-card">
+      <h2>Reading the pattern to decide on vLLM</h2>
+      <p>vLLM is faster than Ollama mainly when several requests run at once, because it batches them. It also keeps a fixed share of VRAM reserved while it runs. So the decision rests on two questions the monitor answers:</p>
+      <ol>
+        <li><b>Do requests overlap?</b> Look at the timeline: bars stacked in time across apps, long grey waiting segments, and a dashed waiting line above zero. If imports in Lexia, Fiora, Visia, and Vibia often run at the same time, batching has work to do. If bars sit end to end with gaps between them, it does not.</li>
+        <li><b>Is there room?</b> The least free VRAM during real use must leave space for vLLM's reservation on top of SigLIP, Docling, and CLAP. Under about 2 GB free, vLLM would starve the other models.</li>
+      </ol>
+      <p>The verdict card weighs both with simple rules of thumb and shows its numbers. Leave the monitor running through a few real Drive and Gmail imports, ideally two apps at once, then compare the 24-hour and 7-day views.</p>
+      <p>Per-request speed matters too: <b>output tokens per second</b> on a single request is the baseline vLLM would have to beat when nothing overlaps.</p>
+    </section>
+  </section>
+</main>
+<div class="sm-tip" id="tip" role="tooltip" hidden></div>
+</body>
+</html>

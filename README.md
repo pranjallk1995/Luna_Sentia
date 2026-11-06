@@ -5,7 +5,7 @@
 ![Ollama included](https://img.shields.io/badge/Ollama-included-111111?logo=ollama&logoColor=white)
 ![PostgreSQL included](https://img.shields.io/badge/PostgreSQL-included-4169E1?logo=postgresql&logoColor=white)
 ![NVIDIA GPU optional](https://img.shields.io/badge/NVIDIA_GPU-optional-76B900?logo=nvidia&logoColor=white)
-![Status: v1.1](https://img.shields.io/badge/Status-v1.1-2EA043)
+![Status: v1.2](https://img.shields.io/badge/Status-v1.2-2EA043)
 
 <p align="center">
   <a href="assets/luna-sentia-showcase.mp4"><img src="assets/luna-sentia-showcase.webp" alt="Signing in, adding a person, and hiding an app from everyone but the owner" width="900"></a>
@@ -64,7 +64,8 @@ beats of the track Vibia plays, which Lumia's lights follow.
 | Database | PostgreSQL 17 + pgvector (`luna-sentia-db`) | One server; each app has its own role and database, with the `vector` extension; never published on a host port |
 | Database setup | `postgres-init` (one-shot) | Creates each app's role and database and syncs role passwords, then exits |
 | Accounts and sign-on | Starlette (`luna-sentia-auth`) | One Google sign-in for every app, the list of people, and sign-in for MCP connectors; host port 19090 |
-| Model server | Ollama | Serves local models to every Luna app; never published on a host port |
+| Model server | Ollama (`luna-sentia-ollama-engine`) | Serves local models to every Luna app; never published on a host port |
+| Model monitor | Starlette (`luna-sentia-ollama`, `luna-sentia-monitor`) | Passes every app's Ollama call through, timing it, samples the GPU, and stores both; the owner's page is on host port 19091 |
 | Model pull | Ollama CLI (one-shot) | Pulls every model in `SENTIA_MODELS` at startup, then exits |
 | Database UI | Adminer | Browses every app's database, on localhost port 19080 |
 | Storage | `luna_sentia_postgres_data`, `luna_sentia_ollama_data` volumes | Every app's data and the downloaded models, kept across restarts |
@@ -74,7 +75,7 @@ beats of the track Vibia plays, which Lumia's lights follow.
 Luna Visia / Vita / Lumia / Fiora / Lexia / Vibia
         -> luna_sentia_network
         -> luna-sentia-db:5432 (PostgreSQL: lunavisia, lunavita, lunalumia, lunafiora, lunalexia, lunavibia)
-        -> luna-sentia-ollama:11434 (Ollama)
+        -> luna-sentia-ollama:11434 (model monitor) -> luna-sentia-ollama-engine:11434 (Ollama)
         -> luna-sentia-auth:8000 (who is signed in)
 ```
 
@@ -86,7 +87,7 @@ collide.
 
 `luna.sh` starts Sentia first and waits until PostgreSQL and Ollama are healthy
 and Adminer is up, runs `postgres-init` so every app's database exists, starts
-the sign-on service and waits for it, then starts each app in turn, waiting until its services are running or
+the sign-on service and the model monitor and waits for them, then starts each app in turn, waiting until its services are running or
 healthy. It
 works from this repository (`./luna.sh`) or copied into the folder that holds
 `Luna_Sentia` and the app folders (`../luna.sh` from here, as below):
@@ -149,12 +150,14 @@ docker compose up -d --build --wait auth
 Start an app only once Sentia reports healthy:
 
 ```sh
-docker compose ps        # postgres, ollama, auth: "Up ... (healthy)"; adminer: "Up"
+docker compose ps        # postgres, ollama, auth, monitor: "Up ... (healthy)"; adminer: "Up"
 ```
 
 - `postgres (healthy)`: the server accepts connections (`pg_isready`).
 - `ollama (healthy)`: the model server answers (`ollama list`).
 - `auth (healthy)`: the sign-on service answers <http://127.0.0.1:19090/health>.
+- `monitor (healthy)`: the model monitor answers <http://127.0.0.1:19091/health>. The
+  apps reach Ollama through it, so while it is down their model calls fail.
 - `postgres-init` printed `Ready: luna<app>` for every app with a password set.
 
 If `postgres` is not healthy, check `docker compose logs postgres`; an app
@@ -388,6 +391,36 @@ valid token answers 401, and a token is only valid on the server it was issued f
 | `/pin` | Each person sets or changes their hidden-items PIN |
 | `/pin/status`, `/pin/verify` | For Visia, Lexia, and Vibia: whether a PIN is set, and whether a typed one is right |
 
+## Model monitor
+
+Every app still calls `http://luna-sentia-ollama:11434`. That name belongs to the
+monitor, which passes each request to Ollama at `luna-sentia-ollama-engine`
+unchanged and times it on the way back. It never stores prompts, images, or
+replies, only their sizes, token counts, and timings. Its page shows, live and over
+stored history:
+
+- **Each model call**, split into waiting (queued behind other requests, as Ollama runs
+  Qwen3-VL one at a time), loading, reading the input, and writing the output, with
+  token counts and speeds, on a timeline with one row per app.
+- **The GPU**: utilisation, memory bandwidth, VRAM (all of it, and the share Ollama's
+  models hold), power, temperature, and clocks, every second. Under WSL the driver
+  cannot split VRAM by process, so the total includes Visia's SigLIP, Lexia's Docling,
+  Vibia's CLAP, and Windows.
+- **Requests in flight and waiting**, and the models Ollama has loaded.
+- **Signals for a batching server such as vLLM**: how often requests overlap, how much
+  of their time is spent waiting, and how much VRAM stays free. The page's Guide
+  explains each number.
+
+The data goes into its own `lunamonitor` database: `gpu_samples` (five-second
+averages and peaks, kept `MONITOR_SAMPLE_DAYS`, 30 by default), `model_calls` (kept
+`MONITOR_CALL_DAYS`, 365), and `model_events` (model loads and unloads).
+
+The page is for the owner only and signs in through Sentia, so like the apps it must
+be reached at an address under `SENTIA_AUTH_COOKIE_DOMAIN`. Route
+`SENTIA_MONITOR_PUBLIC_URL` (such as `https://monitor.example.com`) to
+`http://localhost:19091` in your tunnel. An app can name itself in an `X-Luna-App`
+header; otherwise the monitor names it from its container.
+
 ## Database UI
 
 Adminer is available at <http://127.0.0.1:19080> and is bound to localhost. It
@@ -404,6 +437,7 @@ published to the host. Sign in with System `PostgreSQL`, Server
 | Luna Lexia | `lunalexia` | `POSTGRES_PASSWORD` (`lunalexia-dev`) |
 | Luna Vibia | `lunavibia` | `POSTGRES_PASSWORD` (`lunavibia-dev`) |
 
+The model monitor's database is `lunamonitor`, with `LUNAMONITOR_DB_PASSWORD`.
 Username `sentia` with `SENTIA_POSTGRES_PASSWORD` sees every database.
 
 ## Operations
@@ -412,8 +446,9 @@ Username `sentia` with `SENTIA_POSTGRES_PASSWORD` sees every database.
   order). `docker compose down` stops PostgreSQL and Ollama but keeps their
   volumes; the network is removed only when no Luna app is still attached.
 - **Privacy:** PostgreSQL and Ollama have no host port; only containers on
-  `luna_sentia_network` can reach them. Adminer and the sign-on service listen
-  only on localhost; publish the sign-on service through your tunnel.
+  `luna_sentia_network` can reach them. Adminer, the sign-on service, and the model
+  monitor's page listen only on localhost; publish the sign-on service and the
+  monitor through your tunnel.
 - **Adding an app:** add it to the loop in `postgres/init-databases.sh` and its
   `LUNA<APP>_DB_PASSWORD` to `.env`, `.env.example`, and the `postgres-init`
   service, run `postgres-init`, then join the external network in the app's

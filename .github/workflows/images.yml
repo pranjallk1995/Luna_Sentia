@@ -9,6 +9,7 @@ on:
     paths:
       - "postgres/**"
       - "auth/**"
+      - "monitor/**"
       - ".github/workflows/images.yml"
   workflow_dispatch:
 
@@ -22,7 +23,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [postgres, auth]
+        service: [postgres, auth, monitor]
     env:
       IMAGE: ghcr.io/${{ github.repository_owner }}/luna-sentia-${{ matrix.service }}
     steps:

@@ -70,14 +70,16 @@ images() {
 }
 
 start_sentia() {
-    log "Starting Luna Sentia (PostgreSQL, Ollama, sign-on, Adminer, luna_sentia_network)"
+    log "Starting Luna Sentia (PostgreSQL, Ollama, model monitor, sign-on, Adminer, luna_sentia_network)"
     # Only Sentia's own images; Ollama and Adminer update when you pull them yourself.
-    images "$SENTIA_DIR" postgres auth
+    images "$SENTIA_DIR" postgres auth monitor
     compose "$SENTIA_DIR" up -d --wait postgres ollama adminer
     # Every app's role and database must exist before any app starts.
     compose "$SENTIA_DIR" run --rm postgres-init
     # Every app signs people in through Sentia's sign-on service.
     compose "$SENTIA_DIR" up -d --wait auth
+    # The apps reach Ollama through the monitor, so it must be up before any app.
+    compose "$SENTIA_DIR" up -d --wait monitor
     # The model pull runs in the background; apps start without waiting for it.
     compose "$SENTIA_DIR" up -d ollama-pull
 }
