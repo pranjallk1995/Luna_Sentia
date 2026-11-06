@@ -428,6 +428,8 @@ be reached at an address under `SENTIA_AUTH_COOKIE_DOMAIN`. Route
 `SENTIA_MONITOR_PUBLIC_URL` (such as `https://monitor.example.com`) to
 `http://localhost:19081` in your tunnel. An app can name itself in an `X-Luna-App`
 header; otherwise the monitor names it from its container.
+The page names its stylesheet and script by their contents, so an update shows at once,
+without a hard refresh, even through Cloudflare's cache.
 
 ## Database UI
 

@@ -283,3 +283,19 @@ class AppModelsTests(unittest.TestCase):
         self.assertIn("does not report", self.ask(old)["problem"])
         self.assertEqual(self.ask(down)["problem"], "not running")
         self.assertIn("is not set", self.ask(refuse, token="")["problem"])
+
+
+class AssetTests(unittest.TestCase):
+    def test_the_page_names_its_assets_by_content_and_they_are_rechecked(self):
+        from starlette.testclient import TestClient
+
+        from app.web import Assets, asset_version
+
+        version = asset_version()
+        self.assertRegex(version, r"^[0-9a-f]{12}$")
+        app = Assets(directory=str(__import__("app.web", fromlist=["STATIC"]).STATIC))
+        response = TestClient(app).get("/styles.css")
+        self.assertEqual(response.headers["cache-control"], "no-cache")
+        page = (__import__("app.web", fromlist=["STATIC"]).STATIC / "index.html").read_text()
+        self.assertIn("styles.css?v=__ASSETS__", page)
+        self.assertIn("app.js?v=__ASSETS__", page)

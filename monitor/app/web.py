@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 import asyncio
 import html
 import json
@@ -23,6 +25,27 @@ from app.live import LiveState
 from app.store import MonitorStore
 
 STATIC = Path(__file__).parent / "static"
+
+
+def asset_version() -> str:
+    """A short hash of the page's own files, so a new release gets new asset URLs.
+
+    Browsers and Cloudflare's cache keep .css and .js files; a changed URL makes
+    them fetch the new ones at once instead of showing the old layout.
+    """
+    digest = hashlib.sha256()
+    for name in ("app.js", "styles.css"):
+        digest.update((STATIC / name).read_bytes())
+    return digest.hexdigest()[:12]
+
+
+class Assets(StaticFiles):
+    """Static files that browsers check again before reusing."""
+
+    async def get_response(self, path: str, scope) -> Response:
+        response = await super().get_response(path, scope)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 LIVE_TICK_SECONDS = 1.0
 # The longest history range the page offers.
 MAX_HISTORY_SECONDS = 31 * 86400
@@ -91,8 +114,10 @@ def create_app(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
             return JSONResponse({"error": "owner only"}, 403)
         return None
 
+    page = (STATIC / "index.html").read_text().replace("__ASSETS__", asset_version())
+
     async def index(request: Request) -> Response:
-        return await gate(request) or FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-store"})
+        return await gate(request) or HTMLResponse(page, headers={"Cache-Control": "no-store"})
 
     async def live_stream(request: Request) -> Response:
         if refused := await gate(request):
@@ -145,5 +170,5 @@ def create_app(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
         Route("/api/history", history),
         Route("/logout", logout),
         Route("/health", health),
-        Mount("/static", StaticFiles(directory=STATIC), name="static"),
+        Mount("/static", Assets(directory=STATIC), name="static"),
     ])
