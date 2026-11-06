@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 940" width="1300" height="940" role="img" aria-label="Clients reach six Luna apps through a Cloudflare tunnel. Luna Unia, one home page, checks which Luna apps are running and opens each one with the shared sign-in. Every app runs a Streamlit UI and a FastMCP service on the shared luna_sentia_network, and relies on Luna Sentia for sign-on, PostgreSQL and Ollama. Luna Visia embeds images with SigLIP 2 on the GPU, inside its own service. Luna Vibia tells Luna Lumia the mood and beats of the playing track, so the lights follow the music. Every app asks Ollama for the same 16k context, so they share one loaded copy of Qwen3-VL.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 1060" width="1300" height="1060" role="img" aria-label="Clients reach six Luna apps through a Cloudflare tunnel. Luna Unia, one home page, checks which Luna apps are running and opens each one with the shared sign-in. Every app runs a Streamlit UI and a FastMCP service on the shared luna_sentia_network, and relies on Luna Sentia for sign-on, PostgreSQL and Ollama. Every app's model call goes through Sentia's model monitor, which times it, samples the GPU, stores both in PostgreSQL, and passes the call on to Ollama unchanged. Luna Visia embeds images with SigLIP 2 on the GPU, inside its own service. Luna Vibia tells Luna Lumia the mood and beats of the playing track, so the lights follow the music. Every app asks Ollama for the same 16k context, so they share one loaded copy of Qwen3-VL.">
   <style>
 svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 .b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px}
@@ -26,7 +26,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 .ct{fill:#5fb8c1;font-size:12px;font-weight:600;letter-spacing:.08em}
 }
 </style>
-<rect class="bg" x="0" y="0" width="1300" height="940" rx="10"/>
+<rect class="bg" x="0" y="0" width="1300" height="1060" rx="10"/>
   <defs>
     <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hc"/></marker>
     <marker id="ahl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hl"/></marker>
@@ -53,7 +53,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="lbl" x="950" y="168">HTTPS → /mcp and REST APIs</text>
 
   <!-- Network -->
-  <rect class="net" x="30" y="180" width="1240" height="655" rx="12"/>
+  <rect class="net" x="30" y="180" width="1240" height="775" rx="12"/>
   <text class="m mc" x="1256" y="198" text-anchor="end">luna_sentia_network (Docker bridge)</text>
 
   <!-- Luna Unia -->
@@ -136,21 +136,21 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
     <text class="s" x="1157" y="444" text-anchor="middle">CLAP on GPU: listen + embed</text><text class="s" x="1157" y="460" text-anchor="middle">LangGraph: captions, tags</text>
   </g>
 
-  <!-- Cross-app links -->
-  <polyline class="xlink" points="162,470 162,492 345,492 345,474" marker-end="url(#ahl)"/>
-  <text class="lk" x="263" y="487" text-anchor="middle">food image URLs for Vita</text>
-  <polyline class="xlink" points="122,470 122,512 548,512 548,474" marker-end="url(#ahl)"/>
-  <text class="lk" x="345" y="528" text-anchor="middle">room image URLs for Lumia</text>
-  <polyline class="plan" points="954,470 954,492 771,492 771,474" marker-end="url(#ahp)"/>
-  <text class="pl" x="862" y="487" text-anchor="middle">planned: tax details for Fiora</text>
-  <polyline class="plan" points="82,470 82,502 731,502 731,474" marker-end="url(#ahp)"/>
-  <text class="pl" x="741" y="528">planned: image and icon URLs for Fiora</text>
-  <polyline class="xlink" points="62,470 62,536 1157,536 1157,474" marker-end="url(#ahl)"/>
-  <text class="lk" x="1147" y="528" text-anchor="end">cover art URLs for Vibia</text>
-  <polyline class="mlink" points="1177,470 1177,550 588,550 588,474" marker-end="url(#ahm)"/>
-  <text class="lm" x="882" y="566" text-anchor="middle">playing track's mood and beats for Lumia's lights</text>
+  <!-- Cross-app links: one lane each, label beside its own line -->
+  <polyline class="xlink" points="162,470 162,490 345,490 345,474" marker-end="url(#ahl)"/>
+  <text class="lk" x="253" y="485" text-anchor="middle">food image URLs for Vita</text>
+  <polyline class="plan" points="954,470 954,490 771,490 771,474" marker-end="url(#ahp)"/>
+  <text class="pl" x="862" y="485" text-anchor="middle">planned: tax details for Fiora</text>
+  <polyline class="xlink" points="122,470 122,514 548,514 548,474" marker-end="url(#ahl)"/>
+  <text class="lk" x="345" y="509" text-anchor="middle">room image URLs for Lumia</text>
+  <polyline class="plan" points="82,470 82,538 731,538 731,474" marker-end="url(#ahp)"/>
+  <text class="pl" x="345" y="533" text-anchor="middle">planned: image and icon URLs for Fiora</text>
+  <polyline class="xlink" points="62,470 62,562 1157,562 1157,474" marker-end="url(#ahl)"/>
+  <text class="lk" x="1147" y="557" text-anchor="end">cover art URLs for Vibia</text>
+  <polyline class="mlink" points="1177,470 1177,584 588,584 588,474" marker-end="url(#ahm)"/>
+  <text class="lm" x="882" y="600" text-anchor="middle">playing track's mood and beats for Lumia's lights</text>
 
-  <g transform="translate(0,30)">
+  <g transform="translate(0,62)">
   <!-- Bus to Sentia -->
   <line x1="50" y1="566" x2="1250" y2="566" class="rule" stroke-opacity=".45"/>
   <g class="rule" stroke-opacity=".45">
@@ -165,7 +165,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="lbl" x="1072" y="602" text-anchor="end">vision, text, embeddings at 16k</text>
 
   <!-- Sentia -->
-  <rect class="zone" x="42" y="612" width="1216" height="182" rx="10"/>
+  <rect class="zone" x="42" y="612" width="1216" height="268" rx="10"/>
   <text class="ct" x="168" y="630">LUNA SENTIA · STARTS FIRST</text>
 
   <rect class="core" x="60" y="640" width="200" height="90" rx="8"/>
@@ -180,8 +180,8 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <rect class="core" x="340" y="640" width="320" height="90" rx="8"/>
   <text class="t b" x="500" y="662" text-anchor="middle">PostgreSQL 17 + pgvector</text>
   <text class="m" x="500" y="678" text-anchor="middle">luna-sentia-db · no host port</text>
-  <text class="m" x="500" y="698" text-anchor="middle">lunavisia · lunavita · lunalumia</text>
-  <text class="m" x="500" y="714" text-anchor="middle">lunafiora · lunalexia · lunavibia · lunaauth</text>
+  <text class="m" x="500" y="698" text-anchor="middle">lunavisia · lunavita · lunalumia · lunafiora</text>
+  <text class="m" x="500" y="714" text-anchor="middle">lunalexia · lunavibia · lunaauth · lunamonitor</text>
 
   <line class="arrow" x1="710" y1="685" x2="662" y2="685" marker-end="url(#ah)"/>
   <text class="s" x="686" y="678" text-anchor="middle">reads</text>
@@ -190,35 +190,49 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="m" x="770" y="688" text-anchor="middle">:19080</text>
   <text class="s" x="770" y="708" text-anchor="middle">browse any DB</text>
 
+  <!-- Model monitor: owns the luna-sentia-ollama name the apps call -->
   <rect class="core" x="920" y="640" width="320" height="90" rx="8"/>
-  <text class="t b" x="1080" y="658" text-anchor="middle">Ollama</text>
-  <text class="m" x="1080" y="674" text-anchor="middle">luna-sentia-ollama:11434 · no host port</text>
-  <text class="m" x="1080" y="690" text-anchor="middle">qwen3-vl:8b-instruct · qwen3-embedding:0.6b</text>
-  <text class="s" x="1080" y="707" text-anchor="middle">one shared 16k context · one request at a time</text>
-  <text class="s" x="1080" y="723" text-anchor="middle">flash attention · 8-bit KV cache</text>
+  <text class="t b" x="1080" y="658" text-anchor="middle">Model monitor</text>
+  <text class="m" x="1080" y="674" text-anchor="middle">luna-sentia-ollama:11434 · page :19081</text>
+  <text class="s" x="1080" y="691" text-anchor="middle">times every app's call · samples the GPU</text>
+  <text class="s" x="1080" y="707" text-anchor="middle">keeps sizes, tokens and timings,</text>
+  <text class="s" x="1080" y="723" text-anchor="middle">never prompts, images or replies</text>
 
-  <rect class="ext" x="340" y="746" width="320" height="32" rx="6"/>
-  <text class="s" x="500" y="766" text-anchor="middle">postgres-init (one-shot): creates roles + DBs</text>
-  <line x1="500" y1="730" x2="500" y2="746" class="rule" stroke-opacity=".45"/>
-  <rect class="ext" x="920" y="746" width="200" height="32" rx="6"/>
-  <text class="s" x="1020" y="766" text-anchor="middle">ollama-pull (one-shot)</text>
-  <line x1="1020" y1="730" x2="1020" y2="746" class="rule" stroke-opacity=".45"/>
+  <polyline class="arrow" points="940,730 940,744 620,744 620,732" marker-end="url(#ah)"/>
+  <text class="s" x="780" y="760" text-anchor="middle">calls + GPU samples → lunamonitor</text>
+
+  <line class="arrow" x1="1080" y1="730" x2="1080" y2="772" marker-end="url(#ah)"/>
+  <text class="lbl" x="1088" y="755">every call, unchanged</text>
+
+  <rect class="core" x="920" y="774" width="320" height="90" rx="8"/>
+  <text class="t b" x="1080" y="792" text-anchor="middle">Ollama</text>
+  <text class="m" x="1080" y="808" text-anchor="middle">luna-sentia-ollama-engine:11434 · no host port</text>
+  <text class="m" x="1080" y="824" text-anchor="middle">qwen3-vl:8b-instruct · qwen3-embedding:0.6b</text>
+  <text class="s" x="1080" y="841" text-anchor="middle">one shared 16k context · one request at a time</text>
+  <text class="s" x="1080" y="857" text-anchor="middle">flash attention · 8-bit KV cache</text>
+
+  <rect class="ext" x="340" y="776" width="320" height="32" rx="6"/>
+  <text class="s" x="500" y="796" text-anchor="middle">postgres-init (one-shot): creates roles + DBs</text>
+  <line x1="500" y1="730" x2="500" y2="776" class="rule" stroke-opacity=".45"/>
+  <rect class="ext" x="700" y="803" width="180" height="32" rx="6"/>
+  <text class="s" x="790" y="823" text-anchor="middle">ollama-pull (one-shot)</text>
+  <line x1="880" y1="819" x2="920" y2="819" class="rule" stroke-opacity=".45"/>
 
   <!-- External -->
-  <line class="arrow" x1="160" y1="730" x2="160" y2="842" marker-end="url(#ah)"/>
-  <text class="lbl" x="168" y="825">OpenID Connect</text>
-  <rect class="ext" x="60" y="844" width="200" height="46" rx="6"/>
-  <text class="t" x="160" y="865" text-anchor="middle">Google sign-in</text>
-  <text class="s" x="160" y="881" text-anchor="middle">allowlisted emails only</text>
+  <line class="arrow" x1="160" y1="730" x2="160" y2="928" marker-end="url(#ah)"/>
+  <text class="lbl" x="168" y="911">OpenID Connect</text>
+  <rect class="ext" x="60" y="930" width="200" height="46" rx="6"/>
+  <text class="t" x="160" y="951" text-anchor="middle">Google sign-in</text>
+  <text class="s" x="160" y="967" text-anchor="middle">allowlisted emails only</text>
 
-  <line class="arrow" x1="1180" y1="730" x2="1180" y2="842" marker-end="url(#ah)"/>
-  <text class="lbl" x="1172" y="825" text-anchor="end">gpus: all</text>
-  <rect class="ext" x="1040" y="844" width="200" height="46" rx="6"/>
-  <text class="t" x="1140" y="865" text-anchor="middle">NVIDIA GPU (WSL2 host)</text>
-  <text class="s" x="1140" y="881" text-anchor="middle">qwen3-vl: 6.6 GB at 16k context</text>
+  <line class="arrow" x1="1180" y1="864" x2="1180" y2="928" marker-end="url(#ah)"/>
+  <text class="lbl" x="1172" y="911" text-anchor="end">gpus: all (Ollama runs models, monitor reads counters)</text>
+  <rect class="ext" x="1000" y="930" width="240" height="46" rx="6"/>
+  <text class="t" x="1120" y="951" text-anchor="middle">NVIDIA GPU (WSL2 host)</text>
+  <text class="s" x="1120" y="967" text-anchor="middle">qwen3-vl: 6.6 GB at 16k context</text>
 
-  <rect class="ext" x="420" y="844" width="460" height="46" rx="6"/>
-  <text class="t" x="650" y="865" text-anchor="middle">Docker volumes survive <tspan class="m">luna.sh stop</tspan></text>
-  <text class="m" x="650" y="881" text-anchor="middle">postgres_data · ollama_data · image, document + track files</text>
+  <rect class="ext" x="420" y="930" width="460" height="46" rx="6"/>
+  <text class="t" x="650" y="951" text-anchor="middle">Docker volumes survive <tspan class="m">luna.sh stop</tspan></text>
+  <text class="m" x="650" y="967" text-anchor="middle">postgres_data · ollama_data · image, document + track files</text>
   </g>
 </svg>
