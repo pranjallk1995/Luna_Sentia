@@ -8,10 +8,10 @@
 ![Status: v1.2](https://img.shields.io/badge/Status-v1.2-2EA043)
 
 <p align="center">
-  <a href="assets/luna-sentia-showcase.mp4"><img src="assets/luna-sentia-showcase.webp" alt="Signing in, adding a person, and hiding an app from everyone but the owner" width="900"></a>
+  <a href="assets/luna-sentia-showcase.mp4"><img src="assets/luna-sentia-showcase.webp" alt="Signing in, adding a person, hiding an app from everyone but the owner, then the model monitor timing a live Lexia question on the GPU and its history by app" width="900"></a>
 </p>
 
-<p align="center"><em>Signing in, adding a person, and hiding an app from everyone but the owner. Select it for the sharper video.</em></p>
+<p align="center"><em>Signing in, adding a person, hiding an app from everyone but the owner, then the model monitor timing a live Lexia question on the GPU and its history by app. Select it for the sharper video.</em></p>
 
 ## The shared models, database, sign-in, and network for the Luna apps
 
