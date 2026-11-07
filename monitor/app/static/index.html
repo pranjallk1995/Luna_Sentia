@@ -50,22 +50,20 @@
     </div>
     <div class="sm-verdict" id="live-verdict"></div>
     <div class="sm-charts" id="live-charts"></div>
+    <section class="sm-card" aria-labelledby="live-timeline-title">
+      <div class="sm-card-head"><h2 id="live-timeline-title">Call timeline</h2><div class="sm-legend" data-legend="phases"></div></div>
+      <div id="live-timeline"></div>
+    </section>
     <div class="sm-split">
-      <section class="sm-card sm-wide" aria-labelledby="live-timeline-title">
-        <div class="sm-card-head"><h2 id="live-timeline-title">Call timeline</h2><div class="sm-legend" data-legend="phases"></div></div>
-        <div id="live-timeline"></div>
+      <section class="sm-card" aria-labelledby="models-title">
+        <div class="sm-card-head"><h2 id="models-title">Loaded in Ollama</h2></div>
+        <div id="models"></div>
       </section>
-      <div class="sm-side">
-        <section class="sm-card" aria-labelledby="models-title">
-          <div class="sm-card-head"><h2 id="models-title">Loaded in Ollama</h2></div>
-          <div id="models"></div>
-        </section>
-        <section class="sm-card" aria-labelledby="app-models-title">
-          <div class="sm-card-head"><h2 id="app-models-title">Inside the apps</h2></div>
-          <p class="sm-note">Models the apps run themselves. Their calls never reach Ollama, so they are not in the timeline.</p>
-          <div id="app-models"></div>
-        </section>
-      </div>
+      <section class="sm-card" aria-labelledby="app-models-title">
+        <div class="sm-card-head"><h2 id="app-models-title">Inside the apps</h2></div>
+        <p class="sm-note">Models the apps run themselves. Their calls never reach Ollama, so they are not in the timeline.</p>
+        <div id="app-models"></div>
+      </section>
     </div>
     <section class="sm-card" aria-labelledby="live-calls-title">
       <div class="sm-card-head"><h2 id="live-calls-title">Recent calls</h2><span class="sm-note" id="live-calls-note"></span></div>

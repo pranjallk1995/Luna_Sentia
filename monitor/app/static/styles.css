@@ -99,9 +99,12 @@ code { font-size: 0.95em; color: var(--lv-text); }
 .sm-card { min-width: 0; padding: 0.9rem 1rem; border: 1px solid var(--lv-border); border-radius: 12px; background: var(--lv-surface); }
 .sm-card h2 { margin: 0; font-size: 0.92rem; font-weight: 650; }
 .sm-card-head { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: baseline; justify-content: space-between; margin-bottom: 0.6rem; }
-.sm-split { display: grid; grid-template-columns: minmax(0, 1fr) 19.5rem; gap: 1rem; align-items: start; }
-.sm-side { display: grid; gap: 1rem; min-width: 0; }
-.sm-side .sm-note { margin: 0 0 0.6rem; }
+/* Below the timeline: what Ollama holds beside what the apps run themselves, the same height. */
+.sm-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 1rem; align-items: stretch; }
+.sm-split .sm-note { margin: 0 0 0.8rem; }
+/* The apps side by side, each with a rule on its left, wrapping when there is no room. */
+#app-models .sm-models { grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; }
+#app-models .sm-model { align-content: start; padding: 0 0 0 0.9rem; border-top: 0; border-left: 1px solid var(--lv-border); }
 .sm-empty { margin: 0; color: var(--lv-muted); font-size: var(--luna-text-small); }
 
 /* Verdict */
