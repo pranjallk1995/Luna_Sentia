@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import ClassVar
 from urllib.parse import urlparse
 
@@ -12,6 +13,8 @@ LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1"})
 
 @dataclass(frozen=True)
 class AuthConfig:
+    # The release this image holds, shown in the footer; keep auth/VERSION and monitor/VERSION equal.
+    VERSION: ClassVar[str] = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
     GOOGLE_AUTHORIZE_URL: ClassVar[str] = "https://accounts.google.com/o/oauth2/v2/auth"
     GOOGLE_TOKEN_URL: ClassVar[str] = "https://oauth2.googleapis.com/token"
     GOOGLE_USERINFO_URL: ClassVar[str] = "https://openidconnect.googleapis.com/v1/userinfo"

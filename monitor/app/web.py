@@ -114,7 +114,7 @@ def create_app(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
             return JSONResponse({"error": "owner only"}, 403)
         return None
 
-    page = (STATIC / "index.html").read_text().replace("__ASSETS__", asset_version())
+    page = (STATIC / "index.html").read_text().replace("__ASSETS__", asset_version()).replace("__VERSION__", MonitorConfig.VERSION)
 
     async def index(request: Request) -> Response:
         return await gate(request) or HTMLResponse(page, headers={"Cache-Control": "no-store"})

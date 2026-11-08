@@ -11,6 +11,7 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system -r requirements.txt
 
+COPY VERSION .
 COPY app ./app
 
 # 11434: the Ollama address the apps call; 8000: the monitor's page.

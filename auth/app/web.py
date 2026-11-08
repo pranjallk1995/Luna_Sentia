@@ -131,7 +131,7 @@ def create_app(
         )
 
     async def health(request: Request) -> Response:
-        return JSONResponse({"status": "ok"})
+        return JSONResponse({"status": "ok", "version": AuthConfig.VERSION})
 
     return Starlette(
         routes=[

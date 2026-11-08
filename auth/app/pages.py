@@ -8,6 +8,8 @@ from urllib.parse import parse_qsl
 from starlette.requests import Request
 from starlette.responses import HTMLResponse
 
+from app.config import AuthConfig
+
 
 def page(title: str, message: str, status: int = 200) -> HTMLResponse:
     return HTMLResponse(
@@ -16,7 +18,8 @@ def page(title: str, message: str, status: int = 200) -> HTMLResponse:
         "<body style='font-family:system-ui,sans-serif;background:#111;color:#f5f5f5;"
         "display:grid;place-items:center;min-height:90vh;margin:0 16px'>"
         # Cloudflare would otherwise hide email addresses behind a script on these pages.
-        f"<main style='max-width:40rem'><h1>{html.escape(title)}</h1><!--email_off--><div>{message}</div><!--/email_off--></main>",
+        f"<main style='max-width:40rem'><h1>{html.escape(title)}</h1><!--email_off--><div>{message}</div><!--/email_off-->"
+        f"<footer style='margin-top:2rem;color:#a3a3a3;font-size:.76rem'>Luna Sentia · v{AuthConfig.VERSION}</footer></main>",
         status_code=status,
     )
 

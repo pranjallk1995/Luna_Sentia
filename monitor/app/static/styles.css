@@ -52,6 +52,8 @@ code { font-size: 0.95em; color: var(--lv-text); }
 
 .lv-page { max-width: 1180px; margin: 0 auto; padding: 2.35rem 1rem 3rem; }
 
+.lv-footer { margin-top: 2.5rem; color: var(--lv-muted); font-size: var(--luna-text-small); text-align: center; }
+
 /* Header and navbar, unchanged from the guide */
 .lv-header-row { display: grid; grid-template-columns: 5fr 4fr; gap: 1rem; align-items: center; margin-bottom: 0.55rem; }
 .lv-header { display: flex; align-items: center; gap: 1rem; min-height: 4.5rem; margin-bottom: 1rem; }

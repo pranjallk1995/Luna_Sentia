@@ -83,7 +83,7 @@ button:hover,.button:hover{background:rgba(255,255,255,.12)}
 p{margin:0 0 14px;color:#d4d4d4;font-size:.82rem}
 .quiet{margin:14px 0 0;color:#a3a3a3;font-size:.76rem;text-align:center}
 a{color:#f5f5f5}
-footer{margin-top:20px;text-align:center;font-size:.76rem}
+footer{margin-top:20px;text-align:center;font-size:.76rem;color:#a3a3a3}
 footer a{color:#a3a3a3}
 """
 
@@ -114,7 +114,7 @@ def pin_card(title: str, lead: str, body: str, allows_next, target: str | None, 
         f"<title>{html.escape(title)}</title><style>{PIN_STYLE}</style>"
         # Cloudflare would otherwise hide email addresses behind a script on these pages.
         f"<body><main><!--email_off--><div class='mark'>{LOCK_MARK}</div><h1>{html.escape(title)}</h1>"
-        f"<p class='lead'>{html.escape(lead)}</p>{body}{back}<!--/email_off--></main></body></html>",
+        f"<p class='lead'>{html.escape(lead)}</p>{body}{back}<footer>Luna Sentia · v{AuthConfig.VERSION}</footer><!--/email_off--></main></body></html>",
         status_code=status,
     )
 

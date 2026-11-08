@@ -11,6 +11,7 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system -r requirements.txt
 
+COPY VERSION .
 COPY app ./app
 
 EXPOSE 8000
