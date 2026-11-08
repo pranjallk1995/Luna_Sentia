@@ -1,0 +1,116 @@
+# Test each service's image and publish it to GitHub Container Registry, so luna.sh
+# can pull ready-made images instead of building them. Every Luna repository calls
+# this from its own images.yml. A push rebuilds only the services whose folder
+# changed, and a release tag publishes every service under its version; layers are
+# cached in the registry. Nothing is published unless the service's tests pass.
+name: Service images
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: The app's short name, as in luna-<app>-<service>
+        required: true
+        type: string
+      services:
+        description: JSON list of the folders that hold a Dockerfile
+        required: true
+        type: string
+      release:
+        description: Release tag to publish instead of building this ref
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service: ${{ fromJSON(inputs.services) }}
+    env:
+      IMAGE: ghcr.io/${{ github.repository_owner }}/luna-${{ inputs.app }}-${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.release || github.ref }}
+          fetch-depth: 0
+      - name: Work out what to build
+        id: changed
+        env:
+          BEFORE: ${{ github.event.before }}
+          RELEASE: ${{ inputs.release || (github.ref_type == 'tag' && github.ref_name || '') }}
+        run: |
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          # The newest release at this commit, shown in the footers; blank before the first.
+          version="$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)"
+          echo "version=${version#v}" >> "$GITHUB_OUTPUT"
+          # A release always publishes every service, under its own version.
+          if [ -n "$RELEASE" ]; then
+            echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_EVENT_NAME" != push ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null \
+            || ! git diff --quiet "$BEFORE" "$GITHUB_SHA" -- "${{ matrix.service }}" .github/workflows/images.yml; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+      # The mcp images (PyTorch for CUDA and the like) need more disk than a runner
+      # has free; the preinstalled toolchains they do not use free about 30 GB.
+      - name: Free disk space
+        if: steps.changed.outputs.build == 'true' && matrix.service == 'mcp'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          docker system prune --all --force
+          df -h /
+      - uses: docker/setup-buildx-action@v4
+        if: steps.changed.outputs.build == 'true'
+      - name: Build the image to test
+        if: steps.changed.outputs.build == 'true'
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.service }}
+          load: true
+          tags: luna-under-test
+          build-args: LUNA_VERSION=${{ steps.changed.outputs.version }}
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
+      # The tests run from the checkout, since some images do not include them, and
+      # with no network, so they cannot reach anything real.
+      - name: Run the tests
+        if: steps.changed.outputs.build == 'true' && hashFiles(format('{0}/tests/**', matrix.service)) != ''
+        run: |
+          workdir="$(docker inspect --format '{{.Config.WorkingDir}}' luna-under-test)"
+          docker run --rm --network none --entrypoint python \
+            -v "$PWD/${{ matrix.service }}/tests:$workdir/tests:ro" \
+            luna-under-test -m unittest discover -s tests
+      - uses: docker/login-action@v4
+        if: steps.changed.outputs.build == 'true'
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        if: steps.changed.outputs.build == 'true'
+        with:
+          context: ${{ matrix.service }}
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ steps.changed.outputs.release || 'latest' }}
+            ${{ env.IMAGE }}:${{ steps.changed.outputs.sha }}
+          build-args: LUNA_VERSION=${{ steps.changed.outputs.version }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.changed.outputs.sha }}
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
+
+  # Only warns, so a change to Luna Sentia's originals never blocks an app's release.
+  shared-files:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/Luna_Sentia
+          path: .luna-sentia
+      - name: Compare the files every app shares
+        run: .luna-sentia/common/sync.sh --check . || true

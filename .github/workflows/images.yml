@@ -1,6 +1,5 @@
-# Build each service's image and publish it to GitHub Container Registry, so
-# luna.sh can pull ready-made images instead of building them. A push rebuilds
-# only the services whose folder changed; layers are cached in the registry.
+# Test and publish this repository's images; the steps are shared in Luna Sentia's
+# service-images.yml. A release tag publishes every service under its version.
 name: Images
 
 on:
@@ -25,52 +24,9 @@ permissions:
   packages: write
 
 jobs:
-  image:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        service: [postgres, auth, monitor]
-    env:
-      IMAGE: ghcr.io/${{ github.repository_owner }}/luna-sentia-${{ matrix.service }}
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ inputs.release || github.ref }}
-          fetch-depth: 0
-      - name: Check whether the service changed
-        id: changed
-        env:
-          BEFORE: ${{ github.event.before }}
-          RELEASE: ${{ inputs.release || (github.ref_type == 'tag' && github.ref_name || '') }}
-        run: |
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          # A release always publishes every service, under its own version.
-          if [ -n "$RELEASE" ]; then
-            echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
-            echo "build=true" >> "$GITHUB_OUTPUT"
-          elif [ "$GITHUB_EVENT_NAME" != push ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null \
-            || ! git diff --quiet "$BEFORE" "$GITHUB_SHA" -- "${{ matrix.service }}" .github/workflows/images.yml; then
-            echo "build=true" >> "$GITHUB_OUTPUT"
-          fi
-      - uses: docker/setup-buildx-action@v4
-        if: steps.changed.outputs.build == 'true'
-      - uses: docker/login-action@v4
-        if: steps.changed.outputs.build == 'true'
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v7
-        if: steps.changed.outputs.build == 'true'
-        with:
-          context: ${{ matrix.service }}
-          push: true
-          tags: |
-            ${{ env.IMAGE }}:${{ steps.changed.outputs.release || 'latest' }}
-            ${{ env.IMAGE }}:${{ steps.changed.outputs.sha }}
-          labels: |
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ steps.changed.outputs.sha }}
-          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
+  images:
+    uses: ./.github/workflows/service-images.yml
+    with:
+      app: sentia
+      services: '["postgres","auth","monitor"]'
+      release: ${{ inputs.release }}

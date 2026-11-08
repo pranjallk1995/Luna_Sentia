@@ -114,7 +114,7 @@ def pin_card(title: str, lead: str, body: str, allows_next, target: str | None, 
         f"<title>{html.escape(title)}</title><style>{PIN_STYLE}</style>"
         # Cloudflare would otherwise hide email addresses behind a script on these pages.
         f"<body><main><!--email_off--><div class='mark'>{LOCK_MARK}</div><h1>{html.escape(title)}</h1>"
-        f"<p class='lead'>{html.escape(lead)}</p>{body}{back}<footer>Luna Sentia · v{AuthConfig.VERSION}</footer><!--/email_off--></main></body></html>",
+        f"<p class='lead'>{html.escape(lead)}</p>{body}{back}<footer>{AuthConfig.BRAND}</footer><!--/email_off--></main></body></html>",
         status_code=status,
     )
 

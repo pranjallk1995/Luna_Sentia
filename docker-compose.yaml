@@ -47,7 +47,7 @@ services:
   # stores both in its lunamonitor database. Its page, for the owner, is on 19081.
   monitor:
     build: ./monitor
-    image: ghcr.io/pranjallk1995/luna-sentia-monitor:latest
+    image: ghcr.io/pranjallk1995/luna-sentia-monitor:${LUNA_IMAGE_TAG:-v1.2.4}
     restart: unless-stopped
     # For the GPU's counters only; the monitor loads no model.
     gpus: all
@@ -89,7 +89,7 @@ services:
   # has its own role and database (lunavisia, lunavita, ...), created by postgres-init.
   postgres:
     build: ./postgres
-    image: ghcr.io/pranjallk1995/luna-sentia-postgres:latest
+    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v1.2.4}
     restart: unless-stopped
     environment:
       POSTGRES_USER: sentia
@@ -113,7 +113,7 @@ services:
   # LUNA<APP>_DB_PASSWORD values; safe to run on every start. The script is part of
   # the postgres image (postgres/init-databases.sh).
   postgres-init:
-    image: ghcr.io/pranjallk1995/luna-sentia-postgres:latest
+    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v1.2.4}
     entrypoint: ["/bin/sh", "/init-databases.sh"]
     environment:
       PGHOST: luna-sentia-db
@@ -140,7 +140,7 @@ services:
   # SENTIA_AUTH_COOKIE_DOMAIN, and the apps check it here over the private network.
   auth:
     build: ./auth
-    image: ghcr.io/pranjallk1995/luna-sentia-auth:latest
+    image: ghcr.io/pranjallk1995/luna-sentia-auth:${LUNA_IMAGE_TAG:-v1.2.4}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://lunaauth:${LUNAAUTH_DB_PASSWORD:?Set LUNAAUTH_DB_PASSWORD in Luna_Sentia/.env}@luna-sentia-db:5432/lunaauth

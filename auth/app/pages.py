@@ -19,7 +19,7 @@ def page(title: str, message: str, status: int = 200) -> HTMLResponse:
         "display:grid;place-items:center;min-height:90vh;margin:0 16px'>"
         # Cloudflare would otherwise hide email addresses behind a script on these pages.
         f"<main style='max-width:40rem'><h1>{html.escape(title)}</h1><!--email_off--><div>{message}</div><!--/email_off-->"
-        f"<footer style='margin-top:2rem;color:#a3a3a3;font-size:.76rem'>Luna Sentia · v{AuthConfig.VERSION}</footer></main>",
+        f"<footer style='margin-top:2rem;color:#a3a3a3;font-size:.76rem'>{AuthConfig.BRAND}</footer></main>",
         status_code=status,
     )
 

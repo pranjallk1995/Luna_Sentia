@@ -11,8 +11,10 @@ COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system -r requirements.txt
 
-COPY VERSION .
 COPY app ./app
+# The release, passed in when GitHub Actions builds the image; blank for local builds.
+ARG LUNA_VERSION=
+ENV LUNA_VERSION=$LUNA_VERSION
 
 # 11434: the Ollama address the apps call; 8000: the monitor's page.
 EXPOSE 11434 8000

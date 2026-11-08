@@ -108,8 +108,11 @@ works from this repository (`./luna.sh`) or copied into the folder that holds
 Every push to `main` that changes a service's folder builds its image in GitHub
 Actions (`.github/workflows/images.yml` in each repository) and publishes it to
 GitHub Container Registry as `ghcr.io/pranjallk1995/luna-<app>-<service>`,
-tagged `latest` and with the commit SHA. The images are public and hold no
-secrets: every setting and credential comes from each stack's `.env` at runtime.
+tagged `latest` and with the commit SHA. Pushing a release tag such as `v1.2.3`
+publishes every service under that version too. Each `docker-compose.yaml` names
+the version it runs, so a release also updates the tags there. The images are
+public and hold no secrets: every setting and credential comes from each stack's
+`.env` at runtime.
 
 A machine that only runs Luna therefore needs no source code: each stack's
 `docker-compose.yaml` and `.env`, in folders named `Luna_Sentia` and
@@ -117,12 +120,24 @@ A machine that only runs Luna therefore needs no source code: each stack's
 of the postgres image. The source is needed only for `start --build` and
 `--watch`.
 
-`start` pulls the latest images (for Sentia, only its own `postgres` and `auth`;
-Ollama and Adminer update when you pull them yourself) and recreates any
-container whose image changed, so running it again is also how you update. A
+`start` pulls the images each `docker-compose.yaml` names (for Sentia, only its
+own `postgres`, `auth`, and `monitor`; Ollama and Adminer update when you pull
+them yourself) and recreates any container whose image changed, so updating means
+taking the newer `docker-compose.yaml` and running it again. A
 pull that fails, offline or before an image is first published, is skipped and
 Compose builds that image locally. Use `--build` while changing code, so the
-containers run your local source.
+containers run your local source. Those builds are tagged `:dev`, so local code never
+takes a release's name; `LUNA_IMAGE_TAG=dev ./luna.sh start --no-pull` starts them again
+without rebuilding.
+
+Each image is built and its tests run in GitHub Actions before anything is published, by
+the steps in `.github/workflows/service-images.yml`, which every repository's `images.yml`
+calls. The release the footers and Luna Unia's cards show comes from the git tag, so
+publishing a release takes these steps: set the new tag in the `docker-compose.yaml`, commit,
+tag, and push the commit and tag together (`git push --atomic origin main v1.2.3`).
+
+`common/` holds the files every app shares. Change them there, run `common/sync.sh` to copy
+them into each app, and commit each app. The image workflow warns when a copy differs.
 
 With `--watch`, the script stays in the foreground and runs one
 `docker compose watch` per app, prefixing each line with the app's name (for

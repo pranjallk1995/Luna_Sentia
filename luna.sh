@@ -8,6 +8,9 @@
 # start pulls each app's published images from GitHub Container Registry (ghcr.io)
 # and recreates containers whose image changed, so it also updates; --build builds
 # them from the local source instead, and --no-pull uses the images already here.
+# Each docker-compose.yaml names the release it runs. --build tags its images :dev, so
+# local code never takes a release's name; LUNA_IMAGE_TAG=dev ./luna.sh start --no-pull
+# starts those builds again without rebuilding them.
 # APP is a short name such as visia or vita (default: visia vita lumia fiora lexia vibia unia). Sentia
 # always starts first and must be healthy: the apps join its luna_sentia_network and keep
 # their data in its PostgreSQL (luna-sentia-db) and sign people in through its auth service.
@@ -22,7 +25,7 @@ SENTIA_DIR="$ROOT/Luna_Sentia"
 DEFAULT_APPS=(${LUNA_APPS:-visia vita lumia fiora lexia vibia unia})
 
 usage() {
-    sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit "${1:-0}"
 }
 
@@ -100,7 +103,7 @@ start() {
     while (($#)); do
         case "$1" in
             --watch) watch=true ;;
-            --build) IMAGES=build ;;
+            --build) IMAGES=build; export LUNA_IMAGE_TAG=dev ;;
             --no-pull | --no-build) IMAGES=local ;;
             -h | --help) usage ;;
             -*) log "Unknown option: $1"; usage 1 ;;

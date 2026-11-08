@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from pathlib import Path
 from typing import ClassVar
 
 
 @dataclass(frozen=True)
 class MonitorConfig:
-    # The release this image holds, shown in the footer; keep auth/VERSION and monitor/VERSION equal.
-    VERSION: ClassVar[str] = (Path(__file__).resolve().parent.parent / "VERSION").read_text().strip()
+    # The release this image holds, from the git tag; blank for local builds.
+    VERSION: ClassVar[str] = os.getenv("LUNA_VERSION", "").strip()
+    # The name the footers show.
+    BRAND: ClassVar[str] = f"Luna Sentia · v{VERSION}" if VERSION else "Luna Sentia"
     # The apps call Ollama here; the monitor passes each request on to the real server.
     PROXY_PORT: ClassVar[int] = 11434
     UI_PORT: ClassVar[int] = 8000
