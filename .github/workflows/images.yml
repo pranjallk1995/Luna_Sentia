@@ -6,12 +6,19 @@ name: Images
 on:
   push:
     branches: [main]
+    tags: ["v*"]
     paths:
       - "postgres/**"
       - "auth/**"
       - "monitor/**"
       - ".github/workflows/images.yml"
+  # A release tag that predates this workflow can be published by naming it here.
   workflow_dispatch:
+    inputs:
+      release:
+        description: Release tag to publish images for, like v1.4.0 (blank rebuilds latest)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -29,13 +36,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.release || github.ref }}
           fetch-depth: 0
       - name: Check whether the service changed
         id: changed
         env:
           BEFORE: ${{ github.event.before }}
+          RELEASE: ${{ inputs.release || (github.ref_type == 'tag' && github.ref_name || '') }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" != push ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null \
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          # A release always publishes every service, under its own version.
+          if [ -n "$RELEASE" ]; then
+            echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
+            echo "build=true" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_EVENT_NAME" != push ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null \
             || ! git diff --quiet "$BEFORE" "$GITHUB_SHA" -- "${{ matrix.service }}" .github/workflows/images.yml; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
@@ -53,10 +67,10 @@ jobs:
           context: ${{ matrix.service }}
           push: true
           tags: |
-            ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:${{ steps.changed.outputs.release || 'latest' }}
+            ${{ env.IMAGE }}:${{ steps.changed.outputs.sha }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.revision=${{ steps.changed.outputs.sha }}
           cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
           cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max
