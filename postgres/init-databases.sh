@@ -6,7 +6,7 @@
 # LUNA<APP>_DB_PASSWORD must match POSTGRES_PASSWORD in that app's .env.
 set -eu
 
-for app in auth monitor visia vita lumia fiora lexia vibia; do
+for app in auth monitor visia vita lumia fiora lexia vibia socia; do
     name="luna$app"
     password=$(printenv "$(echo "LUNA${app}_DB_PASSWORD" | tr '[:lower:]' '[:upper:]')" || true)
     if [ -z "$password" ]; then

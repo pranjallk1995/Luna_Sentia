@@ -54,10 +54,10 @@ jobs:
             || ! git diff --quiet "$BEFORE" "$GITHUB_SHA" -- "${{ matrix.service }}" .github/workflows/images.yml; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           fi
-      # The mcp images (PyTorch for CUDA and the like) need more disk than a runner
+      # The mcp and comfyui images (PyTorch for CUDA and the like) need more disk than a runner
       # has free; the preinstalled toolchains they do not use free about 30 GB.
       - name: Free disk space
-        if: steps.changed.outputs.build == 'true' && matrix.service == 'mcp'
+        if: steps.changed.outputs.build == 'true' && (matrix.service == 'mcp' || matrix.service == 'comfyui')
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
           docker system prune --all --force

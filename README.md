@@ -67,8 +67,10 @@ beats of the track Vibia plays, which Lumia's lights follow.
 | Model server | Ollama (`luna-sentia-ollama-engine`) | Serves local models to every Luna app; never published on a host port |
 | Model monitor | Starlette (`luna-sentia-ollama`, `luna-sentia-monitor`) | Passes every app's Ollama call through, timing it, samples the GPU, and stores both; the owner's page is on host port 19081 |
 | Model pull | Ollama CLI (one-shot) | Pulls every model in `SENTIA_MODELS` at startup, then exits |
+| Image model | ComfyUI + Qwen-Image 2.1 (`luna-sentia-comfyui`) | Makes pictures for the apps (Luna Socia); takes turns with Ollama on the GPU; localhost port 19083 |
+| Image model pull | curl (one-shot) | Downloads Qwen-Image 2.1's files (about 24 GB) once, then exits |
 | Database UI | Adminer | Browses every app's database, on localhost port 19080 |
-| Storage | `luna_sentia_postgres_data`, `luna_sentia_ollama_data` volumes | Every app's data and the downloaded models, kept across restarts |
+| Storage | `luna_sentia_postgres_data`, `luna_sentia_ollama_data`, `luna_sentia_comfyui_models` volumes | Every app's data and the downloaded models, kept across restarts |
 | Network | `luna_sentia_network` | Shared private network every Luna app joins as an external network |
 
 ```text
@@ -219,11 +221,34 @@ its app's image: Visia's SigLIP 2 (`google/siglip2-base-patch16-224`, GPU only, 
 VRAM) and Vibia's CLAP (`laion/clap-htsat-unfused`, GPU or CPU, about 0.85 GB of VRAM on the GPU).
 Both share the GPU with Ollama, so they count against the VRAM left for its models.
 
-Ollama loads models on demand and unloads them after a few idle minutes, so
-apps sharing one model share its memory, while different models compete for VRAM.
+Ollama loads models on demand, so apps sharing one model share its memory, while
+different models compete for VRAM.
 A model is also reloaded whenever a request asks for a different context size,
 so every app asks for the same 16,384 tokens and one copy of Qwen3-VL serves
 them all.
+
+### GPU residency
+
+The 12 GB GPU holds Luna Socia's chat model (`qwen3:14b`, about 9.7 GB at 8k context)
+or the apps' working models (Qwen3-VL 8B with SigLIP 2, CLAP or Docling), not both. The
+monitor, which every Ollama call passes through, decides who stays:
+
+- The resident model, `SENTIA_RESIDENT_MODEL`, is asked to stay loaded for good.
+- Every other model stays only `SENTIA_GUEST_KEEP_ALIVE` (2 minutes) after its last
+  request, whatever the app asked. A request that asks a model to leave (`keep_alive` 0,
+  as Socia sends before a picture) passes unchanged.
+- Once no model has been used for `SENTIA_RESIDENT_IDLE_SECONDS` (30), ComfyUI is not
+  drawing, and the GPU has room, the monitor loads the resident model back at
+  `SENTIA_RESIDENT_CONTEXT` (8192, the context Socia asks for; any other would reload it).
+
+The apps' own models leave too: Visia's SigLIP 2, Vibia's CLAP, and Lexia's Docling each
+run in a child process that exits after `GPU_MODEL_IDLE_SECONDS` (120) unused
+(`common/gpu_worker.py`), which also frees its CUDA context (about 300 MB a process).
+
+So a bulk upload to Visia evicts the resident model once; Qwen3-VL and SigLIP 2 then
+process the whole batch side by side, and about two minutes after the last image both
+leave and the resident model is back. Measured on the RTX 5070: 10.6 GB with the
+resident model, 10.1 GB during a Visia batch, 1.4 GB in between.
 
 Three settings in `.env` tune the server for a 12 GB GPU:
 
@@ -405,6 +430,15 @@ valid token answers 401, and a token is only valid on the server it was issued f
 | `/admin` | The owner adds and disables people |
 | `/pin` | Each person sets or changes their hidden-items PIN |
 | `/pin/status`, `/pin/verify` | For Visia, Lexia, and Vibia: whether a PIN is set, and whether a typed one is right |
+
+## Image model
+
+ComfyUI serves Qwen-Image 2.1 Turbo (bf16, with the int8 Qwen3-VL 8B text encoder) to
+the apps that make pictures, today Luna Socia. `comfyui-pull` downloads its files (about
+24 GB) into `luna_sentia_comfyui_models` once. It has no sign-in, so it answers only on the
+private network and on `127.0.0.1:19083`. The GPU holds Ollama's models or ComfyUI's, not
+both: an app unloads Ollama's models before a picture and asks ComfyUI to free its own
+after (`POST /free`), so the next model call after a picture first reloads its model.
 
 ## Model monitor
 

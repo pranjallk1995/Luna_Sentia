@@ -299,3 +299,64 @@ class AssetTests(unittest.TestCase):
         page = (__import__("app.web", fromlist=["STATIC"]).STATIC / "index.html").read_text()
         self.assertIn("styles.css?v=__ASSETS__", page)
         self.assertIn("app.js?v=__ASSETS__", page)
+
+
+class ResidencyTests(unittest.TestCase):
+    def residency(self, models=(), samples=(), in_flight=False, comfy_queue=None, now=1000.0):
+        from app.residency import Residency
+
+        live = LiveState()
+        live.models = list(models)
+        live.samples.extend(samples)
+        if in_flight:
+            live.begin("visia", "/api/chat", {"model": "qwen3-vl:8b-instruct"})
+        seen = []
+
+        def engine(request: httpx.Request) -> httpx.Response:
+            seen.append(json.loads(request.content))
+            return httpx.Response(200, json={})
+
+        clock = Clock(now)
+        residency = Residency(live, "http://engine", "qwen3:14b", 8192, "2m", 30.0,
+                              transport=httpx.MockTransport(engine), clock=clock)
+        residency.comfyui_busy = lambda: asyncio.sleep(0, result=bool(comfy_queue))
+        return residency, clock, seen
+
+    def test_the_resident_stays_for_good_and_visitors_briefly(self):
+        residency, _, _ = self.residency()
+        stay = lambda model, **extra: json.loads(residency.rewrite("/api/chat", json.dumps({"model": model, **extra}).encode()))["keep_alive"]
+        self.assertEqual(stay("qwen3:14b"), -1)
+        self.assertEqual(stay("qwen3-vl:8b-instruct"), "2m")
+        self.assertEqual(stay("qwen3-vl:8b-instruct", keep_alive=-1), "2m")
+        # Asking a model to leave, as Socia does before a picture, passes unchanged.
+        self.assertEqual(stay("qwen3:14b", keep_alive=0), 0)
+        self.assertEqual(residency.rewrite("/api/tags", b"{}"), b"{}")
+        self.assertEqual(residency.rewrite("/api/chat", b"not json"), b"not json")
+
+    def test_the_resident_comes_back_only_when_the_gpu_is_quiet_and_has_room(self):
+        quiet = 1000.0 + 31
+        residency, clock, seen = self.residency()
+        residency.last_activity = 1000.0
+        clock.now = 1010.0
+        self.assertEqual(asyncio.run(residency.why_not_now()), "recently busy")
+        clock.now = quiet
+        self.assertIsNone(asyncio.run(residency.why_not_now()))
+        asyncio.run(residency.load())
+        self.assertEqual(seen, [{"model": "qwen3:14b", "keep_alive": -1, "options": {"num_ctx": 8192}}])
+
+        loaded, _, _ = self.residency(models=[{"name": "qwen3:14b", "vram_mb": 9600}])
+        self.assertEqual(asyncio.run(loaded.why_not_now()), "loaded")
+        busy, _, _ = self.residency(in_flight=True, now=quiet)
+        self.assertEqual(asyncio.run(busy.why_not_now()), "a model is working")
+        drawing, clock, _ = self.residency(comfy_queue=True)
+        clock.now = quiet
+        self.assertEqual(asyncio.run(drawing.why_not_now()), "ComfyUI is drawing")
+
+        # SigLIP still holds 2 GB: 9.6 GB would not fit in the 8.8 GB left, so wait.
+        crowded, clock, _ = self.residency(samples=[{"vram_total_mb": 12227, "vram_used_mb": 3400}])
+        crowded.resident_mb = 9600
+        clock.now = quiet
+        self.assertEqual(asyncio.run(crowded.why_not_now()), "an app's own model still holds the GPU")
+        # A visiting Ollama model counts as room: Ollama unloads it to fit the resident.
+        crowded.live.models = [{"name": "qwen3-vl:8b-instruct", "vram_mb": 6600}]
+        self.assertIsNone(asyncio.run(crowded.why_not_now()))

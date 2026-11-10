@@ -12,6 +12,7 @@ FILES=(
     "luna_mcp.py:mcp/app/transport/luna_mcp.py"
     "tenancy.py:mcp/app/core/tenancy.py"
     "sso.py:ui/sso.py"
+    "gpu_worker.py:mcp/app/integrations/gpu_worker.py"
 )
 
 # Luna Unia's sign-in differs on purpose: it has no backend to pass the person to.

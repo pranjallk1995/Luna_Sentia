@@ -17,6 +17,7 @@ from app.config import MonitorConfig
 from app.gpu import GpuReader
 from app.live import LiveState
 from app.proxy import OllamaProxy
+from app.residency import Residency
 from app.store import MonitorStore
 from app.web import create_app
 
@@ -134,7 +135,9 @@ async def main() -> None:
     config = MonitorConfig.from_env()
     live = LiveState(config.parallel)
     store = MonitorStore(config.database_url)
-    proxy = OllamaProxy(live, config.upstream_url)
+    residency = Residency(live, config.upstream_url, config.resident_model, config.resident_context,
+                          config.guest_keep_alive, config.resident_idle_seconds, config.comfyui_url)
+    proxy = OllamaProxy(live, config.upstream_url, residency=residency)
     page = create_app(config, live, store)
     servers = [
         uvicorn.Server(uvicorn.Config(proxy, host="0.0.0.0", port=MonitorConfig.PROXY_PORT, timeout_keep_alive=75,
@@ -144,7 +147,7 @@ async def main() -> None:
     ]
     tasks = [asyncio.create_task(job) for job in (
         sample_gpu(live, GpuReader()), watch_models(live, config.upstream_url), watch_app_models(live, config),
-        flush(live, store, config))]
+        flush(live, store, config), residency.run())]
     try:
         await asyncio.gather(*(server.serve() for server in servers))
     finally:

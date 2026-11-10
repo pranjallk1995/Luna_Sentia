@@ -10,6 +10,7 @@ on:
       - "postgres/**"
       - "auth/**"
       - "monitor/**"
+      - "comfyui/**"
       - ".github/workflows/images.yml"
   # A release tag that predates this workflow can be published by naming it here.
   workflow_dispatch:
@@ -28,5 +29,5 @@ jobs:
     uses: ./.github/workflows/service-images.yml
     with:
       app: sentia
-      services: '["postgres","auth","monitor"]'
+      services: '["postgres","auth","monitor","comfyui"]'
       release: ${{ inputs.release }}

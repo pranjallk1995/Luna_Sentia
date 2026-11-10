@@ -33,7 +33,7 @@ services:
     command: ['for model in $$SENTIA_MODELS; do ollama pull "$$model" || exit 1; done']
     environment:
       OLLAMA_HOST: http://luna-sentia-ollama-engine:11434
-      SENTIA_MODELS: ${SENTIA_MODELS:-qwen3-vl:8b-instruct qwen3-embedding:0.6b}
+      SENTIA_MODELS: ${SENTIA_MODELS:-qwen3-vl:8b-instruct qwen3-embedding:0.6b qwen3:14b}
     networks:
       sentia_network:
         aliases:
@@ -41,6 +41,47 @@ services:
     depends_on:
       ollama:
         condition: service_healthy
+
+  # The image model, Qwen-Image 2.1, in ComfyUI, for apps that make pictures (Luna Socia).
+  # It shares the GPU with Ollama by taking turns: the app unloads Ollama's models before
+  # an image and ComfyUI's after.
+  # Its own page has no sign-in, so it is bound to localhost for the owner's debugging.
+  comfyui:
+    build: ./comfyui
+    image: ghcr.io/pranjallk1995/luna-sentia-comfyui:${LUNA_IMAGE_TAG:-v1.2.4}
+    restart: unless-stopped
+    gpus: all
+    volumes:
+      - comfyui_models:/opt/comfyui/models
+    expose:
+      - "8188"
+    ports:
+      - "127.0.0.1:19083:8188"
+    networks:
+      sentia_network:
+        aliases:
+          - luna-sentia-comfyui
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8188/system_stats', timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 12
+
+  # Downloads the image model's files once (about 24 GB); finished files are skipped,
+  # and an interrupted download resumes.
+  comfyui-pull:
+    image: curlimages/curl:8.17.0
+    # The volume belongs to root, as ComfyUI runs.
+    user: root
+    entrypoint: ["/bin/sh", "/pull-models.sh"]
+    volumes:
+      - comfyui_models:/models
+      - ./comfyui/pull-models.sh:/pull-models.sh:ro
+    networks:
+      sentia_network:
+        aliases:
+          - luna-sentia-comfyui-pull
 
   # Every app's model calls pass through the monitor on their way to Ollama: it answers
   # at luna-sentia-ollama:11434, times each call, samples the GPU every second, and
@@ -57,6 +98,13 @@ services:
       SENTIA_AUTH_PUBLIC_URL: ${SENTIA_AUTH_PUBLIC_URL:-http://localhost:19090}
       SENTIA_MONITOR_PUBLIC_URL: ${SENTIA_MONITOR_PUBLIC_URL:-http://localhost:19081}
       OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+      # Residency: Luna Socia's chat model lives on the GPU and comes back after other
+      # models visit; they stay only SENTIA_GUEST_KEEP_ALIVE after their last request.
+      SENTIA_RESIDENT_MODEL: ${SENTIA_RESIDENT_MODEL:-qwen3:14b}
+      SENTIA_RESIDENT_CONTEXT: ${SENTIA_RESIDENT_CONTEXT:-8192}
+      SENTIA_GUEST_KEEP_ALIVE: ${SENTIA_GUEST_KEEP_ALIVE:-2m}
+      SENTIA_RESIDENT_IDLE_SECONDS: ${SENTIA_RESIDENT_IDLE_SECONDS:-30}
+      SENTIA_COMFYUI_URL: http://luna-sentia-comfyui:8188
       MONITOR_SAMPLE_DAYS: ${MONITOR_SAMPLE_DAYS:-30}
       MONITOR_CALL_DAYS: ${MONITOR_CALL_DAYS:-365}
       # To ask Visia, Lexia, and Vibia about the models they run themselves, outside Ollama.
@@ -128,6 +176,7 @@ services:
       LUNALEXIA_DB_PASSWORD: ${LUNALEXIA_DB_PASSWORD:-}
       LUNAVIBIA_DB_PASSWORD: ${LUNAVIBIA_DB_PASSWORD:-}
       LUNAMONITOR_DB_PASSWORD: ${LUNAMONITOR_DB_PASSWORD:-}
+      LUNASOCIA_DB_PASSWORD: ${LUNASOCIA_DB_PASSWORD:-}
     networks:
       sentia_network:
         aliases:
@@ -191,6 +240,8 @@ volumes:
     name: luna_sentia_ollama_data
   postgres_data:
     name: luna_sentia_postgres_data
+  comfyui_models:
+    name: luna_sentia_comfyui_models
 
 # The shared network every Luna app joins as an external network.
 networks:

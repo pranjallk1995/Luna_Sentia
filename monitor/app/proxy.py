@@ -2,7 +2,8 @@
 
 The apps keep calling ``luna-sentia-ollama:11434``; that name now points here,
 and the real server answers at ``luna-sentia-ollama-engine``. Bytes pass through
-unchanged in both directions. Only the end of each reply is kept, to read
+unchanged in both directions, except a model request's ``keep_alive``, which the
+residency policy sets (see residency.py). Only the end of each reply is kept, to read
 Ollama's timings from; prompts, images, and replies are never stored.
 
 When the app hangs up, the request to Ollama is closed too, so Ollama stops
@@ -23,6 +24,7 @@ import httpx
 from app.calls import MODEL_ENDPOINTS, app_name, describe_request, timings
 from app.config import MonitorConfig
 from app.live import LiveState
+from app.residency import Residency
 
 logger = logging.getLogger(__name__)
 HOP_BY_HOP = frozenset({b"connection", b"keep-alive", b"transfer-encoding", b"te", b"trailer", b"upgrade", b"host", b"content-length"})
@@ -31,8 +33,9 @@ NAME_SECONDS = 600.0
 
 class OllamaProxy:
     def __init__(self, live: LiveState, upstream_url: str, transport: httpx.AsyncBaseTransport | None = None,
-                 resolve=socket.gethostbyaddr) -> None:
+                 resolve=socket.gethostbyaddr, residency: Residency | None = None) -> None:
         self.live = live
+        self.residency = residency
         self.client = httpx.AsyncClient(
             base_url=upstream_url, transport=transport,
             timeout=httpx.Timeout(None, connect=MonitorConfig.CONNECT_TIMEOUT_SECONDS),
@@ -80,6 +83,8 @@ class OllamaProxy:
 
     async def relay(self, scope: dict[str, Any], body: bytes, receive, send) -> None:
         path, method = scope["path"], scope["method"]
+        if self.residency is not None and method == "POST":
+            body = self.residency.rewrite(path, body)
         call = None
         if method == "POST" and path in MODEL_ENDPOINTS:
             call = self.live.begin(await self.caller(scope), path, describe_request(path, body))
@@ -128,6 +133,8 @@ class OllamaProxy:
                 status = 502
         finally:
             watcher.cancel()
+            if self.residency is not None:
+                self.residency.touched()
             if response is not None:
                 await response.aclose()
             if call is not None:

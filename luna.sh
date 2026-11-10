@@ -11,7 +11,7 @@
 # Each docker-compose.yaml names the release it runs. --build tags its images :dev, so
 # local code never takes a release's name; LUNA_IMAGE_TAG=dev ./luna.sh start --no-pull
 # starts those builds again without rebuilding them.
-# APP is a short name such as visia or vita (default: visia vita lumia fiora lexia vibia unia). Sentia
+# APP is a short name such as visia or vita (default: visia vita lumia fiora lexia vibia socia unia). Sentia
 # always starts first and must be healthy: the apps join its luna_sentia_network and keep
 # their data in its PostgreSQL (luna-sentia-db) and sign people in through its auth service.
 set -euo pipefail
@@ -22,7 +22,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ $(basename "$HERE") == Luna_Sentia ]]; then ROOT="$(dirname "$HERE")"; else ROOT="$HERE"; fi
 SENTIA_DIR="$ROOT/Luna_Sentia"
 # Override with e.g. LUNA_APPS="visia vita" ./luna.sh start
-DEFAULT_APPS=(${LUNA_APPS:-visia vita lumia fiora lexia vibia unia})
+DEFAULT_APPS=(${LUNA_APPS:-visia vita lumia fiora lexia vibia socia unia})
 
 usage() {
     sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
@@ -73,9 +73,9 @@ images() {
 }
 
 start_sentia() {
-    log "Starting Luna Sentia (PostgreSQL, Ollama, model monitor, sign-on, Adminer, luna_sentia_network)"
+    log "Starting Luna Sentia (PostgreSQL, Ollama, ComfyUI, model monitor, sign-on, Adminer, luna_sentia_network)"
     # Only Sentia's own images; Ollama and Adminer update when you pull them yourself.
-    images "$SENTIA_DIR" postgres auth monitor
+    images "$SENTIA_DIR" postgres auth monitor comfyui
     compose "$SENTIA_DIR" up -d --wait postgres ollama adminer
     # Every app's role and database must exist before any app starts.
     compose "$SENTIA_DIR" run --rm postgres-init
@@ -83,8 +83,10 @@ start_sentia() {
     compose "$SENTIA_DIR" up -d --wait auth
     # The apps reach Ollama through the monitor, so it must be up before any app.
     compose "$SENTIA_DIR" up -d --wait monitor
-    # The model pull runs in the background; apps start without waiting for it.
-    compose "$SENTIA_DIR" up -d ollama-pull
+    # The image model; its first start does not hold up the apps.
+    compose "$SENTIA_DIR" up -d comfyui
+    # The model pulls run in the background; apps start without waiting for them.
+    compose "$SENTIA_DIR" up -d ollama-pull comfyui-pull
 }
 
 start_vibia_speaker_helper() {
