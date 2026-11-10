@@ -226,6 +226,7 @@ nvidia-smi
 | SigLIP 2 (`google/siglip2-base-patch16-224`) | Visia itself, GPU only | Visia's meaning search | Pinned in Visia's image; `backfill_metadata` re-embeds |
 | CLAP (`laion/clap-htsat-unfused`) | Vibia itself, GPU or CPU | Vibia's listening and search | Pinned in Vibia's image; every track is heard again |
 | Docling (layout, tables, OCR) | Lexia itself, GPU or CPU | Lexia's page reading | Pinned in Lexia's image |
+| Whisper `large-v3-turbo`, Kokoro 82M | Socia itself, CPU | Socia's voice messages and Luna's voice (`LUNASOCIA_STT_MODEL`, `LUNASOCIA_TTS_VOICE`) | Listen to a few replies; downloaded on first use |
 
 See [Changing a model](#changing-a-model) for what each check catches.
 
@@ -284,6 +285,11 @@ Three settings in `.env` tune the server for a 12 GB GPU:
 | `OLLAMA_NUM_PARALLEL` | `1` | Ollama does not run Qwen3-VL requests in parallel ("model architecture does not currently support parallel requests"), so requests from the apps queue |
 
 ### Changing a model
+
+**Last tried:** `qwen3.5:9b` for `qwen3-vl:8b-instruct`, on 2026-11-10. Not adopted: on
+Lexia's 89 documents it fixed PF amounts on payslips and ID numbers, but left Form 16
+employer PANs, two payslips' net pay and most rent-agreement dates empty. See
+`Luna_Lexia/model_evaluations/README.md`.
 
 Before a model replaces another in `SENTIA_MODELS` (and in the apps' `.env` settings that
 name it), run these checks. Each app that uses the model has its own evaluation in its
