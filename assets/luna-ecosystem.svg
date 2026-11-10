@@ -202,7 +202,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="s" x="1225" y="922" text-anchor="middle">flash attention · 8-bit KV cache · one at a time</text>
   <rect class="core" x="700" y="836" width="320" height="104" rx="8"/>
   <text class="t b" x="860" y="854" text-anchor="middle">ComfyUI</text>
-  <text class="m" x="860" y="870" text-anchor="middle">luna-sentia-comfyui · :19083 (localhost)</text>
+  <text class="m" x="860" y="870" text-anchor="middle">luna-sentia-comfyui · :19082 (localhost)</text>
   <text class="s" x="860" y="888" text-anchor="middle">Qwen-Image 2.1 Turbo, 8 steps</text>
   <text class="s" x="860" y="904" text-anchor="middle">Luna's face from her profile picture</text>
   <text class="s" x="860" y="922" text-anchor="middle">takes turns with Ollama on the GPU</text>

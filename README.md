@@ -70,7 +70,7 @@ plays, which Lumia's lights follow.
 | Model server | Ollama (`luna-sentia-ollama-engine`) | Serves local models to every Luna app; never published on a host port |
 | Model monitor | Starlette (`luna-sentia-ollama`, `luna-sentia-monitor`) | Passes every app's Ollama call through, timing it, samples the GPU, and stores both; the owner's page is on host port 19081 |
 | Model pull | Ollama CLI (one-shot) | Pulls every model in `SENTIA_MODELS` at startup, then exits |
-| Image model | ComfyUI + Qwen-Image 2.1 (`luna-sentia-comfyui`) | Makes pictures for the apps (Luna Socia); takes turns with Ollama on the GPU; localhost port 19083 |
+| Image model | ComfyUI + Qwen-Image 2.1 (`luna-sentia-comfyui`) | Makes pictures for the apps (Luna Socia); takes turns with Ollama on the GPU; localhost port 19082 |
 | Image model pull | curl (one-shot) | Downloads Qwen-Image 2.1's files (about 24 GB) once, then exits |
 | Database UI | Adminer | Browses every app's database, on localhost port 19080 |
 | Storage | `luna_sentia_postgres_data`, `luna_sentia_ollama_data`, `luna_sentia_comfyui_models` volumes | Every app's data and the downloaded models, kept across restarts |
@@ -489,9 +489,14 @@ valid token answers 401, and a token is only valid on the server it was issued f
 ComfyUI serves Qwen-Image 2.1 Turbo (bf16, with the int8 Qwen3-VL 8B text encoder) to
 the apps that make pictures, today Luna Socia. `comfyui-pull` downloads its files (about
 24 GB) into `luna_sentia_comfyui_models` once. It has no sign-in, so it answers only on the
-private network and on `127.0.0.1:19083`. The GPU holds Ollama's models or ComfyUI's, not
+private network and on `127.0.0.1:19082`. The GPU holds Ollama's models or ComfyUI's, not
 both: an app unloads Ollama's models before a picture and asks ComfyUI to free its own
 after (`POST /free`), so the next model call after a picture first reloads its model.
+
+Its own page, the node editor, opens at <http://127.0.0.1:19082> on the machine running
+Luna, and Luna Unia's Sentia card links to it. A picture queued there by hand loads
+Qwen-Image like one from Socia and pushes the chat model out; press "Unload models" when
+done, so the monitor can bring the resident model back.
 
 ## Model monitor
 

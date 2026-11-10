@@ -56,7 +56,7 @@ services:
     expose:
       - "8188"
     ports:
-      - "127.0.0.1:19083:8188"
+      - "127.0.0.1:19082:8188"
     networks:
       sentia_network:
         aliases:
