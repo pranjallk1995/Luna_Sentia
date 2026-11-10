@@ -5,7 +5,7 @@
 ![Ollama included](https://img.shields.io/badge/Ollama-included-111111?logo=ollama&logoColor=white)
 ![PostgreSQL included](https://img.shields.io/badge/PostgreSQL-included-4169E1?logo=postgresql&logoColor=white)
 ![NVIDIA GPU optional](https://img.shields.io/badge/NVIDIA_GPU-optional-76B900?logo=nvidia&logoColor=white)
-![Status: v1.2](https://img.shields.io/badge/Status-v1.2-2EA043)
+![Status: v1.3](https://img.shields.io/badge/Status-v1.3-2EA043)
 
 <p align="center">
   <a href="assets/luna-sentia-showcase.mp4"><img src="assets/luna-sentia-showcase.webp" alt="Signing in, adding a person, hiding an app from everyone but the owner, then the model monitor timing a live Lexia question on the GPU and its history by app" width="900"></a>
@@ -48,7 +48,7 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 
 ![Luna ecosystem architecture](assets/luna-ecosystem.svg)
 
-Every Luna app is a Streamlit UI plus a FastMCP service on Luna Sentia's
+Every Luna app is a React UI plus a FastMCP service on Luna Sentia's
 `luna_sentia_network`: its data lives in Sentia's PostgreSQL, people sign in
 through Sentia's `auth`, and model calls go through Sentia's model monitor, which times each one and samples the GPU, to its Ollama. Visia's SigLIP 2 image
 embeddings and Vibia's CLAP music embeddings run inside those apps instead. Orange lines are
@@ -204,6 +204,18 @@ nvidia-smi
 
 ## Models
 
+| Model | Served by | Used by | Before changing it |
+| --- | --- | --- | --- |
+| `qwen3-vl:8b-instruct` | Ollama | Lexia (`DOCUMENT_MODEL`), Visia (`VISION_MODEL`), Vibia (`CAPTION_MODEL`), Fiora (`OLLAMA_MODEL`), Socia's photo descriptions (`LUNASOCIA_VISION_MODEL`) | `model_checks/check_model.py`, then Lexia's, Visia's and Vibia's `model_evaluations/` |
+| `qwen3:14b` | Ollama, resident at `SENTIA_RESIDENT_CONTEXT` | Socia's chat (`LUNASOCIA_CHAT_MODEL`) | `model_checks/check_model.py --context 8192`, then Socia's `model_evaluations/` |
+| `qwen3-embedding:0.6b` | Ollama | Lexia's semantic search (`EMBEDDING_MODEL`) | Re-embed with Lexia's `reindex_semantic_search` |
+| Qwen-Image 2.1 Turbo | ComfyUI | Socia's pictures of Luna | A few pictures by hand |
+| SigLIP 2 (`google/siglip2-base-patch16-224`) | Visia itself, GPU only | Visia's meaning search | Pinned in Visia's image; `backfill_metadata` re-embeds |
+| CLAP (`laion/clap-htsat-unfused`) | Vibia itself, GPU or CPU | Vibia's listening and search | Pinned in Vibia's image; every track is heard again |
+| Docling (layout, tables, OCR) | Lexia itself, GPU or CPU | Lexia's page reading | Pinned in Lexia's image |
+
+See [Changing a model](#changing-a-model) for what each check catches.
+
 `SENTIA_MODELS` is a space-separated list of the models to pull. To change it,
 copy `.env.example` to `.env` and edit it:
 
@@ -257,6 +269,30 @@ Three settings in `.env` tune the server for a 12 GB GPU:
 | `OLLAMA_FLASH_ATTENTION` | `1` | Needed for a quantized KV cache; less memory per token |
 | `OLLAMA_KV_CACHE_TYPE` | `q8_0` | Halves the KV cache: Qwen3-VL at 16k takes 6.6 GB instead of 7.8 GB |
 | `OLLAMA_NUM_PARALLEL` | `1` | Ollama does not run Qwen3-VL requests in parallel ("model architecture does not currently support parallel requests"), so requests from the apps queue |
+
+### Changing a model
+
+Before a model replaces another in `SENTIA_MODELS` (and in the apps' `.env` settings that
+name it), run these checks. Each app that uses the model has its own evaluation in its
+`model_evaluations/` folder: it runs the old and the new model over the same stored items
+inside the app's container, through the app's own prompt and settings, without writing to
+its database, and scores the two runs. Results hold personal data and stay out of git.
+
+| Check | What it catches | How |
+| --- | --- | --- |
+| Smoke test | A model that cannot see images, answer in a JSON schema, call a tool, or turn thinking off, or does not fit on the GPU at the apps' context | [`model_checks/check_model.py`](model_checks/check_model.py) `<model>` in the monitor container (about a minute); `--context 8192` for Socia's resident model |
+| Lexia's documents | Worse extraction: values not found in the document's text, empty fields, malformed PAN, TAN, GSTIN and IFSC numbers, review flags, crashes, slower documents, and the known regressions of the last change | `Luna_Lexia/model_evaluations/` (`DOCUMENT_MODEL`) |
+| Visia's images | Captions and tags that match their image less well in SigLIP 2's space (what meaning search uses), failed replies, captions not in English | `Luna_Visia/model_evaluations/` (`VISION_MODEL`) |
+| Vibia's tracks | Captions that match the track's sound less well in CLAP's space, tags the evidence does not support, failed replies | `Luna_Vibia/model_evaluations/` (`CAPTION_MODEL`) |
+| Socia's chat | Texting style (length, lists, emoji), saying she is an AI, the wrong language, `create_image` called when it should not be or not called when it should, wrong tool arguments | `Luna_Socia/model_evaluations/` (`LUNASOCIA_CHAT_MODEL`), on a fixed set of made-up conversations |
+| Fits beside the others | A model that leaves no room for SigLIP 2, CLAP or Docling during a batch | `ollama ps` shows `100% GPU` while an evaluation runs; the monitor's page shows VRAM; Luna Socia's `qwen3:14b` is resident again afterwards |
+| One context size | Ollama reloading a model on every call | The apps all ask for 16k; Socia asks for `SENTIA_RESIDENT_CONTEXT` (8k) |
+| Unit tests | Code that breaks with the new setting | Each app's tests in CI; they use fake models, so they say nothing about a model's answers |
+
+The scores cannot judge everything: read the examples each `report.md` lists (the biggest
+drops, and every Socia reply) before deciding. Not covered: Fiora's parsing of bank messages
+its rules cannot read, and Socia's photo descriptions (`LUNASOCIA_VISION_MODEL`); check a
+few by hand after a change.
 
 ## CPU fallback
 
