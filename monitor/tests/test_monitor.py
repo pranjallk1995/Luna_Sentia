@@ -360,3 +360,111 @@ class ResidencyTests(unittest.TestCase):
         # A visiting Ollama model counts as room: Ollama unloads it to fit the resident.
         crowded.live.models = [{"name": "qwen3-vl:8b-instruct", "vram_mb": 6600}]
         self.assertIsNone(asyncio.run(crowded.why_not_now()))
+
+
+class ComfyUIGateTests(unittest.TestCase):
+    """ComfyUI's page behind the owner's sign-in, passed through unchanged."""
+
+    def setUp(self):
+        self.seen: list[httpx.Request] = []
+
+    def comfyui(self, request: httpx.Request) -> httpx.Response:
+        self.seen.append(request)
+        body = json.dumps({"path": request.url.path}).encode()
+
+        async def stream():  # a streamed reply, as ComfyUI sends over the network
+            yield body
+
+        return httpx.Response(200, content=stream(), headers={"X-Comfy": "yes", "Content-Type": "application/json"})
+
+    def client(self, cookie: str | None = None, comfyui=None, comfyui_url: str = "http://comfyui:8188") -> TestClient:
+        from dataclasses import replace
+
+        from app.comfyui_gate import create_gate
+        auth = FakeAuth({"owner-token": {"user_id": "owner"}, "guest-token": {"user_id": "u-2"}})
+        gate = create_gate(replace(config(), comfyui_url=comfyui_url, comfyui_public_url="https://comfyui.example.com"),
+                           httpx.MockTransport(auth), httpx.MockTransport(comfyui or self.comfyui))
+        client = TestClient(gate, base_url="https://comfyui.example.com", follow_redirects=False)
+        if cookie:
+            client.cookies.set("luna_sso", cookie)
+        return client
+
+    def test_sends_people_who_are_signed_out_to_sign_in(self):
+        page = self.client().get("/", headers={"Accept": "text/html"})
+        self.assertEqual(page.status_code, 303)
+        self.assertTrue(page.headers["location"].startswith("https://auth.example.com/login?next=https%3A%2F%2Fcomfyui.example.com%2F"))
+        self.assertEqual(self.client().get("/api/queue").status_code, 401)
+        self.assertEqual(self.seen, [])
+
+    def test_only_the_owner_reaches_comfyui(self):
+        self.assertEqual(self.client("guest-token").get("/", headers={"Accept": "text/html"}).status_code, 403)
+        self.assertEqual(self.client("guest-token").get("/api/queue").status_code, 403)
+        self.assertEqual(self.seen, [])
+
+    def test_passes_the_owners_requests_through_without_the_sign_in_cookie(self):
+        reply = self.client("owner-token").post("/api/prompt?x=1", json={"prompt": {}},
+                                                headers={"Origin": "https://comfyui.example.com"})
+        self.assertEqual((reply.status_code, reply.json(), reply.headers["X-Comfy"]), (200, {"path": "/api/prompt"}, "yes"))
+        sent = self.seen[0]
+        self.assertEqual((sent.method, str(sent.url), json.loads(sent.content)), ("POST", "http://comfyui:8188/api/prompt?x=1", {"prompt": {}}))
+        self.assertNotIn("cookie", sent.headers)
+        self.assertEqual(sent.headers["origin"], "http://comfyui:8188")
+
+    def test_refuses_requests_from_other_sites(self):
+        reply = self.client("owner-token").post("/api/prompt", json={}, headers={"Origin": "https://evil.example.com"})
+        self.assertEqual(reply.status_code, 403)
+        self.assertEqual(self.seen, [])
+
+    def test_says_so_when_comfyui_is_down(self):
+        def down(request):
+            raise httpx.ConnectError("refused", request=request)
+        self.assertEqual(self.client("owner-token", comfyui=down).get("/api/queue").status_code, 502)
+
+    def test_closes_the_websocket_of_someone_signed_out(self):
+        from starlette.websockets import WebSocketDisconnect
+        with self.assertRaises(WebSocketDisconnect) as closed:
+            with self.client().websocket_connect("/ws?clientId=1"):
+                pass
+        self.assertEqual(closed.exception.code, 1008)
+
+    def test_relays_comfyuis_websocket_both_ways(self):
+        import threading
+
+        from websockets.asyncio.server import serve
+
+        ready, stop = threading.Event(), None
+        port = {}
+
+        async def echo(remote):
+            await remote.send(json.dumps({"type": "status", "path": remote.request.path}))
+            async for message in remote:
+                await remote.send(message)
+
+        def run():
+            nonlocal stop
+
+            async def main():
+                nonlocal stop
+                stop = asyncio.get_running_loop().create_future()
+                async with serve(echo, "127.0.0.1", 0) as server:
+                    port["n"] = server.sockets[0].getsockname()[1]
+                    ready.set()
+                    await stop
+
+            loop = asyncio.new_event_loop()
+            port["loop"] = loop
+            loop.run_until_complete(main())
+
+        thread = threading.Thread(target=run, daemon=True)
+        thread.start()
+        ready.wait(5)
+        try:
+            client = self.client("owner-token", comfyui_url=f"http://127.0.0.1:{port['n']}")
+            headers = {"Origin": "https://comfyui.example.com", "Cookie": "luna_sso=owner-token"}
+            with client.websocket_connect("/ws?clientId=7", headers=headers) as socket:
+                self.assertEqual(json.loads(socket.receive_text()), {"type": "status", "path": "/ws?clientId=7"})
+                socket.send_bytes(b"\x00preview")
+                self.assertEqual(socket.receive_bytes(), b"\x00preview")
+        finally:
+            port["loop"].call_soon_threadsafe(stop.set_result, None)
+            thread.join(5)

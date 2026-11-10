@@ -16,6 +16,10 @@ class MonitorConfig:
     # The apps call Ollama here; the monitor passes each request on to the real server.
     PROXY_PORT: ClassVar[int] = 11434
     UI_PORT: ClassVar[int] = 8000
+    # ComfyUI's own page, behind the owner's sign-in (comfyui_gate.py).
+    COMFYUI_GATE_PORT: ClassVar[int] = 8188
+    # Longest wait for one ComfyUI reply through the gate; pictures are polled, not waited on.
+    COMFYUI_GATE_TIMEOUT_SECONDS: ClassVar[float] = 300.0
     # Header the auth service reads a luna_sso token from, and the owner's fixed account id.
     SESSION_HEADER: ClassVar[str] = "X-Luna-Session"
     OWNER_ID: ClassVar[str] = "owner"
@@ -65,6 +69,8 @@ class MonitorConfig:
     resident_idle_seconds: float = 30.0
     # ComfyUI, asked whether it is drawing before the resident model comes back.
     comfyui_url: str = ""
+    # Where people open ComfyUI's page through the gate: SENTIA_COMFYUI_PUBLIC_URL.
+    comfyui_public_url: str = "http://localhost:19082"
 
     @classmethod
     def from_env(cls) -> MonitorConfig:
@@ -88,6 +94,7 @@ class MonitorConfig:
             guest_keep_alive=os.getenv("SENTIA_GUEST_KEEP_ALIVE", "").strip() or "2m",
             resident_idle_seconds=float(os.getenv("SENTIA_RESIDENT_IDLE_SECONDS", "30") or 30),
             comfyui_url=os.getenv("SENTIA_COMFYUI_URL", "").strip(),
+            comfyui_public_url=(os.getenv("SENTIA_COMFYUI_PUBLIC_URL", "").strip() or cls.comfyui_public_url).rstrip("/"),
             app_tokens=tuple(
                 (app, url, os.getenv(f"LUNA{app.upper()}_API_TOKEN", "").strip()) for app, url in cls.APP_BACKENDS
             ),

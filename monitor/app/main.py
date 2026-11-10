@@ -13,6 +13,7 @@ from datetime import datetime
 import httpx
 import uvicorn
 
+from app.comfyui_gate import create_gate
 from app.config import MonitorConfig
 from app.gpu import GpuReader
 from app.live import LiveState
@@ -145,6 +146,10 @@ async def main() -> None:
         uvicorn.Server(uvicorn.Config(page, host="0.0.0.0", port=MonitorConfig.UI_PORT, proxy_headers=True,
                                       forwarded_allow_ips="*", log_level="info")),
     ]
+    if config.comfyui_url:
+        servers.append(uvicorn.Server(uvicorn.Config(
+            create_gate(config), host="0.0.0.0", port=MonitorConfig.COMFYUI_GATE_PORT, proxy_headers=True,
+            forwarded_allow_ips="*", log_level="warning", access_log=False)))
     tasks = [asyncio.create_task(job) for job in (
         sample_gpu(live, GpuReader()), watch_models(live, config.upstream_url), watch_app_models(live, config),
         flush(live, store, config), residency.run())]
