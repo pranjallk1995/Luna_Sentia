@@ -116,13 +116,23 @@ start() {
     resolve_apps "${names[@]}"
 
     start_sentia
+    # One app that fails to start does not hold up the others; they are named at the end.
+    local failed=()
     for app in "${APPS[@]}"; do
         log "Starting Luna ${app^}"
-        [[ $app == vibia ]] && start_vibia_speaker_helper
-        images "$(app_dir "$app")"
-        compose "$(app_dir "$app")" up -d --wait
+        if [[ $app == vibia ]] && ! start_vibia_speaker_helper; then
+            log "The speaker helper did not start; Vibia plays in the browser only"
+        fi
+        if ! { images "$(app_dir "$app")" && compose "$(app_dir "$app")" up -d --wait; }; then
+            log "Luna ${app^} did not start; see '$0 status ${app}' and its containers' logs"
+            failed+=("$app")
+        fi
     done
 
+    if ((${#failed[@]})); then
+        log "Started everything except: ${failed[*]}"
+        exit 1
+    fi
     if ! $watch; then
         log "All stacks are up. Run '$0 status' to inspect them."
         return

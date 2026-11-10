@@ -95,10 +95,20 @@ and Adminer is up, runs `postgres-init` so every app's database exists, starts
 the sign-on service and the model monitor and waits for them, then starts each app in turn, waiting until its services are running or
 healthy. It
 works from this repository (`./luna.sh`) or copied into the folder that holds
-`Luna_Sentia` and the app folders (`../luna.sh` from here, as below):
+`Luna_Sentia` and the app folders (`../luna.sh` from here, as below). An app
+whose folder is missing is skipped, so cloning only some apps is enough; an app
+that fails to start does not hold up the others, and the script names it at the end
+and exits with an error.
+
+To run on one machine without a tunnel, clone `Luna_Sentia` and the apps you want
+into one folder, copy each repository's `.env.example` to `.env` (its defaults are
+for localhost), set the Google client and secrets in Sentia's `.env` (see
+[Single sign-on](#single-sign-on)), and run `./Luna_Sentia/luna.sh start`. Each app
+then opens at `http://localhost:<port>`: Visia 18501, Vita 18502, Lumia 18503,
+Fiora 18504, Lexia 18505, Vibia 18506, Socia 18507, and Unia 42069.
 
 ```sh
-./luna.sh start                    # Sentia + visia, vita, lumia, fiora, lexia, vibia, unia
+./luna.sh start                    # Sentia + visia, vita, lumia, fiora, lexia, vibia, socia, unia
 ./luna.sh start vita lumia         # Sentia + only the named apps
 ./luna.sh start --build            # build images from the local source instead
 ./luna.sh start --no-pull          # use the images already on this machine
@@ -364,13 +374,17 @@ anywhere else.
 
 Set up once:
 
-1. **Public address.** Route a public hostname to `http://localhost:19090`, for
-   example `auth.lunaapps.fyi` as a Public Hostname of your Cloudflare tunnel,
-   and set it as `SENTIA_AUTH_PUBLIC_URL`. It must share the apps' parent
-   domain, set as `SENTIA_AUTH_COOKIE_DOMAIN`.
+1. **Public address.** Without a tunnel, keep the defaults:
+   `SENTIA_AUTH_PUBLIC_URL=http://localhost:19090` and a blank
+   `SENTIA_AUTH_COOKIE_DOMAIN`. Every app at `http://localhost:<port>` then shares
+   the sign-in, since cookies ignore ports. With a tunnel, route a public hostname
+   to `http://localhost:19090`, for example `auth.lunaapps.fyi` as a Public Hostname
+   of your Cloudflare tunnel, and set it as `SENTIA_AUTH_PUBLIC_URL`. It must share
+   the apps' parent domain, set as `SENTIA_AUTH_COOKIE_DOMAIN`, and each app's
+   `LUNA_SSO_URL` and `UI_PUBLIC_URL` change to their public addresses.
 2. **Google client.** Use a Google OAuth "Web application" client (one of the
    apps' UI clients works) and add `<SENTIA_AUTH_PUBLIC_URL>/callback` to its
-   authorized redirect URIs. Set `SENTIA_AUTH_GOOGLE_CLIENT_ID` and
+   authorized redirect URIs (`http://localhost:19090/callback` without a tunnel). Set `SENTIA_AUTH_GOOGLE_CLIENT_ID` and
    `SENTIA_AUTH_GOOGLE_CLIENT_SECRET`.
 3. **Secrets and accounts.** Set `SENTIA_AUTH_SECRET` (`openssl rand -hex 32`),
    `LUNAAUTH_DB_PASSWORD`, `SENTIA_AUTH_OWNER_EMAIL`, the account that manages
