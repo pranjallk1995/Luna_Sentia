@@ -153,10 +153,36 @@ containers run your local source. Those builds are tagged `:dev`, so local code 
 takes a release's name; `LUNA_IMAGE_TAG=dev ./luna.sh start --no-pull` starts them again
 without rebuilding.
 
-Once a stack is up, `start` deletes the images its new ones replaced: the older releases
-of Luna's own images (v1.3.1 once v1.3.2 runs) and the untagged leftovers of every image
-it uses, including Ollama's. `:dev` builds and any other tags stay, and an image a
-container still uses is kept. `--no-pull` deletes nothing.
+Once a stack is up, `start` deletes the images its new ones replaced: the untagged
+leftovers of every image it uses, including Ollama's, and Luna's own images other than the
+release it runs (older releases, `:dev` builds and `:latest`). So a plain `start` after
+working with `--build` moves every container back to the releases and frees the `:dev`
+builds; the next `--build` builds them again. `start --build` keeps the releases, an image a
+container still uses is kept, and `--no-pull` deletes nothing.
+
+The whole ecosystem, started with `./luna.sh start`, downloads these images. Each
+`docker-compose.yaml` names the release (Fiora, still early, uses `latest`). Sizes are on
+disk; images share their Python and CUDA layers, so all of them together take about 58 GB,
+not the sum.
+
+| Stack | Image | Size | What it is |
+| --- | --- | --- | --- |
+| Sentia | `luna-sentia-postgres` | 0.4 GB | PostgreSQL 17 with pgvector: every app's database; also runs `postgres-init` |
+| Sentia | `luna-sentia-auth` | 0.3 GB | Single sign-on for every app |
+| Sentia | `luna-sentia-monitor` | 0.3 GB | Model monitor: Ollama's queue, its page and the owner's MCP server |
+| Sentia | `luna-sentia-comfyui` | 11.6 GB | ComfyUI with PyTorch for CUDA: the image model's runtime |
+| Sentia | `ollama/ollama` | 8.5 GB | Every language model (chat, vision, embeddings); also runs `ollama-pull` |
+| Sentia | `adminer` | 0.2 GB | The database page |
+| Sentia | `curlimages/curl` | 0.03 GB | `comfyui-pull`, which downloads the image model |
+| Visia, Lexia, Vibia | `luna-<app>-mcp` | 12–13 GB each | MCP server and jobs, with PyTorch for CUDA (SigLIP, Docling, CLAP) |
+| Vita, Lumia, Fiora | `luna-<app>-mcp` | 0.3–0.5 GB each | MCP server and jobs |
+| Every app but Socia | `luna-<app>-ui` | 0.25–0.3 GB each | The app's page |
+| Socia | `luna-socia-ui` | 0.9 GB | Socia's page, with the Whisper and Kokoro voice models' runtime |
+
+The models themselves are not in any image: Ollama's models (about 16 GB) and ComfyUI's
+(about 24 GB) download into volumes the first time Sentia starts, and Socia's voice models
+the first time they are used. `--build` also downloads the base images `python:3.12-slim`
+and `node:22-slim`.
 
 Each image is built and its tests run in GitHub Actions before anything is published, by
 the steps in `.github/workflows/service-images.yml`, which every repository's `images.yml`

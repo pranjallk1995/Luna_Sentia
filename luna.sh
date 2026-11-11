@@ -8,8 +8,8 @@
 # start pulls each app's published images from GitHub Container Registry (ghcr.io)
 # and recreates containers whose image changed, so it also updates; --build builds
 # them from the local source instead, and --no-pull uses the images already here.
-# Once a stack is up, the images its new ones replaced are deleted (older releases and
-# untagged leftovers; :dev builds stay).
+# Once a stack is up, the images its new ones replaced are deleted: untagged leftovers and,
+# when start pulls the releases, Luna's older releases and :dev builds.
 # Each docker-compose.yaml names the release it runs. --build tags its images :dev, so
 # local code never takes a release's name; LUNA_IMAGE_TAG=dev ./luna.sh start --no-pull
 # starts those builds again without rebuilding them.
@@ -111,9 +111,9 @@ images() {
 }
 
 # After a stack is up, delete the images its new ones replaced: for each image it uses,
-# the untagged leftovers of the same repository and, for Luna's own images, the other
-# releases (v1.3.1 once v1.3.2 runs). :dev builds and other tags stay; an image a
-# container still uses is skipped.
+# the untagged leftovers of the same repository and, when the releases were pulled, Luna's
+# other builds of it: older releases (v1.3.1 once v1.3.2 runs), :dev and :latest. With
+# --build, :dev is what runs, so the releases stay. An image a container still uses is kept.
 remove_old_images() {
     local dir="$1" image repo tag old
     [[ $IMAGES == local ]] && return 0
@@ -126,7 +126,7 @@ remove_old_images() {
         done < <(docker images "$repo" --format '{{.Tag}} {{.ID}} {{.Repository}}:{{.Tag}}' | awk -v tag="$tag" \
             -v luna="$([[ $repo == ghcr.io/pranjallk1995/luna-* && $IMAGES == pull ]] && echo 1)" '
                 $1 == "<none>" { print $2; next }
-                luna && $1 != tag && $1 ~ /^v[0-9]/ { print $3 }')
+                luna && $1 != tag && ($1 ~ /^v[0-9]/ || $1 == "dev" || $1 == "latest") { print $3 }')
     done < <(compose "$dir" config --images 2>/dev/null | sort -u)
 }
 
