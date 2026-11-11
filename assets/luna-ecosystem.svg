@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1460 1080" width="1460" height="1080" role="img" aria-label="Clients reach seven Luna apps through a Cloudflare tunnel. Luna Unia, one home page, checks which Luna apps are running and opens each one with the shared sign-in. Six apps run a React UI and a FastMCP service; Luna Socia, the owner's chat with Luna, is one service. All share luna_sentia_network and rely on Luna Sentia for sign-on, PostgreSQL, Ollama and ComfyUI. Every model call goes through Sentia's model monitor, which times it, samples the GPU, keeps Socia's chat model qwen3:14b resident, and passes the call on to Ollama. Socia's pictures come from Qwen-Image 2.1 in ComfyUI, which takes turns with Ollama on the GPU. Visia's SigLIP 2, Vibia's CLAP and Lexia's Docling run inside those apps in processes that exit when idle. Luna Vibia tells Luna Lumia the mood and beats of the playing track.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1460 1080" width="1460" height="1080" role="img" aria-label="Clients reach seven Luna apps through a Cloudflare tunnel. Luna Unia, one home page, checks which Luna apps are running and opens each one with the shared sign-in. Six apps run a React UI and a FastMCP service; Luna Socia, the owner's chat with Luna, is one service. All share luna_sentia_network and rely on Luna Sentia for sign-on, PostgreSQL, Ollama and ComfyUI. Every model call goes through Sentia's model monitor, which times it, samples the GPU, keeps Socia's chat model, an uncensored Qwen3 14B, resident, and passes the call on to Ollama. Socia's pictures come from Qwen-Image 2.1 in ComfyUI, which takes turns with Ollama on the GPU. Visia's SigLIP 2, Vibia's CLAP and Lexia's Docling run inside those apps in processes that exit when idle. Luna Vibia tells Luna Lumia the mood and beats of the playing track.">
   <style>
 svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 .b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px}
@@ -190,14 +190,14 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="t b" x="1225" y="720" text-anchor="middle">Model monitor</text>
   <text class="m" x="1225" y="736" text-anchor="middle">luna-sentia-ollama:11434 · page :19081</text>
   <text class="s" x="1225" y="753" text-anchor="middle">times every app's call · samples the GPU</text>
-  <text class="s" x="1225" y="769" text-anchor="middle">keeps qwen3:14b resident; others leave</text>
+  <text class="s" x="1225" y="769" text-anchor="middle">keeps qwen3-abliterated:14b resident; others leave</text>
   <text class="s" x="1225" y="785" text-anchor="middle">2 min after use · stats in lunamonitor</text>
   <line class="arrow" x1="1225" y1="802" x2="1225" y2="834" marker-end="url(#ah)"/>
   <text class="lbl" x="1233" y="822" text-anchor="start">every call</text>
   <rect class="core" x="1060" y="836" width="330" height="104" rx="8"/>
   <text class="t b" x="1225" y="854" text-anchor="middle">Ollama</text>
   <text class="m" x="1225" y="870" text-anchor="middle">luna-sentia-ollama-engine · no host port</text>
-  <text class="m" x="1225" y="888" text-anchor="middle">qwen3-vl:8b-instruct · qwen3:14b</text>
+  <text class="m" x="1225" y="888" text-anchor="middle">qwen3-vl:8b-instruct · qwen3-abliterated:14b</text>
   <text class="m" x="1225" y="904" text-anchor="middle">qwen3-embedding:0.6b</text>
   <text class="s" x="1225" y="922" text-anchor="middle">flash attention · 8-bit KV cache · one at a time</text>
   <rect class="core" x="700" y="836" width="320" height="104" rx="8"/>
@@ -224,5 +224,5 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="lbl" x="1215" y="998" text-anchor="end">gpus: all</text>
   <rect class="ext" x="740" y="1010" width="650" height="46" rx="6"/>
   <text class="t" x="1065" y="1031" text-anchor="middle">NVIDIA GPU, 12 GB (WSL2 host)</text>
-  <text class="s" x="1065" y="1047" text-anchor="middle">qwen3:14b resident (9.7 GB at 8k), or qwen3-vl (6.6 GB at 16k) beside the apps' own models</text>
+  <text class="s" x="1065" y="1047" text-anchor="middle">qwen3-abliterated:14b resident (9.4 GB at 8k), or qwen3-vl (6.6 GB at 16k) beside the apps' own models</text>
 </svg>

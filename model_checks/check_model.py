@@ -1,6 +1,6 @@
 """Smoke-test a model before it replaces another in SENTIA_MODELS: what every Luna app needs of it.
 
-usage: python check_model.py <model> [--context 16384] [--resident qwen3:14b]
+usage: python check_model.py <model> [--context 16384] [--resident huihui_ai/qwen3-abliterated:14b] [--chat]
 Runs inside the monitor container (standard library only), so its calls go through the
 monitor like the apps' calls and show on its page as "model-check":
 
@@ -14,6 +14,8 @@ It checks that the model:
 - calls a tool when asked, as Luna Socia's create_image needs;
 - fits on the GPU at the apps' context (100% GPU in /api/ps);
 - reports whether the resident chat model is still loaded afterwards.
+With --chat (Socia's chat model, which never sees a picture: a vision model describes
+photos for it), the image checks are skipped and the JSON check uses text.
 Exits 1 if any check fails. It says nothing about the quality of answers; run each app's
 model_evaluations for that.
 """
@@ -30,8 +32,9 @@ import zlib
 parser = argparse.ArgumentParser()
 parser.add_argument("model")
 parser.add_argument("--context", type=int, default=16384, help="num_ctx the apps ask for (Socia: 8192)")
-parser.add_argument("--resident", default="qwen3:14b", help="the model that should stay loaded ('' to skip)")
+parser.add_argument("--resident", default="huihui_ai/qwen3-abliterated:14b", help="the model that should stay loaded ('' to skip)")
 parser.add_argument("--url", default="http://luna-sentia-ollama:11434", help="Ollama, through the monitor")
+parser.add_argument("--chat", action="store_true", help="a text-only chat model (Socia's): skip the image checks")
 args = parser.parse_args()
 ENGINE = os.getenv("MONITOR_OLLAMA_URL", args.url).rstrip("/")
 failures: list[str] = []
@@ -71,7 +74,10 @@ def loaded() -> dict:
 resident_before = bool(args.resident) and args.resident in loaded()
 show = call("/api/show", {"model": args.model})
 capabilities = set(show.get("capabilities") or [])
-report("vision", "vision" in capabilities, ", ".join(sorted(capabilities)))
+if args.chat:
+    print(f"SKIP  vision: a chat model ({', '.join(sorted(capabilities))})")
+else:
+    report("vision", "vision" in capabilities, ", ".join(sorted(capabilities)))
 report("tools", "tools" in capabilities)
 
 schema = {"type": "object", "properties": {"color": {"type": "string"}, "shape": {"type": "string"},
@@ -80,14 +86,16 @@ schema = {"type": "object", "properties": {"color": {"type": "string"}, "shape":
 reply = call("/api/chat", {
     "model": args.model, "stream": False, "think": False, "format": schema,
     "options": {"temperature": 0, "num_ctx": args.context},
-    "messages": [{"role": "user", "content": "Describe the main shape in this image: its color, its shape, and 3 tags.",
+    "messages": [{"role": "user", "content": "Describe a red square: its color, its shape, and 3 tags."} if args.chat else
+                 {"role": "user", "content": "Describe the main shape in this image: its color, its shape, and 3 tags.",
                   "images": [base64.b64encode(red_square_png()).decode()]}],
 })
 message = reply.get("message") or {}
 try:
     answer = json.loads(message.get("content") or "")
     report("JSON schema", all(key in answer for key in schema["required"]), json.dumps(answer))
-    report("sees the image", "red" in str(answer.get("color", "")).lower() and "square" in json.dumps(answer).lower())
+    if not args.chat:
+        report("sees the image", "red" in str(answer.get("color", "")).lower() and "square" in json.dumps(answer).lower())
 except json.JSONDecodeError:
     report("JSON schema", False, repr(message.get("content", ""))[:200])
 report("thinking off", not message.get("thinking") and "<think>" not in (message.get("content") or ""),

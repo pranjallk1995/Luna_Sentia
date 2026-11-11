@@ -227,7 +227,7 @@ nvidia-smi
 | Model | Served by | Used by | Before changing it |
 | --- | --- | --- | --- |
 | `qwen3-vl:8b-instruct` | Ollama | Lexia (`DOCUMENT_MODEL`), Visia (`VISION_MODEL`), Vibia (`CAPTION_MODEL`), Fiora (`OLLAMA_MODEL`), Socia's photo descriptions (`LUNASOCIA_VISION_MODEL`) | `model_checks/check_model.py`, then Lexia's, Visia's and Vibia's `model_evaluations/` |
-| `qwen3:14b` | Ollama, resident at `SENTIA_RESIDENT_CONTEXT` | Socia's chat (`LUNASOCIA_CHAT_MODEL`) | `model_checks/check_model.py --context 8192`, then Socia's `model_evaluations/` |
+| `huihui_ai/qwen3-abliterated:14b` (Qwen3 14B, uncensored) | Ollama, resident at `SENTIA_RESIDENT_CONTEXT` | Socia's chat (`LUNASOCIA_CHAT_MODEL`) | `model_checks/check_model.py --context 8192`, then Socia's `model_evaluations/` |
 | `qwen3-embedding:0.6b` | Ollama | Lexia's semantic search (`EMBEDDING_MODEL`) | Re-embed with Lexia's `reindex_semantic_search` |
 | Qwen-Image 2.1 Turbo | ComfyUI | Socia's pictures of Luna | A few pictures by hand |
 | SigLIP 2 (`google/siglip2-base-patch16-224`) | Visia itself, GPU only | Visia's meaning search | Pinned in Visia's image; `backfill_metadata` re-embeds |
@@ -262,7 +262,7 @@ them all.
 
 ### GPU residency
 
-The 12 GB GPU holds Luna Socia's chat model (`qwen3:14b`, about 9.7 GB at 8k context)
+The 12 GB GPU holds Luna Socia's chat model (`huihui_ai/qwen3-abliterated:14b`, an uncensored Qwen3 14B, about 9.4 GB at 8k context)
 or the apps' working models (Qwen3-VL 8B with SigLIP 2, CLAP or Docling), not both. The
 monitor, which every Ollama call passes through, decides who stays:
 
@@ -293,6 +293,10 @@ Three settings in `.env` tune the server for a 12 GB GPU:
 
 ### Changing a model
 
+**Last changed:** Socia's chat model, `qwen3:14b` to `huihui_ai/qwen3-abliterated:14b`, on
+2026-11-11, after Socia's evaluation: the same scores everywhere, and no refusals of
+intimacy (3 before). See `Luna_Socia/model_evaluations/README.md`.
+
 **Last tried:** `qwen3.5:9b` for `qwen3-vl:8b-instruct`, on 2026-11-10. Not adopted: on
 Lexia's 89 documents it fixed PF amounts on payslips and ID numbers, but left Form 16
 employer PANs, two payslips' net pay and most rent-agreement dates empty. See
@@ -311,7 +315,7 @@ its database, and scores the two runs. Results hold personal data and stay out o
 | Visia's images | Captions and tags that match their image less well in SigLIP 2's space (what meaning search uses), failed replies, captions not in English | `Luna_Visia/model_evaluations/` (`VISION_MODEL`) |
 | Vibia's tracks | Captions that match the track's sound less well in CLAP's space, tags the evidence does not support, failed replies | `Luna_Vibia/model_evaluations/` (`CAPTION_MODEL`) |
 | Socia's chat | Texting style (length, lists, emoji), saying she is an AI, the wrong language, `create_image` called when it should not be or not called when it should, wrong tool arguments | `Luna_Socia/model_evaluations/` (`LUNASOCIA_CHAT_MODEL`), on a fixed set of made-up conversations |
-| Fits beside the others | A model that leaves no room for SigLIP 2, CLAP or Docling during a batch | `ollama ps` shows `100% GPU` while an evaluation runs; the monitor's page shows VRAM; Luna Socia's `qwen3:14b` is resident again afterwards |
+| Fits beside the others | A model that leaves no room for SigLIP 2, CLAP or Docling during a batch | `ollama ps` shows `100% GPU` while an evaluation runs; the monitor's page shows VRAM; Luna Socia's chat model is resident again afterwards |
 | One context size | Ollama reloading a model on every call | The apps all ask for 16k; Socia asks for `SENTIA_RESIDENT_CONTEXT` (8k) |
 | Unit tests | Code that breaks with the new setting | Each app's tests in CI; they use fake models, so they say nothing about a model's answers |
 
