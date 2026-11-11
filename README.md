@@ -153,6 +153,11 @@ containers run your local source. Those builds are tagged `:dev`, so local code 
 takes a release's name; `LUNA_IMAGE_TAG=dev ./luna.sh start --no-pull` starts them again
 without rebuilding.
 
+Once a stack is up, `start` deletes the images its new ones replaced: the older releases
+of Luna's own images (v1.3.1 once v1.3.2 runs) and the untagged leftovers of every image
+it uses, including Ollama's. `:dev` builds and any other tags stay, and an image a
+container still uses is kept. `--no-pull` deletes nothing.
+
 Each image is built and its tests run in GitHub Actions before anything is published, by
 the steps in `.github/workflows/service-images.yml`, which every repository's `images.yml`
 calls. The release the footers and Luna Unia's cards show comes from the git tag, so

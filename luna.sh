@@ -8,6 +8,8 @@
 # start pulls each app's published images from GitHub Container Registry (ghcr.io)
 # and recreates containers whose image changed, so it also updates; --build builds
 # them from the local source instead, and --no-pull uses the images already here.
+# Once a stack is up, the images its new ones replaced are deleted (older releases and
+# untagged leftovers; :dev builds stay).
 # Each docker-compose.yaml names the release it runs. --build tags its images :dev, so
 # local code never takes a release's name; LUNA_IMAGE_TAG=dev ./luna.sh start --no-pull
 # starts those builds again without rebuilding them.
@@ -108,6 +110,26 @@ images() {
     esac
 }
 
+# After a stack is up, delete the images its new ones replaced: for each image it uses,
+# the untagged leftovers of the same repository and, for Luna's own images, the other
+# releases (v1.3.1 once v1.3.2 runs). :dev builds and other tags stay; an image a
+# container still uses is skipped.
+remove_old_images() {
+    local dir="$1" image repo tag old
+    [[ $IMAGES == local ]] && return 0
+    while read -r image; do
+        repo="${image%:*}" tag="${image##*:}"
+        while read -r old; do
+            [[ -n $old ]] || continue
+            log "Removing old image $old"
+            docker rmi "$old" >/dev/null 2>&1 || log "Kept $old: a container still uses it"
+        done < <(docker images "$repo" --format '{{.Tag}} {{.ID}} {{.Repository}}:{{.Tag}}' | awk -v tag="$tag" \
+            -v luna="$([[ $repo == ghcr.io/pranjallk1995/luna-* && $IMAGES == pull ]] && echo 1)" '
+                $1 == "<none>" { print $2; next }
+                luna && $1 != tag && $1 ~ /^v[0-9]/ { print $3 }')
+    done < <(compose "$dir" config --images 2>/dev/null | sort -u)
+}
+
 # Refuse a stack that is reachable from outside (an https address or a shared cookie
 # domain) while it still uses a localhost default secret.
 refuse_public_defaults() {
@@ -142,6 +164,7 @@ start_sentia() {
     compose "$SENTIA_DIR" up -d comfyui
     # The model pulls run in the background; apps start without waiting for them.
     compose "$SENTIA_DIR" up -d ollama-pull comfyui-pull
+    remove_old_images "$SENTIA_DIR"
 }
 
 start_vibia_speaker_helper() {
@@ -180,7 +203,7 @@ start() {
             log "The speaker helper did not start; Vibia plays in the browser only"
         fi
         if ! { refuse_public_defaults "$(app_dir "$app")" "$app" && images "$(app_dir "$app")" \
-               && compose "$(app_dir "$app")" up -d --wait; }; then
+               && compose "$(app_dir "$app")" up -d --wait && remove_old_images "$(app_dir "$app")"; }; then
             log "Luna ${app^} did not start; see '$0 status ${app}' and its containers' logs"
             failed+=("$app")
         fi
