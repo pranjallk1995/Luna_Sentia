@@ -48,7 +48,7 @@ services:
   # Its own page has no sign-in, so it is bound to localhost for the owner's debugging.
   comfyui:
     build: ./comfyui
-    image: ghcr.io/pranjallk1995/luna-sentia-comfyui:${LUNA_IMAGE_TAG:-v1.3.2}
+    image: ghcr.io/pranjallk1995/luna-sentia-comfyui:${LUNA_IMAGE_TAG:-v1.4.0}
     restart: unless-stopped
     gpus: all
     volumes:
@@ -88,7 +88,7 @@ services:
   # stores both in its lunamonitor database. Its page, for the owner, is on 19004.
   monitor:
     build: ./monitor
-    image: ghcr.io/pranjallk1995/luna-sentia-monitor:${LUNA_IMAGE_TAG:-v1.3.2}
+    image: ghcr.io/pranjallk1995/luna-sentia-monitor:${LUNA_IMAGE_TAG:-v1.4.0}
     restart: unless-stopped
     # For the GPU's counters only; the monitor loads no model.
     gpus: all
@@ -144,7 +144,7 @@ services:
   # has its own role and database (lunavisia, lunavita, ...), created by postgres-init.
   postgres:
     build: ./postgres
-    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v1.3.2}
+    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v1.4.0}
     restart: unless-stopped
     environment:
       POSTGRES_USER: sentia
@@ -168,7 +168,7 @@ services:
   # LUNA<APP>_DB_PASSWORD values; safe to run on every start. The script is part of
   # the postgres image (postgres/init-databases.sh).
   postgres-init:
-    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v1.3.2}
+    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v1.4.0}
     entrypoint: ["/bin/sh", "/init-databases.sh"]
     environment:
       PGHOST: luna-sentia-db
@@ -199,7 +199,7 @@ services:
   # address is public.
   auth:
     build: ./auth
-    image: ghcr.io/pranjallk1995/luna-sentia-auth:${LUNA_IMAGE_TAG:-v1.3.2}
+    image: ghcr.io/pranjallk1995/luna-sentia-auth:${LUNA_IMAGE_TAG:-v1.4.0}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://lunaauth:${LUNAAUTH_DB_PASSWORD:-lunasentia-dev}@luna-sentia-db:5432/lunaauth
