@@ -130,7 +130,12 @@ start_sentia() {
     # Every app's role and database must exist before any app starts.
     compose "$SENTIA_DIR" run --rm postgres-init
     # Every app signs people in through Sentia's sign-on service.
-    compose "$SENTIA_DIR" up -d --wait auth
+    if ! compose "$SENTIA_DIR" up -d --wait auth; then
+        log "Sentia's sign-on (auth) did not become healthy; its last log lines:"
+        compose "$SENTIA_DIR" logs --no-log-prefix --tail 15 auth >&2 || true
+        log "Every app signs in through it, so no app was started."
+        exit 1
+    fi
     # The apps reach Ollama through the monitor, so it must be up before any app.
     compose "$SENTIA_DIR" up -d --wait monitor
     # The image model; its first start does not hold up the apps.
