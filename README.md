@@ -68,7 +68,7 @@ plays, which Lumia's lights follow.
 | Database setup | `postgres-init` (one-shot) | Creates each app's role and database and syncs role passwords, then exits |
 | Accounts and sign-on | Starlette (`luna-sentia-auth`) | One Google sign-in for every app, the list of people, and sign-in for MCP connectors; host port 19001 |
 | Model server | Ollama (`luna-sentia-ollama-engine`) | Serves local models to every Luna app; never published on a host port |
-| Model monitor | Starlette (`luna-sentia-ollama`, `luna-sentia-monitor`) | Passes every app's Ollama call through, timing it, samples the GPU, and stores both; the owner's page is on host port 19004, ComfyUI's page, behind the owner's sign-in, on 19002, and the owner's MCP server (GPU and model calls) on 19003 |
+| Model monitor | Starlette (`luna-sentia-ollama`, `luna-sentia-monitor`) | Passes every app's Ollama call through, timing it, samples the GPU, and stores both; the owner's page is on host port 19003, ComfyUI's page, behind the owner's sign-in, on 19002, and the owner's MCP server (GPU and model calls) on 18003 |
 | Model pull | Ollama CLI (one-shot) | Pulls every model in `SENTIA_MODELS` at startup, then exits |
 | Image model | ComfyUI + Qwen-Image 2.1 (`luna-sentia-comfyui`) | Makes pictures for the apps (Luna Socia); takes turns with Ollama on the GPU; its page is on 19002, through the monitor's owner-only gate |
 | Image model pull | curl (one-shot) | Downloads Qwen-Image 2.1's files (about 24 GB) once, then exits |
@@ -224,7 +224,7 @@ docker compose ps        # postgres, ollama, auth, monitor: "Up ... (healthy)"; 
 - `postgres (healthy)`: the server accepts connections (`pg_isready`).
 - `ollama (healthy)`: the model server answers (`ollama list`).
 - `auth (healthy)`: the sign-on service answers <http://127.0.0.1:19001/health>.
-- `monitor (healthy)`: the model monitor answers <http://127.0.0.1:19004/health>. The
+- `monitor (healthy)`: the model monitor answers <http://127.0.0.1:19003/health>. The
   apps reach Ollama through it, so while it is down their model calls fail.
 - `postgres-init` printed `Ready: luna<app>` for every app with a password set.
 
@@ -594,14 +594,14 @@ averages and peaks, kept `MONITOR_SAMPLE_DAYS`, 30 by default), `model_calls` (k
 The page is for the owner only and signs in through Sentia, so like the apps it must
 be reached at an address under `SENTIA_AUTH_COOKIE_DOMAIN`. Route
 `SENTIA_MONITOR_PUBLIC_URL` (such as `https://monitor.example.com`) to
-`http://localhost:19004` in your tunnel. An app can name itself in an `X-Luna-App`
+`http://localhost:19003` in your tunnel. An app can name itself in an `X-Luna-App`
 header; otherwise the monitor names it from its container.
 The page names its stylesheet and script by their contents, so an update shows at once,
 without a hard refresh, even through Cloudflare's cache.
 
 ### MCP tools
 
-The monitor also serves an MCP server on `127.0.0.1:19003` (`monitor/app/mcp_server.py`),
+The monitor also serves an MCP server on `127.0.0.1:18003` (`monitor/app/mcp_server.py`),
 so an MCP client such as Claude can read the GPU and the model calls. Like the page, it
 is for the owner only: it signs in through Sentia like the apps' servers, and accepts
 only the owner's access token. Every tool reads; none changes anything, and none sees a
@@ -616,7 +616,7 @@ prompt or a reply. Times are UTC.
 | `get_ui_link` | The monitor page's address |
 
 With a tunnel, route a hostname under `SENTIA_AUTH_COOKIE_DOMAIN` (such as
-`sentia-mcp.example.com`) to `http://localhost:19003`, set it as `SENTIA_MCP_PUBLIC_URL`,
+`sentia-mcp.example.com`) to `http://localhost:18003`, set it as `SENTIA_MCP_PUBLIC_URL`,
 restart the monitor, and add `<SENTIA_MCP_PUBLIC_URL>/mcp` as a custom connector.
 
 ## Database UI
@@ -641,22 +641,22 @@ Username `sentia` with `SENTIA_POSTGRES_PASSWORD` sees every database.
 ## Ports
 
 Every port is published on `127.0.0.1` only; a tunnel routes a public hostname to it.
-Sentia's services take 19000 onwards, the apps' MCP servers 18000 onwards, and their
-pages 18500 onwards, each in alphabetical order.
+Sentia's services take 19000 onwards, the MCP servers (Sentia's among the apps') 18000
+onwards, and the apps' pages 18500 onwards, each in alphabetical order.
 
 | Host port | Service | Typical tunnel hostname |
 | --- | --- | --- |
 | 19000 | Sentia: Adminer | (localhost only) |
 | 19001 | Sentia: auth (sign-on) | `auth.example.com` |
 | 19002 | Sentia: ComfyUI page, through the monitor | `comfyui.example.com` |
-| 19003 | Sentia: MCP server (GPU and model calls) | `sentia-mcp.example.com` |
-| 19004 | Sentia: model monitor page | `monitor.example.com` |
+| 19003 | Sentia: model monitor page | `monitor.example.com` |
 | 18000 | Fiora MCP | `fiora-mcp.example.com` |
 | 18001 | Lexia MCP | `lexia-mcp.example.com` |
 | 18002 | Lumia MCP | `lumia-mcp.example.com` |
-| 18003 | Vibia MCP | `vibia-mcp.example.com` |
-| 18004 | Visia MCP | `visia-mcp.example.com` |
-| 18005 | Vita MCP | `vita-mcp.example.com` |
+| 18003 | Sentia MCP (GPU and model calls) | `sentia-mcp.example.com` |
+| 18004 | Vibia MCP | `vibia-mcp.example.com` |
+| 18005 | Visia MCP | `visia-mcp.example.com` |
+| 18006 | Vita MCP | `vita-mcp.example.com` |
 | 18500 | Fiora UI | `fiora.example.com` |
 | 18501 | Lexia UI | `lexia.example.com` |
 | 18502 | Lumia UI | `lumia.example.com` |

@@ -74,7 +74,7 @@ class MonitorConfig:
     # Where people open ComfyUI's page through the gate: SENTIA_COMFYUI_PUBLIC_URL.
     comfyui_public_url: str = "http://localhost:19002"
     # Where MCP clients reach that server: SENTIA_MCP_PUBLIC_URL, with /mcp after it.
-    mcp_public_url: str = "http://localhost:19003"
+    mcp_public_url: str = "http://localhost:18003"
 
     @classmethod
     def from_env(cls) -> MonitorConfig:

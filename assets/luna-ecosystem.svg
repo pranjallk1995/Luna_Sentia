@@ -67,7 +67,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="s" x="150" y="372" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="50" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="142" y="408" text-anchor="middle">FastMCP + REST</text>
-  <text class="m" x="142" y="424" text-anchor="middle">luna-visia-mcp :18004</text>
+  <text class="m" x="142" y="424" text-anchor="middle">luna-visia-mcp :18005</text>
   <text class="s" x="142" y="444" text-anchor="middle">SigLIP 2: embed images</text>
   <text class="s" x="142" y="460" text-anchor="middle">on the GPU, exits when idle</text>
   <text class="t b" x="338" y="282" text-anchor="middle">Luna Vita</text>
@@ -79,7 +79,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="s" x="346" y="372" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="246" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="338" y="408" text-anchor="middle">FastMCP + REST</text>
-  <text class="m" x="338" y="424" text-anchor="middle">luna-vita-mcp :18005</text>
+  <text class="m" x="338" y="424" text-anchor="middle">luna-vita-mcp :18006</text>
   <text class="s" x="338" y="444" text-anchor="middle">no local LLM: the assistant</text>
   <text class="s" x="338" y="460" text-anchor="middle">estimates macros</text>
   <text class="t b" x="534" y="282" text-anchor="middle">Luna Lumia</text>
@@ -127,7 +127,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="s" x="1130" y="372" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="1030" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="1122" y="408" text-anchor="middle">FastMCP + REST</text>
-  <text class="m" x="1122" y="424" text-anchor="middle">luna-vibia-mcp :18003</text>
+  <text class="m" x="1122" y="424" text-anchor="middle">luna-vibia-mcp :18004</text>
   <text class="s" x="1122" y="444" text-anchor="middle">CLAP: listen + embed</text>
   <text class="s" x="1122" y="460" text-anchor="middle">on the GPU, exits when idle</text>
   <text class="t b" x="1318" y="282" text-anchor="middle">Luna Socia</text>
@@ -188,7 +188,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="s" x="750" y="776" text-anchor="middle">browse any DB</text>
   <rect class="core" x="1060" y="702" width="330" height="100" rx="8"/>
   <text class="t b" x="1225" y="720" text-anchor="middle">Model monitor</text>
-  <text class="m" x="1225" y="736" text-anchor="middle">luna-sentia-ollama:11434 · page :19004</text>
+  <text class="m" x="1225" y="736" text-anchor="middle">luna-sentia-ollama:11434 · page :19003</text>
   <text class="s" x="1225" y="753" text-anchor="middle">times every app's call · samples the GPU</text>
   <text class="s" x="1225" y="769" text-anchor="middle">keeps qwen3-abliterated:14b resident; others leave</text>
   <text class="s" x="1225" y="785" text-anchor="middle">2 min after use · stats in lunamonitor</text>

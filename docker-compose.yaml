@@ -48,7 +48,7 @@ services:
   # Its own page has no sign-in, so it is bound to localhost for the owner's debugging.
   comfyui:
     build: ./comfyui
-    image: ghcr.io/pranjallk1995/luna-sentia-comfyui:${LUNA_IMAGE_TAG:-v1.4.0}
+    image: ghcr.io/pranjallk1995/luna-sentia-comfyui:${LUNA_IMAGE_TAG:-v1.4.1}
     restart: unless-stopped
     gpus: all
     volumes:
@@ -85,10 +85,10 @@ services:
 
   # Every app's model calls pass through the monitor on their way to Ollama: it answers
   # at luna-sentia-ollama:11434, times each call, samples the GPU every second, and
-  # stores both in its lunamonitor database. Its page, for the owner, is on 19004.
+  # stores both in its lunamonitor database. Its page, for the owner, is on 19003.
   monitor:
     build: ./monitor
-    image: ghcr.io/pranjallk1995/luna-sentia-monitor:${LUNA_IMAGE_TAG:-v1.4.0}
+    image: ghcr.io/pranjallk1995/luna-sentia-monitor:${LUNA_IMAGE_TAG:-v1.4.1}
     restart: unless-stopped
     # For the GPU's counters only; the monitor loads no model.
     gpus: all
@@ -96,9 +96,9 @@ services:
       DATABASE_URL: postgresql://lunamonitor:${LUNAMONITOR_DB_PASSWORD:-lunasentia-dev}@luna-sentia-db:5432/lunamonitor
       MONITOR_OLLAMA_URL: http://luna-sentia-ollama-engine:11434
       SENTIA_AUTH_PUBLIC_URL: ${SENTIA_AUTH_PUBLIC_URL:-http://localhost:19001}
-      SENTIA_MONITOR_PUBLIC_URL: ${SENTIA_MONITOR_PUBLIC_URL:-http://localhost:19004}
+      SENTIA_MONITOR_PUBLIC_URL: ${SENTIA_MONITOR_PUBLIC_URL:-http://localhost:19003}
       # The owner's MCP server (GPU and model calls, read only); clients add <this>/mcp.
-      SENTIA_MCP_PUBLIC_URL: ${SENTIA_MCP_PUBLIC_URL:-http://localhost:19003}
+      SENTIA_MCP_PUBLIC_URL: ${SENTIA_MCP_PUBLIC_URL:-http://localhost:18003}
       OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
       # Residency: Luna Socia's chat model lives on the GPU and comes back after other
       # models visit; they stay only SENTIA_GUEST_KEEP_ALIVE after their last request.
@@ -117,11 +117,11 @@ services:
     expose:
       - "11434"
     ports:
-      - "127.0.0.1:19004:8000"
+      - "127.0.0.1:19003:8000"
       # ComfyUI's page, for the owner only (monitor/app/comfyui_gate.py).
       - "127.0.0.1:19002:8188"
       # The owner's MCP server (monitor/app/mcp_server.py).
-      - "127.0.0.1:19003:8001"
+      - "127.0.0.1:18003:8001"
     networks:
       sentia_network:
         aliases:
@@ -144,7 +144,7 @@ services:
   # has its own role and database (lunavisia, lunavita, ...), created by postgres-init.
   postgres:
     build: ./postgres
-    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v1.4.0}
+    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v1.4.1}
     restart: unless-stopped
     environment:
       POSTGRES_USER: sentia
@@ -168,7 +168,7 @@ services:
   # LUNA<APP>_DB_PASSWORD values; safe to run on every start. The script is part of
   # the postgres image (postgres/init-databases.sh).
   postgres-init:
-    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v1.4.0}
+    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v1.4.1}
     entrypoint: ["/bin/sh", "/init-databases.sh"]
     environment:
       PGHOST: luna-sentia-db
@@ -199,7 +199,7 @@ services:
   # address is public.
   auth:
     build: ./auth
-    image: ghcr.io/pranjallk1995/luna-sentia-auth:${LUNA_IMAGE_TAG:-v1.4.0}
+    image: ghcr.io/pranjallk1995/luna-sentia-auth:${LUNA_IMAGE_TAG:-v1.4.1}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://lunaauth:${LUNAAUTH_DB_PASSWORD:-lunasentia-dev}@luna-sentia-db:5432/lunaauth
