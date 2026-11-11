@@ -11,7 +11,8 @@
 # Each docker-compose.yaml names the release it runs. --build tags its images :dev, so
 # local code never takes a release's name; LUNA_IMAGE_TAG=dev ./luna.sh start --no-pull
 # starts those builds again without rebuilding them.
-# APP is a short name such as visia or vita (default: visia vita lumia fiora lexia vibia socia unia). Sentia
+# APP is a short name such as visia or vita. Without one, every app cloned beside Luna_Sentia
+# (each Luna_<App> folder with a docker-compose.yaml) starts, Unia last. Sentia
 # always starts first and must be healthy: the apps join its luna_sentia_network and keep
 # their data in its PostgreSQL (luna-sentia-db) and sign people in through its auth service.
 #
@@ -26,23 +27,53 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ $(basename "$HERE") == Luna_Sentia ]]; then ROOT="$(dirname "$HERE")"; else ROOT="$HERE"; fi
 SENTIA_DIR="$ROOT/Luna_Sentia"
-# Override with e.g. LUNA_APPS="visia vita" ./luna.sh start
-DEFAULT_APPS=(${LUNA_APPS:-visia vita lumia fiora lexia vibia socia unia})
+# The usual start order; apps not listed here start after them, alphabetically, and
+# Unia (whose home page links to the others) always starts last.
+KNOWN_ORDER=(visia vita lumia fiora lexia vibia socia)
 
 usage() {
-    sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    # The comment at the top of this file, up to its first line of code.
+    awk 'NR > 1 && !/^#/ { exit } NR > 1' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit "${1:-0}"
 }
 
 log() { printf '\033[1;35m[luna]\033[0m %s\n' "$*"; }
 
-app_dir() { echo "$ROOT/Luna_${1^}"; }
+# An app's folder, whatever the case of its name (Luna_Visia, Luna_MyApp, ...).
+app_dir() {
+    local dir name
+    for dir in "$ROOT"/Luna_*; do
+        name="${dir##*/Luna_}"
+        [[ ${name,,} == "${1,,}" ]] && { echo "$dir"; return; }
+    done
+    echo "$ROOT/Luna_${1^}"
+}
+
+# Every app cloned beside Luna_Sentia: each Luna_<App> folder with a docker-compose.yaml,
+# in start order. LUNA_APPS="visia vita" overrides the list.
+discover_apps() {
+    local found=() ordered=() dir name known
+    for dir in "$ROOT"/Luna_*/; do
+        dir="${dir%/}"
+        name="${dir##*/Luna_}"
+        name="${name,,}"
+        [[ $name != sentia && -f $dir/docker-compose.yaml ]] && found+=("$name")
+    done
+    for known in "${KNOWN_ORDER[@]}"; do
+        [[ " ${found[*]} " == *" $known "* ]] && ordered+=("$known")
+    done
+    for name in $(printf '%s\n' "${found[@]}" | sort); do
+        [[ $name == unia || " ${KNOWN_ORDER[*]} " == *" $name "* ]] || ordered+=("$name")
+    done
+    [[ " ${found[*]} " == *" unia "* ]] && ordered+=(unia)
+    echo "${ordered[@]}"
+}
 
 # Resolve the requested apps (or the defaults) to existing Compose directories.
 resolve_apps() {
     local name dir
     local names=("$@")
-    ((${#names[@]})) || names=("${DEFAULT_APPS[@]}")
+    ((${#names[@]})) || read -r -a names <<<"${LUNA_APPS:-$(discover_apps)}"
     APPS=()
     for name in "${names[@]}"; do
         name="${name,,}"
@@ -133,6 +164,7 @@ start() {
         shift
     done
     resolve_apps "${names[@]}"
+    log "Apps to start after Sentia: ${APPS[*]:-none}"
 
     start_sentia
     # One app that fails to start does not hold up the others; they are named at the end.

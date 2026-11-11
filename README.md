@@ -95,10 +95,12 @@ and Adminer is up, runs `postgres-init` so every app's database exists, starts
 the sign-on service and the model monitor and waits for them, then starts each app in turn, waiting until its services are running or
 healthy. It
 works from this repository (`./luna.sh`) or copied into the folder that holds
-`Luna_Sentia` and the app folders (`../luna.sh` from here, as below). An app
-whose folder is missing is skipped, so cloning only some apps is enough; an app
-that fails to start does not hold up the others, and the script names it at the end
-and exits with an error.
+`Luna_Sentia` and the app folders (`../luna.sh` from here, as below). It finds the
+apps itself: every `Luna_<App>` folder beside `Luna_Sentia` with a
+`docker-compose.yaml` starts, so cloning only some apps is enough, and a new app
+starts as soon as it is cloned. Known apps start in the usual order, any others after
+them alphabetically, and Unia last. An app that fails to start does not hold up the
+others, and the script names it at the end and exits with an error.
 
 To run on one machine, clone `Luna_Sentia` and the apps you want into one folder and
 run `./Luna_Sentia/luna.sh start`. That is all: no `.env` is needed. Every password,
@@ -114,7 +116,7 @@ repository's `.env.example` to `.env` and set your own values (see
 (https) address while it still uses a localhost default.
 
 ```sh
-./luna.sh start                    # Sentia + visia, vita, lumia, fiora, lexia, vibia, socia, unia
+./luna.sh start                    # Sentia + every app cloned beside it, Unia last
 ./luna.sh start vita lumia         # Sentia + only the named apps
 ./luna.sh start --build            # build images from the local source instead
 ./luna.sh start --no-pull          # use the images already on this machine
@@ -166,14 +168,13 @@ example `[vita] Syncing service "ui"`). Press Ctrl+C to stop watching; the
 containers keep running. Sentia itself has no source to watch.
 
 `stop` runs `docker compose down`, which removes containers but keeps every
-volume and its data. Set `LUNA_APPS` to change the default app list, for
+volume and its data. Set `LUNA_APPS` to start a fixed list instead of every app found, for
 example `LUNA_APPS="visia vita" ../luna.sh start`. The script expects each app
 in a folder named `Luna_<App>` beside it and beside `Luna_Sentia`.
 
 ## Start Sentia only
 
-Copy `.env.example` to `.env` and set the database passwords (see
-[Shared PostgreSQL](#shared-postgresql)), then start Sentia and wait for it:
+No `.env` is needed (see [Shared PostgreSQL](#shared-postgresql) for the passwords' defaults). Start Sentia and wait for it:
 
 ```sh
 docker compose up -d --wait postgres ollama adminer
