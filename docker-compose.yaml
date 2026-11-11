@@ -93,7 +93,7 @@ services:
     # For the GPU's counters only; the monitor loads no model.
     gpus: all
     environment:
-      DATABASE_URL: postgresql://lunamonitor:${LUNAMONITOR_DB_PASSWORD:?Set LUNAMONITOR_DB_PASSWORD in Luna_Sentia/.env}@luna-sentia-db:5432/lunamonitor
+      DATABASE_URL: postgresql://lunamonitor:${LUNAMONITOR_DB_PASSWORD:-lunasentia-dev}@luna-sentia-db:5432/lunamonitor
       MONITOR_OLLAMA_URL: http://luna-sentia-ollama-engine:11434
       SENTIA_AUTH_PUBLIC_URL: ${SENTIA_AUTH_PUBLIC_URL:-http://localhost:19090}
       SENTIA_MONITOR_PUBLIC_URL: ${SENTIA_MONITOR_PUBLIC_URL:-http://localhost:19081}
@@ -109,9 +109,9 @@ services:
       MONITOR_SAMPLE_DAYS: ${MONITOR_SAMPLE_DAYS:-30}
       MONITOR_CALL_DAYS: ${MONITOR_CALL_DAYS:-365}
       # To ask Visia, Lexia, and Vibia about the models they run themselves, outside Ollama.
-      LUNAVISIA_API_TOKEN: ${LUNAVISIA_API_TOKEN:-}
-      LUNALEXIA_API_TOKEN: ${LUNALEXIA_API_TOKEN:-}
-      LUNAVIBIA_API_TOKEN: ${LUNAVIBIA_API_TOKEN:-}
+      LUNAVISIA_API_TOKEN: ${LUNAVISIA_API_TOKEN:-lunavisia-dev-token-for-localhost-only}
+      LUNALEXIA_API_TOKEN: ${LUNALEXIA_API_TOKEN:-lunalexia-dev-token-for-localhost-only}
+      LUNAVIBIA_API_TOKEN: ${LUNAVIBIA_API_TOKEN:-lunavibia-dev-token-for-localhost-only}
     expose:
       - "11434"
     ports:
@@ -145,7 +145,7 @@ services:
     environment:
       POSTGRES_USER: sentia
       POSTGRES_DB: sentia
-      POSTGRES_PASSWORD: ${SENTIA_POSTGRES_PASSWORD:?Set SENTIA_POSTGRES_PASSWORD in Luna_Sentia/.env}
+      POSTGRES_PASSWORD: ${SENTIA_POSTGRES_PASSWORD:-lunasentia-dev}
     expose:
       - "5432"
     volumes:
@@ -170,16 +170,16 @@ services:
       PGHOST: luna-sentia-db
       PGUSER: sentia
       PGDATABASE: sentia
-      PGPASSWORD: ${SENTIA_POSTGRES_PASSWORD:?Set SENTIA_POSTGRES_PASSWORD in Luna_Sentia/.env}
-      LUNAAUTH_DB_PASSWORD: ${LUNAAUTH_DB_PASSWORD:-}
-      LUNAVISIA_DB_PASSWORD: ${LUNAVISIA_DB_PASSWORD:-}
-      LUNAVITA_DB_PASSWORD: ${LUNAVITA_DB_PASSWORD:-}
-      LUNALUMIA_DB_PASSWORD: ${LUNALUMIA_DB_PASSWORD:-}
-      LUNAFIORA_DB_PASSWORD: ${LUNAFIORA_DB_PASSWORD:-}
-      LUNALEXIA_DB_PASSWORD: ${LUNALEXIA_DB_PASSWORD:-}
-      LUNAVIBIA_DB_PASSWORD: ${LUNAVIBIA_DB_PASSWORD:-}
-      LUNAMONITOR_DB_PASSWORD: ${LUNAMONITOR_DB_PASSWORD:-}
-      LUNASOCIA_DB_PASSWORD: ${LUNASOCIA_DB_PASSWORD:-}
+      PGPASSWORD: ${SENTIA_POSTGRES_PASSWORD:-lunasentia-dev}
+      LUNAAUTH_DB_PASSWORD: ${LUNAAUTH_DB_PASSWORD:-lunasentia-dev}
+      LUNAVISIA_DB_PASSWORD: ${LUNAVISIA_DB_PASSWORD:-lunavisia-dev}
+      LUNAVITA_DB_PASSWORD: ${LUNAVITA_DB_PASSWORD:-lunavita-dev}
+      LUNALUMIA_DB_PASSWORD: ${LUNALUMIA_DB_PASSWORD:-lunalumia-dev}
+      LUNAFIORA_DB_PASSWORD: ${LUNAFIORA_DB_PASSWORD:-lunafiora-dev}
+      LUNALEXIA_DB_PASSWORD: ${LUNALEXIA_DB_PASSWORD:-lunalexia-dev}
+      LUNAVIBIA_DB_PASSWORD: ${LUNAVIBIA_DB_PASSWORD:-lunavibia-dev}
+      LUNAMONITOR_DB_PASSWORD: ${LUNAMONITOR_DB_PASSWORD:-lunasentia-dev}
+      LUNASOCIA_DB_PASSWORD: ${LUNASOCIA_DB_PASSWORD:-lunasocia-dev}
     networks:
       sentia_network:
         aliases:
@@ -190,25 +190,28 @@ services:
 
   # Single sign-on for every Luna app: one Google sign-in sets the luna_sso cookie for
   # SENTIA_AUTH_COOKIE_DOMAIN, and the apps check it here over the private network.
+  # Without a Google client (a fresh clone), the owner signs in with one click, on
+  # localhost only. The defaults below are for localhost; luna.sh refuses them once an
+  # address is public.
   auth:
     build: ./auth
     image: ghcr.io/pranjallk1995/luna-sentia-auth:${LUNA_IMAGE_TAG:-v1.3.1}
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://lunaauth:${LUNAAUTH_DB_PASSWORD:?Set LUNAAUTH_DB_PASSWORD in Luna_Sentia/.env}@luna-sentia-db:5432/lunaauth
+      DATABASE_URL: postgresql://lunaauth:${LUNAAUTH_DB_PASSWORD:-lunasentia-dev}@luna-sentia-db:5432/lunaauth
       SENTIA_AUTH_PUBLIC_URL: ${SENTIA_AUTH_PUBLIC_URL:-http://localhost:19090}
       SENTIA_AUTH_COOKIE_DOMAIN: ${SENTIA_AUTH_COOKIE_DOMAIN:-}
-      SENTIA_AUTH_GOOGLE_CLIENT_ID: ${SENTIA_AUTH_GOOGLE_CLIENT_ID:?Set SENTIA_AUTH_GOOGLE_CLIENT_ID in Luna_Sentia/.env}
-      SENTIA_AUTH_GOOGLE_CLIENT_SECRET: ${SENTIA_AUTH_GOOGLE_CLIENT_SECRET:?Set SENTIA_AUTH_GOOGLE_CLIENT_SECRET in Luna_Sentia/.env}
-      SENTIA_AUTH_SECRET: ${SENTIA_AUTH_SECRET:?Set SENTIA_AUTH_SECRET in Luna_Sentia/.env}
-      SENTIA_AUTH_OWNER_EMAIL: ${SENTIA_AUTH_OWNER_EMAIL:?Set SENTIA_AUTH_OWNER_EMAIL in Luna_Sentia/.env}
+      SENTIA_AUTH_GOOGLE_CLIENT_ID: ${SENTIA_AUTH_GOOGLE_CLIENT_ID:-}
+      SENTIA_AUTH_GOOGLE_CLIENT_SECRET: ${SENTIA_AUTH_GOOGLE_CLIENT_SECRET:-}
+      SENTIA_AUTH_SECRET: ${SENTIA_AUTH_SECRET:-lunasentia-dev-auth-secret-localhost-only}
+      SENTIA_AUTH_OWNER_EMAIL: ${SENTIA_AUTH_OWNER_EMAIL:-}
       # Each app's API token, for deleting a person's data there.
-      LUNAVISIA_API_TOKEN: ${LUNAVISIA_API_TOKEN:-}
-      LUNAVITA_API_TOKEN: ${LUNAVITA_API_TOKEN:-}
-      LUNALUMIA_API_TOKEN: ${LUNALUMIA_API_TOKEN:-}
-      LUNAFIORA_API_TOKEN: ${LUNAFIORA_API_TOKEN:-}
-      LUNALEXIA_API_TOKEN: ${LUNALEXIA_API_TOKEN:-}
-      LUNAVIBIA_API_TOKEN: ${LUNAVIBIA_API_TOKEN:-}
+      LUNAVISIA_API_TOKEN: ${LUNAVISIA_API_TOKEN:-lunavisia-dev-token-for-localhost-only}
+      LUNAVITA_API_TOKEN: ${LUNAVITA_API_TOKEN:-lunavita-dev-token-for-localhost-only}
+      LUNALUMIA_API_TOKEN: ${LUNALUMIA_API_TOKEN:-lunalumia-dev-token-for-localhost-only}
+      LUNAFIORA_API_TOKEN: ${LUNAFIORA_API_TOKEN:-lunafiora-dev-token-for-localhost-only}
+      LUNALEXIA_API_TOKEN: ${LUNALEXIA_API_TOKEN:-lunalexia-dev-token-for-localhost-only}
+      LUNAVIBIA_API_TOKEN: ${LUNAVIBIA_API_TOKEN:-lunavibia-dev-token-for-localhost-only}
       SENTIA_AUTH_SESSION_DAYS: ${SENTIA_AUTH_SESSION_DAYS:-30}
     ports:
       - "127.0.0.1:19090:8000"

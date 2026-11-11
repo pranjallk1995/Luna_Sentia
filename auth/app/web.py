@@ -1,7 +1,8 @@
 """Routes of the single sign-on service.
 
 Every Luna app UI sends people to ``/login?next=<app url>``. After one Google
-sign-in, the ``luna_sso`` cookie is set for the parent domain, so every app
+sign-in (or, on a fresh clone without Google configured, the owner's one-click sign-in on
+localhost), the ``luna_sso`` cookie is set for the parent domain, so every app
 receives it. Apps check it server-side with ``GET /session`` over the private
 network; ``/logout`` ends the session for every app at once.
 """
@@ -21,10 +22,10 @@ from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Re
 from starlette.routing import Route
 
 from app.admin import admin_routes
-from app.config import AuthConfig
+from app.config import LOCAL_HOSTS, AuthConfig
 from app.google import GoogleSignIn
 from app.oauth import OAuthStore, oauth_routes
-from app.pages import page
+from app.pages import form_fields, page
 from app.pins import pin_routes
 from app.store import OWNER_ID, SessionStore
 
@@ -76,16 +77,72 @@ def create_app(
         if current(request) is not None and request.query_params.get("fresh") != "1":
             return RedirectResponse(target or "/", 303)
         nonce = secrets.token_urlsafe(16)
-        response = RedirectResponse(google.authorization_url(signer.dumps({"next": target, "nonce": nonce})), 303)
+        state = signer.dumps({"next": target, "nonce": nonce})
+        if config.google_configured:
+            response = RedirectResponse(google.authorization_url(state), 303)
+        elif local(request):
+            response = page(
+                "Luna sign-in",
+                "Google sign-in is not set up, so on this machine you sign in as the owner."
+                "<form method='post' action='/login/owner' style='margin-top:1.2rem'>"
+                f"<input type='hidden' name='state' value='{html.escape(state)}'>"
+                "<button style='padding:.6rem 1.2rem;border-radius:.6rem;border:0;background:#f5f5f5;color:#111;"
+                "font:inherit;font-weight:600;cursor:pointer'>Continue as owner</button></form>"
+                "<p style='color:#a3a3a3;font-size:.85rem'>To sign in with Google instead, or from another "
+                "device, set SENTIA_AUTH_GOOGLE_CLIENT_ID, SENTIA_AUTH_GOOGLE_CLIENT_SECRET and "
+                "SENTIA_AUTH_OWNER_EMAIL in Luna_Sentia/.env.</p>",
+            )
+        else:
+            return not_set_up()
         response.set_cookie(
             AuthConfig.STATE_COOKIE, nonce, max_age=AuthConfig.STATE_MAX_AGE_SECONDS, path="/", httponly=True,
             secure=config.secure_cookies, samesite="lax",
         )
         return response
 
+    def local(request: Request) -> bool:
+        """The owner's one-click sign-in: no Google, and both Sentia and this request on localhost."""
+        return config.local_sign_in and (request.url.hostname or "").lower() in LOCAL_HOSTS
+
+    def not_set_up() -> Response:
+        return page("Sign-in is not set up",
+                    "Set SENTIA_AUTH_GOOGLE_CLIENT_ID, SENTIA_AUTH_GOOGLE_CLIENT_SECRET and SENTIA_AUTH_OWNER_EMAIL "
+                    "in Luna_Sentia/.env. Without them, only this machine's localhost can sign in.", 503)
+
+    def signed_state(raw: str, request: Request) -> dict[str, Any] | None:
+        """A sign-in's state, if it is fresh and started in this browser."""
+        try:
+            state = signer.loads(raw, max_age=AuthConfig.STATE_MAX_AGE_SECONDS)
+        except BadSignature:
+            return None
+        if not secrets.compare_digest(str(state.get("nonce")), request.cookies.get(AuthConfig.STATE_COOKIE, "")):
+            return None
+        return state
+
+    def signed_in(request: Request, state: dict[str, Any], email: str, name: str | None, picture: str | None) -> Response:
+        previous = request.cookies.get(config.cookie_name)
+        if previous:
+            store.delete(previous)
+        token = store.create(email, name, picture, lifetime)
+        response = RedirectResponse(state.get("next") or "/", 303)
+        session_cookie(response, token)
+        response.delete_cookie(AuthConfig.STATE_COOKIE, path="/")
+        return response
+
+    async def owner_login(request: Request) -> Response:
+        """The one-click sign-in's form posts here."""
+        if config.google_configured or not local(request):
+            return not_set_up()
+        state = signed_state((await form_fields(request)).get("state", ""), request)
+        if state is None:
+            return page("Not signed in", "This sign-in expired or started in another browser. Start again from the app.", 400)
+        return signed_in(request, state, config.owner_email, "Owner", None)
+
     async def callback(request: Request) -> Response:
         if request.query_params.get("error"):
             return page("Not signed in", html.escape(request.query_params["error"]), 400)
+        if not config.google_configured:
+            return not_set_up()
         try:
             state = signer.loads(request.query_params.get("state", ""), max_age=AuthConfig.STATE_MAX_AGE_SECONDS)
         except BadSignature:
@@ -99,14 +156,7 @@ def create_app(
         email = str(profile.get("email", "")).strip().casefold()
         if not (email and profile.get("email_verified") is True and store.active_user(email)):
             return page("Not authorized", f"{html.escape(email or 'This account')} may not use the Luna apps.", 403)
-        previous = request.cookies.get(config.cookie_name)
-        if previous:
-            store.delete(previous)
-        token = store.create(email, profile.get("name"), profile.get("picture"), lifetime)
-        response = RedirectResponse(state.get("next") or "/", 303)
-        session_cookie(response, token)
-        response.delete_cookie(AuthConfig.STATE_COOKIE, path="/")
-        return response
+        return signed_in(request, state, email, profile.get("name"), profile.get("picture"))
 
     async def logout(request: Request) -> Response:
         token = request.cookies.get(config.cookie_name)
@@ -137,6 +187,7 @@ def create_app(
         routes=[
             Route("/", home),
             Route("/login", login),
+            Route("/login/owner", owner_login, methods=["POST"]),
             Route("/callback", callback),
             Route("/logout", logout),
             Route("/session", session),

@@ -14,6 +14,11 @@
 # APP is a short name such as visia or vita (default: visia vita lumia fiora lexia vibia socia unia). Sentia
 # always starts first and must be healthy: the apps join its luna_sentia_network and keep
 # their data in its PostgreSQL (luna-sentia-db) and sign people in through its auth service.
+#
+# A fresh clone needs no .env: every password, token and secret has a localhost default
+# (lunasentia-dev, luna<app>-dev, ...), and without Google the owner signs in with one
+# click on localhost. A stack whose address is public (https) must set its own secrets;
+# start refuses it while it still uses a localhost default.
 set -euo pipefail
 
 # Runs from inside Luna_Sentia or from the folder that holds Luna_Sentia and
@@ -25,7 +30,7 @@ SENTIA_DIR="$ROOT/Luna_Sentia"
 DEFAULT_APPS=(${LUNA_APPS:-visia vita lumia fiora lexia vibia socia unia})
 
 usage() {
-    sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '2,21p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit "${1:-0}"
 }
 
@@ -72,7 +77,21 @@ images() {
     esac
 }
 
+# Refuse a stack that is reachable from outside (an https address or a shared cookie
+# domain) while it still uses a localhost default secret.
+refuse_public_defaults() {
+    local dir="$1" name="$2" resolved
+    resolved="$(compose "$dir" config 2>/dev/null)" || return 0
+    grep -qE '_PUBLIC_URL: https://|SENTIA_AUTH_COOKIE_DOMAIN: [^[:space:]"]+' <<<"$resolved" || return 0
+    if grep -qE 'dev-token-for-localhost-only|lunasentia-dev' <<<"$resolved"; then
+        log "Luna ${name^} has a public address but still uses a localhost default password or token."
+        log "Set your own in $dir/.env (see .env.example) before starting it."
+        return 1
+    fi
+}
+
 start_sentia() {
+    refuse_public_defaults "$SENTIA_DIR" sentia || exit 1
     log "Starting Luna Sentia (PostgreSQL, Ollama, ComfyUI, model monitor, sign-on, Adminer, luna_sentia_network)"
     # Only Sentia's own images; Ollama and Adminer update when you pull them yourself.
     images "$SENTIA_DIR" postgres auth monitor comfyui
@@ -123,7 +142,8 @@ start() {
         if [[ $app == vibia ]] && ! start_vibia_speaker_helper; then
             log "The speaker helper did not start; Vibia plays in the browser only"
         fi
-        if ! { images "$(app_dir "$app")" && compose "$(app_dir "$app")" up -d --wait; }; then
+        if ! { refuse_public_defaults "$(app_dir "$app")" "$app" && images "$(app_dir "$app")" \
+               && compose "$(app_dir "$app")" up -d --wait; }; then
             log "Luna ${app^} did not start; see '$0 status ${app}' and its containers' logs"
             failed+=("$app")
         fi

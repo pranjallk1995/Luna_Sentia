@@ -34,6 +34,10 @@ class AuthConfig:
     # The apps people use, which the owner can hide; each has a backend on the private network.
     APPS: ClassVar[tuple[str, ...]] = ("visia", "vita", "lumia", "fiora", "lexia", "vibia")
     REMOVE_TIMEOUT_SECONDS: ClassVar[float] = 60.0
+    # A fresh clone's defaults: good on this machine only, refused once Sentia is public.
+    DEV_SECRET: ClassVar[str] = "lunasentia-dev-auth-secret-localhost-only"
+    # The owner's account when no owner email is set and Google is not configured.
+    LOCAL_OWNER_EMAIL: ClassVar[str] = "owner@localhost"
 
     database_url: str
     public_url: str
@@ -47,6 +51,17 @@ class AuthConfig:
     owner_email: str = ""
     # Each app's private backend token, for deleting a person's data there.
     app_tokens: dict[str, str] = field(default_factory=dict)
+
+    @property
+    def google_configured(self) -> bool:
+        return bool(self.client_id and self.client_secret)
+
+    @property
+    def local_sign_in(self) -> bool:
+        """Without Google, the owner signs in with one click, but only on this machine:
+        Sentia's address is localhost and no cookie domain shares the session further."""
+        host = (urlparse(self.public_url).hostname or "").lower()
+        return not self.google_configured and not self.cookie_domain and host in LOCAL_HOSTS
 
     @property
     def redirect_uri(self) -> str:
@@ -83,12 +98,22 @@ class AuthConfig:
         secret = required("SENTIA_AUTH_SECRET")
         if len(secret) < 32:
             raise RuntimeError("SENTIA_AUTH_SECRET must contain at least 32 characters.")
-        owner_email = required("SENTIA_AUTH_OWNER_EMAIL").casefold()
+        public_url = required("SENTIA_AUTH_PUBLIC_URL").rstrip("/")
+        if secret == cls.DEV_SECRET and (urlparse(public_url).hostname or "").lower() not in LOCAL_HOSTS:
+            raise RuntimeError("SENTIA_AUTH_SECRET is still the localhost default: set your own before going public.")
+        client_id = os.getenv("SENTIA_AUTH_GOOGLE_CLIENT_ID", "").strip()
+        client_secret = os.getenv("SENTIA_AUTH_GOOGLE_CLIENT_SECRET", "").strip()
+        owner_email = os.getenv("SENTIA_AUTH_OWNER_EMAIL", "").strip().casefold()
+        if not owner_email:
+            # Google signs in real accounts, so one of them must be the owner.
+            if client_id or client_secret:
+                raise RuntimeError("SENTIA_AUTH_OWNER_EMAIL is required with Google sign-in.")
+            owner_email = cls.LOCAL_OWNER_EMAIL
         return cls(
             database_url=required("DATABASE_URL"),
-            public_url=required("SENTIA_AUTH_PUBLIC_URL").rstrip("/"),
-            client_id=required("SENTIA_AUTH_GOOGLE_CLIENT_ID"),
-            client_secret=required("SENTIA_AUTH_GOOGLE_CLIENT_SECRET"),
+            public_url=public_url,
+            client_id=client_id,
+            client_secret=client_secret,
             secret=secret,
             app_tokens={app: os.getenv(f"LUNA{app.upper()}_API_TOKEN", "").strip() for app in cls.APPS},
             owner_email=owner_email,

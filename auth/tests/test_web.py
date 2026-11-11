@@ -255,6 +255,69 @@ class SingleSignOnTests(unittest.TestCase):
         self.assertEqual(self.sign_in(code="bad").status_code, 502)
 
 
+class LocalOwnerSignInTests(unittest.TestCase):
+    """A fresh clone: no Google client, Sentia on localhost, and the owner signs in with one click."""
+
+    def client(self, base_url="http://localhost:19090", **changes):
+        self.store = FakeStore()
+        self.store.accounts = {"owner@localhost": {**self.store.accounts.pop("me@example.com"), "email": "owner@localhost"}}
+        values = {"public_url": "http://localhost:19090", "cookie_domain": "", "client_id": "", "client_secret": "",
+                  "owner_email": AuthConfig.LOCAL_OWNER_EMAIL, **changes}
+        cfg = config(**values)
+        return TestClient(create_app(cfg, self.store, FakeGoogle(), FakeOAuth()), base_url=base_url, follow_redirects=False)
+
+    def state(self, client, next_url="http://localhost:18507/"):
+        page = client.get("/login", params={"next": next_url})
+        self.assertEqual(page.status_code, 200)
+        self.assertIn("Continue as owner", page.text)
+        return re.search(r"name='state' value='([^']+)'", page.text).group(1)
+
+    def test_the_owner_signs_in_with_one_click_on_localhost(self):
+        client = self.client()
+        done = client.post("/login/owner", data={"state": self.state(client)})
+        self.assertEqual((done.status_code, done.headers["location"]), (303, "http://localhost:18507/"))
+        who = client.get("/session", headers={"X-Luna-Session": client.cookies["luna_sso"]}).json()
+        self.assertEqual((who["user_id"], who["email"]), (OWNER_ID, "owner@localhost"))
+
+    def test_the_click_must_come_from_this_browser(self):
+        client = self.client()
+        state = self.state(client)
+        client.cookies.delete(AuthConfig.STATE_COOKIE)
+        self.assertEqual(client.post("/login/owner", data={"state": state}).status_code, 400)
+        self.assertEqual(client.post("/login/owner", data={"state": "forged"}).status_code, 400)
+        self.assertEqual(self.store.rows, {})
+
+    def test_never_through_a_public_address_or_with_google_set_up(self):
+        # Reached through a tunnel: the request's host is not localhost.
+        public = self.client(base_url="https://auth.lunaapps.fyi")
+        self.assertEqual(public.get("/login").status_code, 503)
+        self.assertEqual(public.post("/login/owner", data={"state": "x"}).status_code, 503)
+        # Sentia configured for a public address, or sharing its cookie with a domain.
+        self.assertFalse(config(public_url="https://auth.lunaapps.fyi", cookie_domain="", client_id="", client_secret="").local_sign_in)
+        self.assertFalse(config(public_url="http://localhost:19090", client_id="", client_secret="").local_sign_in)
+        # Google configured: the usual Google sign-in, and no one-click owner.
+        google = self.client(client_id="id", client_secret="s")
+        self.assertTrue(google.get("/login").headers["location"].startswith("https://accounts.google.test/"))
+        self.assertEqual(google.post("/login/owner", data={"state": "x"}).status_code, 503)
+
+    def test_defaults_start_on_localhost_and_are_refused_in_public(self):
+        import os
+        from unittest import mock
+
+        base = {"DATABASE_URL": "postgresql://x", "SENTIA_AUTH_SECRET": AuthConfig.DEV_SECRET,
+                "SENTIA_AUTH_PUBLIC_URL": "http://localhost:19090"}
+        with mock.patch.dict(os.environ, base, clear=True):
+            cfg = AuthConfig.from_env()
+        self.assertEqual((cfg.owner_email, cfg.local_sign_in), ("owner@localhost", True))
+        with mock.patch.dict(os.environ, {**base, "SENTIA_AUTH_PUBLIC_URL": "https://auth.lunaapps.fyi"}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "localhost default"):
+                AuthConfig.from_env()
+        with mock.patch.dict(os.environ, {**base, "SENTIA_AUTH_GOOGLE_CLIENT_ID": "id",
+                                          "SENTIA_AUTH_GOOGLE_CLIENT_SECRET": "s"}, clear=True):
+            with self.assertRaisesRegex(RuntimeError, "OWNER_EMAIL"):
+                AuthConfig.from_env()
+
+
 CLIENT_URI = "https://claude.ai/api/mcp/auth_callback"
 RESOURCE = "https://vita-mcp.lunaapps.fyi/mcp"
 VERIFIER = "v" * 50

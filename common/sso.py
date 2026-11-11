@@ -2,7 +2,8 @@
 
 One Google sign-in at Sentia sets the ``luna_sso`` cookie for the parent domain
 of every app. This module asks Sentia over the private network whose session
-that cookie belongs to, and applies this app's own email allowlist. Signing out
+that cookie belongs to, and applies this app's own email allowlist, which always
+includes Sentia's owner. Signing out
 at Sentia signs out of every Luna app.
 """
 
@@ -18,6 +19,9 @@ from urllib.parse import quote
 import httpx
 
 from config import SSOConfig
+
+# Sentia's fixed id for the owner's account.
+OWNER_ID = "owner"
 
 
 # The signed-in person this request acts for, and the header that tells the backend.
@@ -60,7 +64,9 @@ class LunaSingleSignOn:
 
     def is_allowed(self, user: dict[str, Any] | None) -> bool:
         email = str((user or {}).get("email", "")).strip().casefold()
-        listed = "*" in self.allowed_emails or email in self.allowed_emails
+        # Sentia's owner may always come in; the list names everyone else (empty: the owner only).
+        owner = (user or {}).get("user_id") == OWNER_ID
+        listed = owner or "*" in self.allowed_emails or email in self.allowed_emails
         if self.app in (user or {}).get("hidden_apps", []):
             return False
         return bool(email and listed and (user or {}).get("email_verified") is True)

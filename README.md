@@ -100,12 +100,18 @@ whose folder is missing is skipped, so cloning only some apps is enough; an app
 that fails to start does not hold up the others, and the script names it at the end
 and exits with an error.
 
-To run on one machine without a tunnel, clone `Luna_Sentia` and the apps you want
-into one folder, copy each repository's `.env.example` to `.env` (its defaults are
-for localhost), set the Google client and secrets in Sentia's `.env` (see
-[Single sign-on](#single-sign-on)), and run `./Luna_Sentia/luna.sh start`. Each app
+To run on one machine, clone `Luna_Sentia` and the apps you want into one folder and
+run `./Luna_Sentia/luna.sh start`. That is all: no `.env` is needed. Every password,
+token and secret has a localhost default (`lunasentia-dev` for Sentia's own roles,
+`luna<app>-dev` for each app's), and without a Google client the sign-in page offers
+the owner a one-click **Continue as owner**, which works on localhost only. Each app
 then opens at `http://localhost:<port>`: Visia 18501, Vita 18502, Lumia 18503,
 Fiora 18504, Lexia 18505, Vibia 18506, Socia 18507, and Unia 42069.
+
+To sign in with Google, from other devices, or through a tunnel, copy each
+repository's `.env.example` to `.env` and set your own values (see
+[Single sign-on](#single-sign-on)). `luna.sh start` refuses any stack that has a public
+(https) address while it still uses a localhost default.
 
 ```sh
 ./luna.sh start                    # Sentia + visia, vita, lumia, fiora, lexia, vibia, socia, unia
@@ -357,10 +363,12 @@ Open a SQL shell: `docker compose exec postgres psql -U sentia -d lunavita`.
 ## Single sign-on
 
 `auth` gives every Luna app one shared sign-in. The first app you open sends you
-to Sentia, which signs you in with Google once and sets an HTTP-only, secure
+to Sentia, which signs you in with Google once (or, with no Google client set, offers
+the owner a one-click sign-in on localhost) and sets an HTTP-only, secure
 `luna_sso` cookie for the parent domain of all the apps (`lunaapps.fyi`). Every
 app then reads that cookie, asks Sentia over `luna_sentia_network` whose session
-it is (`GET /session`), and applies its own `LUNA<APP>_ALLOWED_EMAILS`. Opening
+it is (`GET /session`), and applies its own `LUNA<APP>_ALLOWED_EMAILS`; Sentia's owner
+is always allowed, so a blank list means the owner only. Opening
 another app needs no second sign-in, and **Sign out** in any app ends the session
 for all of them (other open apps notice within a minute). Sessions last
 `SENTIA_AUTH_SESSION_DAYS` (30) and are stored, hashed, in the `lunaauth`
@@ -368,7 +376,8 @@ database.
 
 | Route | Purpose |
 | --- | --- |
-| `/login?next=<app url>` | Sign in with Google (skipped when already signed in), then return to the app |
+| `/login?next=<app url>` | Sign in with Google (skipped when already signed in), then return to the app; without Google, the owner's one-click sign-in on localhost |
+| `/login/owner` | The one-click sign-in's form, accepted only without Google, with Sentia and the request both on localhost and no cookie domain |
 | `/callback` | Google's redirect back to Sentia |
 | `/logout?next=<app url>` | End the session for every app, then return |
 | `/session` | For app servers: the account behind the `X-Luna-Session` token |
@@ -378,7 +387,9 @@ Only addresses under `SENTIA_AUTH_COOKIE_DOMAIN` (or localhost, when it is
 blank) are accepted as `next`, so the service cannot be used to redirect
 anywhere else.
 
-Set up once:
+A fresh clone works without any of the steps below: the owner signs in with one click
+on localhost, as `owner@localhost`, and the secrets keep their localhost defaults. To
+let other people in, sign in from other devices, or go through a tunnel, set up once:
 
 1. **Public address.** Without a tunnel, keep the defaults:
    `SENTIA_AUTH_PUBLIC_URL=http://localhost:19090` and a blank
@@ -393,10 +404,10 @@ Set up once:
    authorized redirect URIs (`http://localhost:19090/callback` without a tunnel). Set `SENTIA_AUTH_GOOGLE_CLIENT_ID` and
    `SENTIA_AUTH_GOOGLE_CLIENT_SECRET`.
 3. **Secrets and accounts.** Set `SENTIA_AUTH_SECRET` (`openssl rand -hex 32`),
-   `LUNAAUTH_DB_PASSWORD`, `SENTIA_AUTH_OWNER_EMAIL`, the account that manages
-   everyone else at `/admin`, and each app's `LUNA<APP>_API_TOKEN`, equal to that app's,
+   `LUNAAUTH_DB_PASSWORD`, `SENTIA_AUTH_OWNER_EMAIL` (required with Google), the
+   account that manages everyone else at `/admin`, and each app's `LUNA<APP>_API_TOKEN`, equal to that app's,
    so deleting a person reaches its data. Each app can narrow who uses it with `LUNA<APP>_ALLOWED_EMAILS`; `*` allows
-   everyone with an account. If the Google client's consent screen is in Testing, add
+   everyone with an account, and blank allows the owner only. If the Google client's consent screen is in Testing, add
    each person as a test user there too.
 4. **Apps.** In each app's `.env`, set `LUNA_SSO_URL` to the public address and
    `LUNA_SSO_INTERNAL_URL` to `http://luna-sentia-auth:8000`.
