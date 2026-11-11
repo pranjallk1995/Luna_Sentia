@@ -16,7 +16,8 @@ COPY app ./app
 ARG LUNA_VERSION=
 ENV LUNA_VERSION=$LUNA_VERSION
 
-# 11434: the Ollama address the apps call; 8000: the monitor's page; 8188: ComfyUI's page, owner only.
-EXPOSE 11434 8000 8188
+# 11434: the Ollama address the apps call; 8000: the monitor's page; 8188: ComfyUI's page, owner only;
+# 8001: the owner's MCP server.
+EXPOSE 11434 8000 8001 8188
 
 CMD ["python", "-m", "app.main"]

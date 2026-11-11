@@ -66,13 +66,13 @@ plays, which Lumia's lights follow.
 | --- | --- | --- |
 | Database | PostgreSQL 17 + pgvector (`luna-sentia-db`) | One server; each app has its own role and database, with the `vector` extension; never published on a host port |
 | Database setup | `postgres-init` (one-shot) | Creates each app's role and database and syncs role passwords, then exits |
-| Accounts and sign-on | Starlette (`luna-sentia-auth`) | One Google sign-in for every app, the list of people, and sign-in for MCP connectors; host port 19090 |
+| Accounts and sign-on | Starlette (`luna-sentia-auth`) | One Google sign-in for every app, the list of people, and sign-in for MCP connectors; host port 19001 |
 | Model server | Ollama (`luna-sentia-ollama-engine`) | Serves local models to every Luna app; never published on a host port |
-| Model monitor | Starlette (`luna-sentia-ollama`, `luna-sentia-monitor`) | Passes every app's Ollama call through, timing it, samples the GPU, and stores both; the owner's page is on host port 19081, and ComfyUI's page, behind the owner's sign-in, on 19082 |
+| Model monitor | Starlette (`luna-sentia-ollama`, `luna-sentia-monitor`) | Passes every app's Ollama call through, timing it, samples the GPU, and stores both; the owner's page is on host port 19004, ComfyUI's page, behind the owner's sign-in, on 19002, and the owner's MCP server (GPU and model calls) on 19003 |
 | Model pull | Ollama CLI (one-shot) | Pulls every model in `SENTIA_MODELS` at startup, then exits |
-| Image model | ComfyUI + Qwen-Image 2.1 (`luna-sentia-comfyui`) | Makes pictures for the apps (Luna Socia); takes turns with Ollama on the GPU; its page is on 19082, through the monitor's owner-only gate |
+| Image model | ComfyUI + Qwen-Image 2.1 (`luna-sentia-comfyui`) | Makes pictures for the apps (Luna Socia); takes turns with Ollama on the GPU; its page is on 19002, through the monitor's owner-only gate |
 | Image model pull | curl (one-shot) | Downloads Qwen-Image 2.1's files (about 24 GB) once, then exits |
-| Database UI | Adminer | Browses every app's database, on localhost port 19080 |
+| Database UI | Adminer | Browses every app's database, on localhost port 19000 |
 | Storage | `luna_sentia_postgres_data`, `luna_sentia_ollama_data`, `luna_sentia_comfyui_models` volumes | Every app's data and the downloaded models, kept across restarts |
 | Network | `luna_sentia_network` | Shared private network every Luna app joins as an external network |
 
@@ -107,8 +107,8 @@ run `./Luna_Sentia/luna.sh start`. That is all: no `.env` is needed. Every passw
 token and secret has a localhost default (`lunasentia-dev` for Sentia's own roles,
 `luna<app>-dev` for each app's), and without a Google client the sign-in page offers
 the owner a one-click **Continue as owner**, which works on localhost only. Each app
-then opens at `http://localhost:<port>`: Visia 18501, Vita 18502, Lumia 18503,
-Fiora 18504, Lexia 18505, Vibia 18506, Socia 18507, and Unia 42069.
+then opens at `http://localhost:<port>`: Fiora 18500, Lexia 18501, Lumia 18502,
+Socia 18503, Vibia 18504, Visia 18505, Vita 18506, and Unia 42069 (see [Ports](#ports)).
 
 To sign in with Google, from other devices, or through a tunnel, copy each
 repository's `.env.example` to `.env` and set your own values (see
@@ -192,8 +192,8 @@ docker compose ps        # postgres, ollama, auth, monitor: "Up ... (healthy)"; 
 
 - `postgres (healthy)`: the server accepts connections (`pg_isready`).
 - `ollama (healthy)`: the model server answers (`ollama list`).
-- `auth (healthy)`: the sign-on service answers <http://127.0.0.1:19090/health>.
-- `monitor (healthy)`: the model monitor answers <http://127.0.0.1:19081/health>. The
+- `auth (healthy)`: the sign-on service answers <http://127.0.0.1:19001/health>.
+- `monitor (healthy)`: the model monitor answers <http://127.0.0.1:19004/health>. The
   apps reach Ollama through it, so while it is down their model calls fail.
 - `postgres-init` printed `Ready: luna<app>` for every app with a password set.
 
@@ -397,16 +397,16 @@ on localhost, as `owner@localhost`, and the secrets keep their localhost default
 let other people in, sign in from other devices, or go through a tunnel, set up once:
 
 1. **Public address.** Without a tunnel, keep the defaults:
-   `SENTIA_AUTH_PUBLIC_URL=http://localhost:19090` and a blank
+   `SENTIA_AUTH_PUBLIC_URL=http://localhost:19001` and a blank
    `SENTIA_AUTH_COOKIE_DOMAIN`. Every app at `http://localhost:<port>` then shares
    the sign-in, since cookies ignore ports. With a tunnel, route a public hostname
-   to `http://localhost:19090`, for example `auth.lunaapps.fyi` as a Public Hostname
+   to `http://localhost:19001`, for example `auth.lunaapps.fyi` as a Public Hostname
    of your Cloudflare tunnel, and set it as `SENTIA_AUTH_PUBLIC_URL`. It must share
    the apps' parent domain, set as `SENTIA_AUTH_COOKIE_DOMAIN`, and each app's
    `LUNA_SSO_URL` and `UI_PUBLIC_URL` change to their public addresses.
 2. **Google client.** Use a Google OAuth "Web application" client (one of the
    apps' UI clients works) and add `<SENTIA_AUTH_PUBLIC_URL>/callback` to its
-   authorized redirect URIs (`http://localhost:19090/callback` without a tunnel). Set `SENTIA_AUTH_GOOGLE_CLIENT_ID` and
+   authorized redirect URIs (`http://localhost:19001/callback` without a tunnel). Set `SENTIA_AUTH_GOOGLE_CLIENT_ID` and
    `SENTIA_AUTH_GOOGLE_CLIENT_SECRET`.
 3. **Secrets and accounts.** Set `SENTIA_AUTH_SECRET` (`openssl rand -hex 32`),
    `LUNAAUTH_DB_PASSWORD`, `SENTIA_AUTH_OWNER_EMAIL` (required with Google), the
@@ -418,7 +418,7 @@ let other people in, sign in from other devices, or go through a tunnel, set up 
    `LUNA_SSO_INTERNAL_URL` to `http://luna-sentia-auth:8000`.
 
 For use only on localhost, leave `SENTIA_AUTH_COOKIE_DOMAIN` blank and set
-`SENTIA_AUTH_PUBLIC_URL` and every `LUNA_SSO_URL` to `http://localhost:19090`;
+`SENTIA_AUTH_PUBLIC_URL` and every `LUNA_SSO_URL` to `http://localhost:19001`;
 browsers share localhost cookies across ports, so the apps still share one
 sign-in. Tests: `docker compose run --rm --no-deps -v "$PWD/auth/tests:/workspace/auth/tests" auth python -m unittest discover -s tests -t .`
 
@@ -490,7 +490,9 @@ page and from each Hidden tab.
 
 ### Connecting an MCP client
 
-Add a server's address, such as `https://vita-mcp.lunaapps.fyi/mcp`, as a custom connector.
+Add a server's address, such as `https://vita-mcp.lunaapps.fyi/mcp`, as a custom connector. Sentia's own,
+`https://sentia-mcp.lunaapps.fyi/mcp`, reads the GPU and the model calls, for the owner only
+(see [MCP tools](#mcp-tools)).
 The client registers itself, sends the person to sign in with Google, and shows an
 approval page; the tools then act on that person's data alone. An MCP server without a
 valid token answers 401, and a token is only valid on the server it was issued for.
@@ -516,11 +518,11 @@ both: an app unloads Ollama's models before a picture and asks ComfyUI to free i
 after (`POST /free`), so the next model call after a picture first reloads its model.
 
 Its own page, the node editor, is for the owner only. The model monitor serves it on
-`127.0.0.1:19082` behind Luna's sign-on (`monitor/app/comfyui_gate.py`): like the monitor's
+`127.0.0.1:19002` behind Luna's sign-on (`monitor/app/comfyui_gate.py`): like the monitor's
 page, it checks the `luna_sso` cookie, then passes every request and ComfyUI's websocket
 (live progress and previews) through, without the cookie. Requests from other sites are
 refused. With a tunnel, route a hostname under `SENTIA_AUTH_COOKIE_DOMAIN` to
-`http://localhost:19082` (for example `comfyui.lunaapps.fyi`) and set it as
+`http://localhost:19002` (for example `comfyui.lunaapps.fyi`) and set it as
 `SENTIA_COMFYUI_PUBLIC_URL`; Luna Unia's Sentia card links to it (`LUNASENTIA_COMFYUI_URL`
 in Unia's `.env`). A picture queued there by hand loads Qwen-Image like one from Socia and
 pushes the chat model out; press "Unload models" when done, so the monitor can bring the
@@ -561,14 +563,34 @@ averages and peaks, kept `MONITOR_SAMPLE_DAYS`, 30 by default), `model_calls` (k
 The page is for the owner only and signs in through Sentia, so like the apps it must
 be reached at an address under `SENTIA_AUTH_COOKIE_DOMAIN`. Route
 `SENTIA_MONITOR_PUBLIC_URL` (such as `https://monitor.example.com`) to
-`http://localhost:19081` in your tunnel. An app can name itself in an `X-Luna-App`
+`http://localhost:19004` in your tunnel. An app can name itself in an `X-Luna-App`
 header; otherwise the monitor names it from its container.
 The page names its stylesheet and script by their contents, so an update shows at once,
 without a hard refresh, even through Cloudflare's cache.
 
+### MCP tools
+
+The monitor also serves an MCP server on `127.0.0.1:19003` (`monitor/app/mcp_server.py`),
+so an MCP client such as Claude can read the GPU and the model calls. Like the page, it
+is for the owner only: it signs in through Sentia like the apps' servers, and accepts
+only the owner's access token. Every tool reads; none changes anything, and none sees a
+prompt or a reply. Times are UTC.
+
+| Tool | What it answers |
+| --- | --- |
+| `get_gpu_status` | The GPU now: utilisation, VRAM (used, free, Ollama's share), temperature, power, clocks; last-minute averages and peaks; calls running and waiting; the models Ollama has loaded and when each unloads; the models Visia, Lexia, and Vibia run themselves; the resident model's state |
+| `get_gpu_history` | The stored samples over `hours` (up to 31 days) ending at `until`: a summary and about 360 points, with Ollama's model loads and unloads |
+| `list_model_calls` | Model calls, newest first, with their waiting, loading, reading, and writing times and token counts; filter by `app`, `model`, or `problems_only` |
+| `get_model_usage` | Totals per app and model (calls, p50 and p95 times, busy, waiting, and loading time, tokens per second) and the vLLM signals and verdict |
+| `get_ui_link` | The monitor page's address |
+
+With a tunnel, route a hostname under `SENTIA_AUTH_COOKIE_DOMAIN` (such as
+`sentia-mcp.example.com`) to `http://localhost:19003`, set it as `SENTIA_MCP_PUBLIC_URL`,
+restart the monitor, and add `<SENTIA_MCP_PUBLIC_URL>/mcp` as a custom connector.
+
 ## Database UI
 
-Adminer is available at <http://127.0.0.1:19080> and is bound to localhost. It
+Adminer is available at <http://127.0.0.1:19000> and is bound to localhost. It
 reaches `luna-sentia-db` over `luna_sentia_network`; no database port is
 published to the host. Sign in with System `PostgreSQL`, Server
 `luna-sentia-db`, and the app's credentials:
@@ -584,6 +606,36 @@ published to the host. Sign in with System `PostgreSQL`, Server
 
 The model monitor's database is `lunamonitor`, with `LUNAMONITOR_DB_PASSWORD`.
 Username `sentia` with `SENTIA_POSTGRES_PASSWORD` sees every database.
+
+## Ports
+
+Every port is published on `127.0.0.1` only; a tunnel routes a public hostname to it.
+Sentia's services take 19000 onwards, the apps' MCP servers 18000 onwards, and their
+pages 18500 onwards, each in alphabetical order.
+
+| Host port | Service | Typical tunnel hostname |
+| --- | --- | --- |
+| 19000 | Sentia: Adminer | (localhost only) |
+| 19001 | Sentia: auth (sign-on) | `auth.example.com` |
+| 19002 | Sentia: ComfyUI page, through the monitor | `comfyui.example.com` |
+| 19003 | Sentia: MCP server (GPU and model calls) | `sentia-mcp.example.com` |
+| 19004 | Sentia: model monitor page | `monitor.example.com` |
+| 18000 | Fiora MCP | `fiora-mcp.example.com` |
+| 18001 | Lexia MCP | `lexia-mcp.example.com` |
+| 18002 | Lumia MCP | `lumia-mcp.example.com` |
+| 18003 | Vibia MCP | `vibia-mcp.example.com` |
+| 18004 | Visia MCP | `visia-mcp.example.com` |
+| 18005 | Vita MCP | `vita-mcp.example.com` |
+| 18500 | Fiora UI | `fiora.example.com` |
+| 18501 | Lexia UI | `lexia.example.com` |
+| 18502 | Lumia UI | `lumia.example.com` |
+| 18503 | Socia UI | `socia.example.com` |
+| 18504 | Vibia UI | `vibia.example.com` |
+| 18505 | Visia UI | `visia.example.com` |
+| 18506 | Vita UI | `vita.example.com` |
+| 42069 | Unia UI (home page) | `example.com` |
+
+Luna Vibia's speaker helper runs on the WSL host itself, on 18007, and is not routed.
 
 ## Operations
 

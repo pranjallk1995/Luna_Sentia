@@ -237,7 +237,7 @@ class SingleSignOnTests(unittest.TestCase):
         self.assertEqual(self.client.get("/login", params={"next": "http://vita.lunaapps.fyi/"}).status_code, 400)
         self.assertTrue(config().allows_next("https://lunaapps.fyi/"))
         self.assertFalse(config().allows_next("https://notlunaapps.fyi/"))
-        self.assertTrue(config(cookie_domain="").allows_next("http://127.0.0.1:18502/"))
+        self.assertTrue(config(cookie_domain="").allows_next("http://127.0.0.1:18506/"))
 
     def test_unlisted_or_unverified_accounts_are_refused(self):
         self.google.profile = {"email": "someone@else.com", "email_verified": True}
@@ -258,15 +258,15 @@ class SingleSignOnTests(unittest.TestCase):
 class LocalOwnerSignInTests(unittest.TestCase):
     """A fresh clone: no Google client, Sentia on localhost, and the owner signs in with one click."""
 
-    def client(self, base_url="http://localhost:19090", **changes):
+    def client(self, base_url="http://localhost:19001", **changes):
         self.store = FakeStore()
         self.store.accounts = {"owner@localhost": {**self.store.accounts.pop("me@example.com"), "email": "owner@localhost"}}
-        values = {"public_url": "http://localhost:19090", "cookie_domain": "", "client_id": "", "client_secret": "",
+        values = {"public_url": "http://localhost:19001", "cookie_domain": "", "client_id": "", "client_secret": "",
                   "owner_email": AuthConfig.LOCAL_OWNER_EMAIL, **changes}
         cfg = config(**values)
         return TestClient(create_app(cfg, self.store, FakeGoogle(), FakeOAuth()), base_url=base_url, follow_redirects=False)
 
-    def state(self, client, next_url="http://localhost:18507/"):
+    def state(self, client, next_url="http://localhost:18503/"):
         page = client.get("/login", params={"next": next_url})
         self.assertEqual(page.status_code, 200)
         self.assertIn("Continue as owner", page.text)
@@ -275,7 +275,7 @@ class LocalOwnerSignInTests(unittest.TestCase):
     def test_the_owner_signs_in_with_one_click_on_localhost(self):
         client = self.client()
         done = client.post("/login/owner", data={"state": self.state(client)})
-        self.assertEqual((done.status_code, done.headers["location"]), (303, "http://localhost:18507/"))
+        self.assertEqual((done.status_code, done.headers["location"]), (303, "http://localhost:18503/"))
         who = client.get("/session", headers={"X-Luna-Session": client.cookies["luna_sso"]}).json()
         self.assertEqual((who["user_id"], who["email"]), (OWNER_ID, "owner@localhost"))
 
@@ -294,7 +294,7 @@ class LocalOwnerSignInTests(unittest.TestCase):
         self.assertEqual(public.post("/login/owner", data={"state": "x"}).status_code, 503)
         # Sentia configured for a public address, or sharing its cookie with a domain.
         self.assertFalse(config(public_url="https://auth.lunaapps.fyi", cookie_domain="", client_id="", client_secret="").local_sign_in)
-        self.assertFalse(config(public_url="http://localhost:19090", client_id="", client_secret="").local_sign_in)
+        self.assertFalse(config(public_url="http://localhost:19001", client_id="", client_secret="").local_sign_in)
         # Google configured: the usual Google sign-in, and no one-click owner.
         google = self.client(client_id="id", client_secret="s")
         self.assertTrue(google.get("/login").headers["location"].startswith("https://accounts.google.test/"))
@@ -305,7 +305,7 @@ class LocalOwnerSignInTests(unittest.TestCase):
         from unittest import mock
 
         base = {"DATABASE_URL": "postgresql://x", "SENTIA_AUTH_SECRET": AuthConfig.DEV_SECRET,
-                "SENTIA_AUTH_PUBLIC_URL": "http://localhost:19090"}
+                "SENTIA_AUTH_PUBLIC_URL": "http://localhost:19001"}
         with mock.patch.dict(os.environ, base, clear=True):
             cfg = AuthConfig.from_env()
         self.assertEqual((cfg.owner_email, cfg.local_sign_in), ("owner@localhost", True))

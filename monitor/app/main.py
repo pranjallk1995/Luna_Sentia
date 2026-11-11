@@ -17,6 +17,7 @@ from app.comfyui_gate import create_gate
 from app.config import MonitorConfig
 from app.gpu import GpuReader
 from app.live import LiveState
+from app.mcp_server import create_mcp
 from app.proxy import OllamaProxy
 from app.residency import Residency
 from app.store import MonitorStore
@@ -146,6 +147,9 @@ async def main() -> None:
         uvicorn.Server(uvicorn.Config(page, host="0.0.0.0", port=MonitorConfig.UI_PORT, proxy_headers=True,
                                       forwarded_allow_ips="*", log_level="info")),
     ]
+    servers.append(uvicorn.Server(uvicorn.Config(
+        create_mcp(config, live, store, residency).streamable_http_app(), host="0.0.0.0", port=MonitorConfig.MCP_PORT,
+        proxy_headers=True, forwarded_allow_ips="*", log_level="warning")))
     if config.comfyui_url:
         servers.append(uvicorn.Server(uvicorn.Config(
             create_gate(config), host="0.0.0.0", port=MonitorConfig.COMFYUI_GATE_PORT, proxy_headers=True,

@@ -5,3 +5,4 @@ itsdangerous==2.2.0
 psycopg[binary]==3.2.10
 nvidia-ml-py==13.580.82
 websockets==16.1.1
+mcp==1.30.0

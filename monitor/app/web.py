@@ -22,7 +22,7 @@ from starlette.staticfiles import StaticFiles
 from app.config import MonitorConfig
 from app.insights import signals
 from app.live import LiveState
-from app.store import MonitorStore
+from app.store import MAX_HISTORY_SECONDS, MonitorStore
 
 STATIC = Path(__file__).parent / "static"
 
@@ -47,8 +47,6 @@ class Assets(StaticFiles):
         response.headers["Cache-Control"] = "no-cache"
         return response
 LIVE_TICK_SECONDS = 1.0
-# The longest history range the page offers.
-MAX_HISTORY_SECONDS = 31 * 86400
 
 
 def message_page(title: str, message: str, status: int) -> HTMLResponse:

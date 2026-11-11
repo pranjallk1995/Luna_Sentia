@@ -62,31 +62,31 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="s" x="142" y="298" text-anchor="middle">image vault, AI captions</text>
   <rect class="app" x="50" y="308" width="184" height="42" rx="6"/>
   <text class="t" x="142" y="326" text-anchor="middle">React UI</text>
-  <text class="m" x="142" y="342" text-anchor="middle">:18501</text>
+  <text class="m" x="142" y="342" text-anchor="middle">:18505</text>
   <line class="arrow" x1="142" y1="350" x2="142" y2="386" marker-end="url(#ah)"/>
   <text class="s" x="150" y="372" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="50" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="142" y="408" text-anchor="middle">FastMCP + REST</text>
-  <text class="m" x="142" y="424" text-anchor="middle">luna-visia-mcp :18000</text>
+  <text class="m" x="142" y="424" text-anchor="middle">luna-visia-mcp :18004</text>
   <text class="s" x="142" y="444" text-anchor="middle">SigLIP 2: embed images</text>
   <text class="s" x="142" y="460" text-anchor="middle">on the GPU, exits when idle</text>
   <text class="t b" x="338" y="282" text-anchor="middle">Luna Vita</text>
   <text class="s" x="338" y="298" text-anchor="middle">nutrition and fitness</text>
   <rect class="app" x="246" y="308" width="184" height="42" rx="6"/>
   <text class="t" x="338" y="326" text-anchor="middle">React UI</text>
-  <text class="m" x="338" y="342" text-anchor="middle">:18502</text>
+  <text class="m" x="338" y="342" text-anchor="middle">:18506</text>
   <line class="arrow" x1="338" y1="350" x2="338" y2="386" marker-end="url(#ah)"/>
   <text class="s" x="346" y="372" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="246" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="338" y="408" text-anchor="middle">FastMCP + REST</text>
-  <text class="m" x="338" y="424" text-anchor="middle">luna-vita-mcp :18001</text>
+  <text class="m" x="338" y="424" text-anchor="middle">luna-vita-mcp :18005</text>
   <text class="s" x="338" y="444" text-anchor="middle">no local LLM: the assistant</text>
   <text class="s" x="338" y="460" text-anchor="middle">estimates macros</text>
   <text class="t b" x="534" y="282" text-anchor="middle">Luna Lumia</text>
   <text class="s" x="534" y="298" text-anchor="middle">smart lights</text>
   <rect class="app" x="442" y="308" width="184" height="42" rx="6"/>
   <text class="t" x="534" y="326" text-anchor="middle">React UI</text>
-  <text class="m" x="534" y="342" text-anchor="middle">:18503</text>
+  <text class="m" x="534" y="342" text-anchor="middle">:18502</text>
   <line class="arrow" x1="534" y1="350" x2="534" y2="386" marker-end="url(#ah)"/>
   <text class="s" x="542" y="372" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="442" y="388" width="184" height="82" rx="6"/>
@@ -98,43 +98,43 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="s" x="730" y="298" text-anchor="middle">personal finance · WIP</text>
   <rect class="app" x="638" y="308" width="184" height="42" rx="6"/>
   <text class="t" x="730" y="326" text-anchor="middle">React UI</text>
-  <text class="m" x="730" y="342" text-anchor="middle">:18504</text>
+  <text class="m" x="730" y="342" text-anchor="middle">:18500</text>
   <line class="arrow" x1="730" y1="350" x2="730" y2="386" marker-end="url(#ah)"/>
   <text class="s" x="738" y="372" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="638" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="730" y="408" text-anchor="middle">FastMCP + REST</text>
-  <text class="m" x="730" y="424" text-anchor="middle">luna-fiora-mcp :18003</text>
+  <text class="m" x="730" y="424" text-anchor="middle">luna-fiora-mcp :18000</text>
   <text class="s" x="730" y="444" text-anchor="middle">→ Gmail API (read-only)</text>
   <text class="s" x="730" y="460" text-anchor="middle">LangGraph: bank-msg import</text>
   <text class="t b" x="926" y="282" text-anchor="middle">Luna Lexia</text>
   <text class="s" x="926" y="298" text-anchor="middle">financial documents</text>
   <rect class="app" x="834" y="308" width="184" height="42" rx="6"/>
   <text class="t" x="926" y="326" text-anchor="middle">React UI</text>
-  <text class="m" x="926" y="342" text-anchor="middle">:18505</text>
+  <text class="m" x="926" y="342" text-anchor="middle">:18501</text>
   <line class="arrow" x1="926" y1="350" x2="926" y2="386" marker-end="url(#ah)"/>
   <text class="s" x="934" y="372" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="834" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="926" y="408" text-anchor="middle">FastMCP + REST</text>
-  <text class="m" x="926" y="424" text-anchor="middle">luna-lexia-mcp :18004</text>
+  <text class="m" x="926" y="424" text-anchor="middle">luna-lexia-mcp :18001</text>
   <text class="s" x="926" y="444" text-anchor="middle">Docling (exits when idle)</text>
   <text class="s" x="926" y="460" text-anchor="middle">LibreOffice · → Drive</text>
   <text class="t b" x="1122" y="282" text-anchor="middle">Luna Vibia</text>
   <text class="s" x="1122" y="298" text-anchor="middle">music library · WIP</text>
   <rect class="app" x="1030" y="308" width="184" height="42" rx="6"/>
   <text class="t" x="1122" y="326" text-anchor="middle">React UI</text>
-  <text class="m" x="1122" y="342" text-anchor="middle">:18506</text>
+  <text class="m" x="1122" y="342" text-anchor="middle">:18504</text>
   <line class="arrow" x1="1122" y1="350" x2="1122" y2="386" marker-end="url(#ah)"/>
   <text class="s" x="1130" y="372" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="1030" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="1122" y="408" text-anchor="middle">FastMCP + REST</text>
-  <text class="m" x="1122" y="424" text-anchor="middle">luna-vibia-mcp :18005</text>
+  <text class="m" x="1122" y="424" text-anchor="middle">luna-vibia-mcp :18003</text>
   <text class="s" x="1122" y="444" text-anchor="middle">CLAP: listen + embed</text>
   <text class="s" x="1122" y="460" text-anchor="middle">on the GPU, exits when idle</text>
   <text class="t b" x="1318" y="282" text-anchor="middle">Luna Socia</text>
   <text class="s" x="1318" y="298" text-anchor="middle">chat with Luna · early</text>
   <rect class="app" x="1226" y="308" width="184" height="42" rx="6"/>
   <text class="t" x="1318" y="326" text-anchor="middle">Chat page</text>
-  <text class="m" x="1318" y="342" text-anchor="middle">:18507 · owner only</text>
+  <text class="m" x="1318" y="342" text-anchor="middle">:18503 · owner only</text>
   <line class="arrow" x1="1318" y1="350" x2="1318" y2="386" marker-end="url(#ah)"/>
   <text class="s" x="1326" y="372" text-anchor="start">same service</text>
   <rect class="box" x="1226" y="388" width="184" height="82" rx="6"/>
@@ -169,7 +169,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="ct" x="510" y="692" text-anchor="start">LUNA SENTIA · STARTS FIRST</text>
   <rect class="core" x="60" y="702" width="200" height="100" rx="8"/>
   <text class="t b" x="160" y="724" text-anchor="middle">Single sign-on</text>
-  <text class="m" x="160" y="740" text-anchor="middle">luna-sentia-auth :19090</text>
+  <text class="m" x="160" y="740" text-anchor="middle">luna-sentia-auth :19001</text>
   <text class="s" x="160" y="760" text-anchor="middle">Starlette · luna_sso cookie</text>
   <text class="s" x="160" y="776" text-anchor="middle">sign out once = out of all</text>
   <line class="arrow" x1="260" y1="752" x2="318" y2="752" marker-end="url(#ah)"/>
@@ -184,11 +184,11 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="s" x="666" y="745" text-anchor="middle">reads</text>
   <rect class="box" x="690" y="702" width="120" height="100" rx="8"/>
   <text class="t b" x="750" y="738" text-anchor="middle">Adminer</text>
-  <text class="m" x="750" y="756" text-anchor="middle">:19080</text>
+  <text class="m" x="750" y="756" text-anchor="middle">:19000</text>
   <text class="s" x="750" y="776" text-anchor="middle">browse any DB</text>
   <rect class="core" x="1060" y="702" width="330" height="100" rx="8"/>
   <text class="t b" x="1225" y="720" text-anchor="middle">Model monitor</text>
-  <text class="m" x="1225" y="736" text-anchor="middle">luna-sentia-ollama:11434 · page :19081</text>
+  <text class="m" x="1225" y="736" text-anchor="middle">luna-sentia-ollama:11434 · page :19004</text>
   <text class="s" x="1225" y="753" text-anchor="middle">times every app's call · samples the GPU</text>
   <text class="s" x="1225" y="769" text-anchor="middle">keeps qwen3-abliterated:14b resident; others leave</text>
   <text class="s" x="1225" y="785" text-anchor="middle">2 min after use · stats in lunamonitor</text>
@@ -202,7 +202,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="s" x="1225" y="922" text-anchor="middle">flash attention · 8-bit KV cache · one at a time</text>
   <rect class="core" x="700" y="836" width="320" height="104" rx="8"/>
   <text class="t b" x="860" y="854" text-anchor="middle">ComfyUI</text>
-  <text class="m" x="860" y="870" text-anchor="middle">luna-sentia-comfyui · :19082 (localhost)</text>
+  <text class="m" x="860" y="870" text-anchor="middle">luna-sentia-comfyui · :19002 (localhost)</text>
   <text class="s" x="860" y="888" text-anchor="middle">Qwen-Image 2.1 Turbo, 8 steps</text>
   <text class="s" x="860" y="904" text-anchor="middle">Luna's face from her profile picture</text>
   <text class="s" x="860" y="922" text-anchor="middle">takes turns with Ollama on the GPU</text>

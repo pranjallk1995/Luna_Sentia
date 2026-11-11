@@ -54,7 +54,7 @@ services:
     volumes:
       - comfyui_models:/opt/comfyui/models
     # No host port: ComfyUI has no sign-in, so people reach its page only through the
-    # monitor's owner-only gate on 19082; Socia and the monitor call it here directly.
+    # monitor's owner-only gate on 19002; Socia and the monitor call it here directly.
     expose:
       - "8188"
     networks:
@@ -85,7 +85,7 @@ services:
 
   # Every app's model calls pass through the monitor on their way to Ollama: it answers
   # at luna-sentia-ollama:11434, times each call, samples the GPU every second, and
-  # stores both in its lunamonitor database. Its page, for the owner, is on 19081.
+  # stores both in its lunamonitor database. Its page, for the owner, is on 19004.
   monitor:
     build: ./monitor
     image: ghcr.io/pranjallk1995/luna-sentia-monitor:${LUNA_IMAGE_TAG:-v1.3.2}
@@ -95,8 +95,10 @@ services:
     environment:
       DATABASE_URL: postgresql://lunamonitor:${LUNAMONITOR_DB_PASSWORD:-lunasentia-dev}@luna-sentia-db:5432/lunamonitor
       MONITOR_OLLAMA_URL: http://luna-sentia-ollama-engine:11434
-      SENTIA_AUTH_PUBLIC_URL: ${SENTIA_AUTH_PUBLIC_URL:-http://localhost:19090}
-      SENTIA_MONITOR_PUBLIC_URL: ${SENTIA_MONITOR_PUBLIC_URL:-http://localhost:19081}
+      SENTIA_AUTH_PUBLIC_URL: ${SENTIA_AUTH_PUBLIC_URL:-http://localhost:19001}
+      SENTIA_MONITOR_PUBLIC_URL: ${SENTIA_MONITOR_PUBLIC_URL:-http://localhost:19004}
+      # The owner's MCP server (GPU and model calls, read only); clients add <this>/mcp.
+      SENTIA_MCP_PUBLIC_URL: ${SENTIA_MCP_PUBLIC_URL:-http://localhost:19003}
       OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
       # Residency: Luna Socia's chat model lives on the GPU and comes back after other
       # models visit; they stay only SENTIA_GUEST_KEEP_ALIVE after their last request.
@@ -105,7 +107,7 @@ services:
       SENTIA_GUEST_KEEP_ALIVE: ${SENTIA_GUEST_KEEP_ALIVE:-2m}
       SENTIA_RESIDENT_IDLE_SECONDS: ${SENTIA_RESIDENT_IDLE_SECONDS:-30}
       SENTIA_COMFYUI_URL: http://luna-sentia-comfyui:8188
-      SENTIA_COMFYUI_PUBLIC_URL: ${SENTIA_COMFYUI_PUBLIC_URL:-http://localhost:19082}
+      SENTIA_COMFYUI_PUBLIC_URL: ${SENTIA_COMFYUI_PUBLIC_URL:-http://localhost:19002}
       MONITOR_SAMPLE_DAYS: ${MONITOR_SAMPLE_DAYS:-30}
       MONITOR_CALL_DAYS: ${MONITOR_CALL_DAYS:-365}
       # To ask Visia, Lexia, and Vibia about the models they run themselves, outside Ollama.
@@ -115,9 +117,11 @@ services:
     expose:
       - "11434"
     ports:
-      - "127.0.0.1:19081:8000"
+      - "127.0.0.1:19004:8000"
       # ComfyUI's page, for the owner only (monitor/app/comfyui_gate.py).
-      - "127.0.0.1:19082:8188"
+      - "127.0.0.1:19002:8188"
+      # The owner's MCP server (monitor/app/mcp_server.py).
+      - "127.0.0.1:19003:8001"
     networks:
       sentia_network:
         aliases:
@@ -199,7 +203,7 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://lunaauth:${LUNAAUTH_DB_PASSWORD:-lunasentia-dev}@luna-sentia-db:5432/lunaauth
-      SENTIA_AUTH_PUBLIC_URL: ${SENTIA_AUTH_PUBLIC_URL:-http://localhost:19090}
+      SENTIA_AUTH_PUBLIC_URL: ${SENTIA_AUTH_PUBLIC_URL:-http://localhost:19001}
       SENTIA_AUTH_COOKIE_DOMAIN: ${SENTIA_AUTH_COOKIE_DOMAIN:-}
       SENTIA_AUTH_GOOGLE_CLIENT_ID: ${SENTIA_AUTH_GOOGLE_CLIENT_ID:-}
       SENTIA_AUTH_GOOGLE_CLIENT_SECRET: ${SENTIA_AUTH_GOOGLE_CLIENT_SECRET:-}
@@ -214,7 +218,7 @@ services:
       LUNAVIBIA_API_TOKEN: ${LUNAVIBIA_API_TOKEN:-lunavibia-dev-token-for-localhost-only}
       SENTIA_AUTH_SESSION_DAYS: ${SENTIA_AUTH_SESSION_DAYS:-30}
     ports:
-      - "127.0.0.1:19090:8000"
+      - "127.0.0.1:19001:8000"
     networks:
       sentia_network:
         aliases:
@@ -235,7 +239,7 @@ services:
     image: adminer:latest
     restart: unless-stopped
     ports:
-      - "127.0.0.1:19080:8080"
+      - "127.0.0.1:19000:8080"
     networks:
       sentia_network:
         aliases:

@@ -53,6 +53,18 @@ CALL_COLUMNS = (
 # How a history range is bucketed: about 360 points whatever its length.
 BUCKETS = ((3600, 10), (6 * 3600, 60), (24 * 3600, 240), (7 * 86400, 1800), (31 * 86400, 7200))
 CALL_ROWS_LIMIT = 5000
+# The longest range the page and the MCP tools read.
+MAX_HISTORY_SECONDS = 31 * 86400
+SAMPLES_QUERY = """SELECT extract(epoch FROM date_bin(make_interval(secs => %s), at, timestamptz 'epoch'))::float AS at,
+                          avg(gpu_util_avg) AS gpu_util, max(gpu_util_max) AS gpu_util_max, avg(mem_util_avg) AS mem_util,
+                          max(vram_used_mb_max) AS vram_used_mb, max(vram_total_mb) AS vram_total_mb,
+                          max(ollama_vram_mb_max) AS ollama_vram_mb, avg(power_w_avg) AS power_w, max(temp_c_max) AS temp_c,
+                          avg(sm_clock_mhz_avg) AS sm_clock_mhz, max(in_flight_max) AS in_flight,
+                          max(waiting_max) AS waiting, avg(busy_pct) AS busy_pct
+                   FROM gpu_samples WHERE at >= to_timestamp(%s) AND at < to_timestamp(%s)
+                   GROUP BY 1 ORDER BY 1"""
+EVENTS_QUERY = """SELECT extract(epoch FROM at)::float AS at, model, event, vram_mb, context FROM model_events
+                   WHERE at >= to_timestamp(%s) AND at < to_timestamp(%s) ORDER BY at"""
 
 
 def plain(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -108,17 +120,7 @@ class MonitorStore:
         size = bucket_seconds(int(end - start))
         window = (start, end)
         with self.connect() as db:
-            samples = db.execute(
-                """SELECT extract(epoch FROM date_bin(make_interval(secs => %s), at, timestamptz 'epoch'))::float AS at,
-                          avg(gpu_util_avg) AS gpu_util, max(gpu_util_max) AS gpu_util_max, avg(mem_util_avg) AS mem_util,
-                          max(vram_used_mb_max) AS vram_used_mb, max(vram_total_mb) AS vram_total_mb,
-                          max(ollama_vram_mb_max) AS ollama_vram_mb, avg(power_w_avg) AS power_w, max(temp_c_max) AS temp_c,
-                          avg(sm_clock_mhz_avg) AS sm_clock_mhz, max(in_flight_max) AS in_flight,
-                          max(waiting_max) AS waiting, avg(busy_pct) AS busy_pct
-                   FROM gpu_samples WHERE at >= to_timestamp(%s) AND at < to_timestamp(%s)
-                   GROUP BY 1 ORDER BY 1""",
-                (size, *window),
-            ).fetchall()
+            samples = db.execute(SAMPLES_QUERY, (size, *window)).fetchall()
             calls = db.execute(
                 f"""SELECT extract(epoch FROM started_at)::float AS started_at, extract(epoch FROM finished_at)::float AS finished_at,
                            {', '.join(CALL_COLUMNS)}
@@ -149,10 +151,35 @@ class MonitorStore:
                    FROM model_calls WHERE finished_at >= to_timestamp(%s) AND started_at < to_timestamp(%s)""",
                 window,
             ).fetchall()
-            events = db.execute(
-                """SELECT extract(epoch FROM at)::float AS at, model, event, vram_mb, context FROM model_events
-                   WHERE at >= to_timestamp(%s) AND at < to_timestamp(%s) ORDER BY at""",
-                window,
-            ).fetchall()
+            events = db.execute(EVENTS_QUERY, window).fetchall()
         return {"bucket_seconds": size, "samples": plain(samples), "calls": plain(calls), "calls_total": total,
                 "groups": plain(groups), "intervals": plain(intervals), "events": plain(events)}
+
+    def gpu_history(self, start: float, end: float) -> dict[str, Any]:
+        """The GPU's samples and Ollama's model loads, without the calls."""
+        size = bucket_seconds(int(end - start))
+        with self.connect() as db:
+            samples = db.execute(SAMPLES_QUERY, (size, start, end)).fetchall()
+            events = db.execute(EVENTS_QUERY, (start, end)).fetchall()
+        return {"bucket_seconds": size, "samples": plain(samples), "events": plain(events)}
+
+    def calls_between(self, start: float, end: float, app: str | None = None, model: str | None = None,
+                      problems_only: bool = False, limit: int = 50) -> list[dict[str, Any]]:
+        """Calls that started in the window, newest first."""
+        where, values = ["started_at >= to_timestamp(%s)", "started_at < to_timestamp(%s)"], [start, end]
+        if app:
+            where.append("app = %s")
+            values.append(app)
+        if model:
+            where.append("model = %s")
+            values.append(model)
+        if problems_only:
+            where.append("outcome <> 'ok'")
+        with self.connect() as db:
+            rows = db.execute(
+                f"""SELECT extract(epoch FROM started_at)::float AS started_at, extract(epoch FROM finished_at)::float AS finished_at,
+                           {', '.join(CALL_COLUMNS)}
+                    FROM model_calls WHERE {' AND '.join(where)} ORDER BY started_at DESC LIMIT %s""",
+                (*values, limit),
+            ).fetchall()
+        return plain(rows)
