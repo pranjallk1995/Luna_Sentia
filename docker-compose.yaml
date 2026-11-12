@@ -110,10 +110,11 @@ services:
       SENTIA_COMFYUI_PUBLIC_URL: ${SENTIA_COMFYUI_PUBLIC_URL:-http://localhost:19002}
       MONITOR_SAMPLE_DAYS: ${MONITOR_SAMPLE_DAYS:-30}
       MONITOR_CALL_DAYS: ${MONITOR_CALL_DAYS:-365}
-      # To ask Visia, Lexia, and Vibia about the models they run themselves, outside Ollama.
+      # To ask Visia, Lexia, Vibia, and Socia about the models they run themselves, outside Ollama.
       LUNAVISIA_API_TOKEN: ${LUNAVISIA_API_TOKEN:-lunavisia-dev-token-for-localhost-only}
       LUNALEXIA_API_TOKEN: ${LUNALEXIA_API_TOKEN:-lunalexia-dev-token-for-localhost-only}
       LUNAVIBIA_API_TOKEN: ${LUNAVIBIA_API_TOKEN:-lunavibia-dev-token-for-localhost-only}
+      LUNASOCIA_API_TOKEN: ${LUNASOCIA_API_TOKEN:-lunasocia-dev-token-for-localhost-only}
     expose:
       - "11434"
     ports:

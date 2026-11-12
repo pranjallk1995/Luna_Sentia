@@ -47,8 +47,8 @@ INLINE_ICON_SIZES = (48, 96)
 ICON_HEADERS = {"Cache-Control": "public, max-age=86400"}
 
 INSTRUCTIONS = """Luna Sentia runs the home's shared models on one NVIDIA GPU: Ollama's models
-(through the model monitor), ComfyUI's image model, and the models Visia, Lexia, and Vibia
-run themselves. These tools read the monitor, for the owner only: get_gpu_status for now,
+(through the model monitor), ComfyUI's image model, and the models Visia, Lexia, Vibia,
+and Socia run themselves. These tools read the monitor, for the owner only: get_gpu_status for now,
 get_gpu_history for utilisation, VRAM, power, and temperature over time, list_model_calls
 for individual model calls with their timings, and get_model_usage for totals per app and
 model with signals on whether a batching server such as vLLM would help. Times are UTC.
@@ -294,7 +294,7 @@ def create_mcp(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
     def get_gpu_status() -> dict[str, Any]:
         """The GPU right now: utilisation, VRAM (used, free, Ollama's share), temperature, power, and clocks,
         with last-minute averages and peaks, the model calls running and waiting, the models Ollama has
-        loaded and when each unloads, the models Visia, Lexia, and Vibia run themselves, and whether the
+        loaded and when each unloads, the models Visia, Lexia, Vibia, and Socia run themselves, and whether the
         resident chat model is loaded."""
         return tools.gpu_status()
 

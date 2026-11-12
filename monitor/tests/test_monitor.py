@@ -239,7 +239,7 @@ class PlainRowsTests(unittest.TestCase):
 
 
 class AppModelsTests(unittest.TestCase):
-    """Asking Visia, Lexia, and Vibia about the models they run themselves."""
+    """Asking Visia, Lexia, Vibia, and Socia about the models they run themselves."""
 
     def ask(self, handler, token="t" * 32):
         import asyncio

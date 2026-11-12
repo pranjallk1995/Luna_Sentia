@@ -117,7 +117,7 @@
     </section>
     <section class="sm-card">
       <h2>Models outside Ollama</h2>
-      <p>Three apps run a model of their own, inside their backend, on the same GPU. Their work never passes through the monitor, so it is missing from the call timeline and the verdict; each app counts it instead, and the <b>Inside the apps</b> card asks them every ten seconds.</p>
+      <p>Four apps run models of their own, inside their backend: three on the same GPU, and Socia's voice on the CPU. Their work never passes through the monitor, so it is missing from the call timeline and the verdict; each app counts it instead, and the <b>Inside the apps</b> card asks them every ten seconds.</p>
       <dl class="sm-terms">
         <dt>Luna Visia: SigLIP 2</dt>
         <dd>Turns every image, and every search, into an embedding for meaning search. GPU only; it loads on the first image or search and stays loaded.</dd>
@@ -125,6 +125,8 @@
         <dd>Reads each document's pages with its layout, table-structure, and OCR models before Qwen3-VL sees them. It uses the GPU while there is room and moves to the CPU when the GPU is short.</dd>
         <dt>Luna Vibia: CLAP</dt>
         <dd>Hears each track and turns it, and every search, into an embedding, with mood hints for the caption model. It runs on the GPU when there is one, with a CPU copy as a last resort.</dd>
+        <dt>Luna Socia: Whisper and Kokoro</dt>
+        <dd>Whisper turns the owner's voice messages into text, and Kokoro reads her replies aloud. Both run on the CPU, so the GPU stays free for her chat and picture models; each loads on first use and stays loaded.</dd>
       </dl>
       <p>For each, the card shows whether it is loaded and where, the GPU memory the app's process holds, and its calls and busy time since the app started. Those counts start again when an app restarts. Lexia's semantic search embeds with <code>qwen3-embedding</code> through Ollama, so that part is in the timeline.</p>
     </section>

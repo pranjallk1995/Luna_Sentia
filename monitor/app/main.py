@@ -101,7 +101,7 @@ async def ask_app(client: httpx.AsyncClient, app: str, url: str, token: str) -> 
 
 
 async def watch_app_models(live: LiveState, config: MonitorConfig) -> None:
-    """Ask Visia, Lexia, and Vibia about the models they run themselves, outside Ollama."""
+    """Ask Visia, Lexia, Vibia, and Socia about the models they run themselves, outside Ollama."""
     async with httpx.AsyncClient(timeout=5.0) as client:
         while True:
             live.app_models = list(await asyncio.gather(

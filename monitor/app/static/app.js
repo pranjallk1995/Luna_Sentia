@@ -388,7 +388,7 @@ function drawModels(container, models, totalVram, now) {
   }).join("")}</div>`;
 }
 
-const APP_NAMES = { visia: "Luna Visia", lexia: "Luna Lexia", vibia: "Luna Vibia" };
+const APP_NAMES = { visia: "Luna Visia", lexia: "Luna Lexia", vibia: "Luna Vibia", socia: "Luna Socia" };
 
 /* Models the apps run themselves, outside Ollama, as each app last reported them. */
 function drawAppModels(container, apps, totalVram, now) {
@@ -409,7 +409,8 @@ function drawAppModels(container, apps, totalVram, now) {
           return `<span>${esc(m.name)}<br>${esc(m.purpose)}<br>${m.loaded ? "Loaded on " : ""}${esc(m.device)}${busy}${active}${m.failures ? ` · ${num(m.failures)} failed` : ""}<br>${esc(used)}</span>`;
         }).join("")
       : `<span>No model of its own is set up in this app.</span>`;
-    const memory = held === null ? "<span>Not using the GPU yet</span>"
+    const cpuOnly = app.models.length && app.models.every((m) => /CPU/.test(m.device));
+    const memory = held === null ? `<span>${cpuOnly ? "Runs on the CPU, so the GPU stays free" : "Not using the GPU yet"}</span>`
       : `<div class="sm-meter" role="img" aria-label="${esc(gb(held))} of VRAM"><i style="width:${share.toFixed(1)}%"></i></div>
          <span>${gb(held)} of VRAM held by the app's process</span>`;
     return `<div class="sm-model">${title}${models}${memory}</div>`;

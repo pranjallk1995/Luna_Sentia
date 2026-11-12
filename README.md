@@ -626,9 +626,10 @@ stored history:
   cannot split VRAM by process, so the total includes Visia's SigLIP, Lexia's Docling,
   Vibia's CLAP, and Windows.
 - **Requests in flight and waiting**, and the models Ollama has loaded.
-- **Models outside Ollama**, which three apps run themselves on the same GPU: Visia's
+- **Models outside Ollama**, which four apps run themselves: on the same GPU, Visia's
   SigLIP 2 (image and text embeddings), Lexia's Docling (layout, table-structure, and
-  OCR models that read each document), and Vibia's CLAP (which hears each track). Their
+  OCR models that read each document), and Vibia's CLAP (which hears each track); on the
+  CPU, Socia's Whisper (voice messages) and Kokoro (her voice). Their
   work never passes through the monitor, so each app counts it and reports it at
   `GET /api/models`, for the owner only. Every ten seconds the monitor asks, with the
   app's `LUNA<APP>_API_TOKEN` from this `.env`, and shows whether each model is loaded
