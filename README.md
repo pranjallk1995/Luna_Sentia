@@ -88,6 +88,38 @@ Every service on the network uses a unique, project-prefixed alias, such as
 `luna-sentia-db`, `luna-sentia-ollama`, or `luna-visia-mcp`, so the apps never
 collide.
 
+## Quickstart
+
+On one machine you need no `.env` and no source build. Clone Sentia and the apps you
+want into one folder, then start them all:
+
+```sh
+mkdir Luna && cd Luna
+git clone https://github.com/pranjallk1995/Luna_Sentia.git
+git clone https://github.com/pranjallk1995/Luna_Visia.git        # and any other Luna_<App> you want
+./Luna_Sentia/luna.sh start
+```
+
+`start` pulls the release images each `docker-compose.yaml` names. It starts Sentia and
+waits until PostgreSQL, Ollama, auth, and the model monitor are healthy, creates every
+app's database, then starts each cloned app, with Unia last. Once a stack is up, it deletes
+the images its new ones replaced. The first start also downloads the models, several GB,
+so it can take a while: `docker compose logs -f ollama-pull` in `Luna_Sentia` shows the
+progress. Then open Unia at <http://localhost:42069>, or an app at its port in
+[Ports](#ports), and sign in as the owner with one click.
+
+| To | Run |
+| --- | --- |
+| Start only some apps | `./Luna_Sentia/luna.sh start visia vita` |
+| Run your local code changes | `./Luna_Sentia/luna.sh start --build` |
+| Start those builds again without rebuilding | `LUNA_IMAGE_TAG=dev ./Luna_Sentia/luna.sh start --no-pull` |
+| Update to newer releases | `git pull` in each folder, then `start` again |
+| See or stop the containers | `./Luna_Sentia/luna.sh status`, `./Luna_Sentia/luna.sh stop` |
+
+Before reaching Luna through a tunnel, give each stack its own secrets in its `.env` (see
+each `.env.example`). `start` refuses a public address that still uses a localhost default.
+[Start everything](#start-everything) has the details.
+
 ## Start everything
 
 `luna.sh` starts Sentia first and waits until PostgreSQL and Ollama are healthy
@@ -232,8 +264,8 @@ If `postgres` is not healthy, check `docker compose logs postgres`; an app
 started now will restart until the database answers. Models can still be
 downloading; that only delays the first model call, not startup.
 
-The first start pulls every model in `SENTIA_MODELS` (`qwen3-vl:8b-instruct` and `qwen3-embedding:0.6b` by
-default), which can take several minutes. Follow progress with:
+The first start pulls every model in `SENTIA_MODELS` (`qwen3-vl:8b-instruct`, `qwen3-embedding:0.6b`, and
+`huihui_ai/qwen3-abliterated:14b` by default), which can take several minutes. Follow progress with:
 
 ```sh
 docker compose logs -f ollama-pull
