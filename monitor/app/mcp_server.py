@@ -10,10 +10,12 @@ call); they never change anything and never see a prompt or a reply.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import time
 from collections import OrderedDict
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 import anyio
@@ -21,7 +23,10 @@ import httpx
 from mcp.server.auth.provider import AccessToken
 from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
+from mcp.types import Icon
 from pydantic import AnyHttpUrl
+from starlette.requests import Request
+from starlette.responses import FileResponse, Response
 
 from app.config import MonitorConfig
 from app.insights import signals
@@ -33,6 +38,13 @@ TOKEN_CACHE_ENTRIES = 64
 # The live window the status averages over.
 RECENT_SECONDS = 60
 MAX_CALLS = 500
+# Sentia's logo for MCP clients, like every Luna app's server: white on transparent, each
+# file under 10 KB. Listed by public URL (claude.ai only shows icons it can load), then
+# the two small ones inline for clients that cannot reach the public address.
+ASSETS = Path(__file__).parent / "assets"
+ICON_SIZES = (48, 96, 192, 512)
+INLINE_ICON_SIZES = (48, 96)
+ICON_HEADERS = {"Cache-Control": "public, max-age=86400"}
 
 INSTRUCTIONS = """Luna Sentia runs the home's shared models on one NVIDIA GPU: Ollama's models
 (through the model monitor), ComfyUI's image model, and the models Visia, Lexia, and Vibia
@@ -236,6 +248,21 @@ class MonitorTools:
         }
 
 
+def icon_name(size: int) -> str:
+    return f"icon-{size}.png"
+
+
+def server_icons(public_url: str) -> list[Icon]:
+    """The icons in the server's info: by URL when it has a public address, then inline."""
+    public_url = public_url.rstrip("/")
+    icons = [Icon(src=f"{public_url}/icons/{icon_name(size)}", mimeType="image/png", sizes=[f"{size}x{size}"])
+             for size in ICON_SIZES if public_url]
+    for size in INLINE_ICON_SIZES:
+        data = base64.b64encode((ASSETS / icon_name(size)).read_bytes()).decode("ascii")
+        icons.append(Icon(src=f"data:image/png;base64,{data}", mimeType="image/png", sizes=[f"{size}x{size}"]))
+    return icons
+
+
 def create_mcp(config: MonitorConfig, live: LiveState, store: MonitorStore | None, residency: Any = None,
                auth_transport: httpx.AsyncBaseTransport | None = None) -> FastMCP:
     resource = f"{config.mcp_public_url}/mcp"
@@ -247,7 +274,20 @@ def create_mcp(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
         auth=AuthSettings(issuer_url=AnyHttpUrl(config.auth_public_url), resource_server_url=AnyHttpUrl(resource),
                           validate_token_resource=False),
         host="0.0.0.0", port=MonitorConfig.MCP_PORT, stateless_http=True, json_response=True,
+        website_url=config.public_url, icons=server_icons(config.mcp_public_url),
     )
+
+    # The icons, without sign-in, for clients and favicon crawlers that fetch them.
+    @mcp.custom_route("/favicon.ico", methods=["GET"])
+    async def favicon(request: Request) -> Response:
+        return FileResponse(ASSETS / "favicon.ico", media_type="image/x-icon", headers=ICON_HEADERS)
+
+    @mcp.custom_route("/icons/{name}", methods=["GET"])
+    async def icon(request: Request) -> Response:
+        name = request.path_params["name"]
+        if name not in {icon_name(size) for size in ICON_SIZES}:
+            return Response("Not found", 404)
+        return FileResponse(ASSETS / name, media_type="image/png", headers=ICON_HEADERS)
     tools = MonitorTools(config, live, store, residency)
 
     @mcp.tool()

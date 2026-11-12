@@ -155,6 +155,21 @@ class ServerTests(unittest.TestCase):
             reply = self.call(client, "owner-token", "tools/call", {"name": "get_gpu_status", "arguments": {}}).json()
             self.assertEqual(reply["result"]["structuredContent"]["now"]["gpu_util"], 40.0)
 
+    def test_shows_sentias_icons_without_sign_in(self):
+        with self.client() as client:
+            info = self.call(client, "owner-token", "initialize", {
+                "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test", "version": "1"}},
+            ).json()["result"]["serverInfo"]
+            sources = [icon["src"] for icon in info["icons"]]
+            self.assertIn("https://sentia-mcp.example.com/icons/icon-512.png", sources)
+            self.assertEqual(sum(src.startswith("data:image/png;base64,") for src in sources), 2)
+            for name in ("icon-48.png", "icon-96.png", "icon-192.png", "icon-512.png"):
+                reply = client.get(f"/icons/{name}")
+                self.assertEqual(reply.headers["content-type"], "image/png")
+                self.assertLess(len(reply.content), 10_000)
+            self.assertEqual(client.get("/favicon.ico").headers["content-type"], "image/x-icon")
+            self.assertEqual(client.get("/icons/secret.txt").status_code, 404)
+
 
 if __name__ == "__main__":
     unittest.main()
