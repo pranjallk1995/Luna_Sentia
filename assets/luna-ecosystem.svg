@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1460 1080" width="1460" height="1080" role="img" aria-label="Clients reach seven Luna apps through a Cloudflare tunnel. Luna Unia, one home page, checks which Luna apps are running and opens each one with the shared sign-in. Six apps run a React UI and a FastMCP service; Luna Socia, the owner's chat with Luna, is one service. All share luna_sentia_network and rely on Luna Sentia for sign-on, PostgreSQL, Ollama and ComfyUI. Every model call goes through Sentia's model monitor, which times it, samples the GPU, keeps Socia's chat model, an uncensored Qwen3 14B, resident, and passes the call on to Ollama. Socia's pictures come from Qwen-Image 2.1 in ComfyUI, which takes turns with Ollama on the GPU. Visia's SigLIP 2, Vibia's CLAP and Lexia's Docling run inside those apps in processes that exit when idle. Luna Vibia tells Luna Lumia the mood and beats of the playing track.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1460 1080" width="1460" height="1080" role="img" aria-label="Clients reach seven Luna apps through a Cloudflare tunnel. Luna Unia, one home page, checks which Luna apps are running and opens each one with the shared sign-in. Six apps run a React UI and a FastMCP service; Luna Socia, the owner's chat with Luna, is one service. All share luna_sentia_network and rely on Luna Sentia for sign-on, PostgreSQL, Ollama and ComfyUI. Every model call goes through Sentia's model monitor, which times it, samples the GPU, keeps Socia's chat model, an uncensored Qwen3 14B, resident, and passes the call on to Ollama. Socia's pictures come from Qwen-Image 2.1 in ComfyUI, which takes turns with Ollama on the GPU. Visia's SigLIP 2, Vibia's CLAP and Lexia's Docling run inside those apps in processes that exit when idle. Luna Vibia tells Luna Lumia the mood and beats of the playing track. Luna Socia signs in to every app's MCP server, and Sentia's, as the owner with OAuth, so Luna can use their tools in the chat.">
   <style>
 svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 .b{font-weight:600}.m{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11px}
@@ -10,6 +10,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 .arrow{stroke:#1b2230;stroke-width:1.3;fill:none}.rule,.rule line{stroke:#1b2230;stroke-opacity:.45}
 .xlink{stroke:#b4661a;stroke-width:1.6;fill:none}.plan{stroke:#8a92a3;stroke-width:1.4;fill:none;stroke-dasharray:5 4}
 .mlink{stroke:#7b4fc9;stroke-width:1.6;fill:none}.hm{fill:#7b4fc9}.lm{fill:#7b4fc9;font-size:11px;font-weight:500}
+.slink{stroke:#2f8f4e;stroke-width:1.6;fill:none}.hs{fill:#2f8f4e}
 .t{fill:#1b2230;font-size:13px}.s{fill:#5d6677;font-size:11px}.m{fill:#5d6677}.mc{fill:#1f6f78}
 .lbl{fill:#1b2230;font-size:11px}.lk{fill:#b4661a;font-size:11px;font-weight:500}.pl{fill:#8a92a3;font-size:11px;font-style:italic}
 .ct{fill:#1f6f78;font-size:12px;font-weight:600;letter-spacing:.08em}
@@ -21,6 +22,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
 .arrow{stroke:#e4e8ef;stroke-width:1.3;fill:none}.rule,.rule line{stroke:#e4e8ef;stroke-opacity:.45}
 .xlink{stroke:#e3a35f;stroke-width:1.6;fill:none}.plan{stroke:#78819a;stroke-width:1.4;fill:none;stroke-dasharray:5 4}
 .mlink{stroke:#b394f0;stroke-width:1.6;fill:none}.hm{fill:#b394f0}.lm{fill:#b394f0;font-size:11px;font-weight:500}
+.slink{stroke:#6cc58a;stroke-width:1.6;fill:none}.hs{fill:#6cc58a}
 .t{fill:#e4e8ef;font-size:13px}.s{fill:#98a2b3;font-size:11px}.m{fill:#98a2b3}.mc{fill:#5fb8c1}
 .lbl{fill:#e4e8ef;font-size:11px}.lk{fill:#e3a35f;font-size:11px;font-weight:500}.pl{fill:#78819a;font-size:11px;font-style:italic}
 .ct{fill:#5fb8c1;font-size:12px;font-weight:600;letter-spacing:.08em}
@@ -31,6 +33,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
     <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hc"/></marker>
     <marker id="ahl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hl"/></marker>
     <marker id="ahp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hp"/></marker>
+    <marker id="ahs" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hs"/></marker>
     <marker id="ahm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="hm"/></marker>
   </defs>
   <rect class="box" x="260" y="18" width="260" height="56" rx="8"/>
@@ -64,7 +67,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="t" x="142" y="326" text-anchor="middle">React UI</text>
   <text class="m" x="142" y="342" text-anchor="middle">:18505</text>
   <line class="arrow" x1="142" y1="350" x2="142" y2="386" marker-end="url(#ah)"/>
-  <text class="s" x="150" y="372" text-anchor="start">REST + bearer token</text>
+  <text class="s" x="150" y="368" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="50" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="142" y="408" text-anchor="middle">FastMCP + REST</text>
   <text class="m" x="142" y="424" text-anchor="middle">luna-visia-mcp :18005</text>
@@ -76,7 +79,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="t" x="338" y="326" text-anchor="middle">React UI</text>
   <text class="m" x="338" y="342" text-anchor="middle">:18506</text>
   <line class="arrow" x1="338" y1="350" x2="338" y2="386" marker-end="url(#ah)"/>
-  <text class="s" x="346" y="372" text-anchor="start">REST + bearer token</text>
+  <text class="s" x="346" y="368" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="246" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="338" y="408" text-anchor="middle">FastMCP + REST</text>
   <text class="m" x="338" y="424" text-anchor="middle">luna-vita-mcp :18006</text>
@@ -88,7 +91,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="t" x="534" y="326" text-anchor="middle">React UI</text>
   <text class="m" x="534" y="342" text-anchor="middle">:18502</text>
   <line class="arrow" x1="534" y1="350" x2="534" y2="386" marker-end="url(#ah)"/>
-  <text class="s" x="542" y="372" text-anchor="start">REST + bearer token</text>
+  <text class="s" x="542" y="368" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="442" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="534" y="408" text-anchor="middle">FastMCP + REST</text>
   <text class="m" x="534" y="424" text-anchor="middle">luna-lumia-mcp :18002</text>
@@ -100,7 +103,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="t" x="730" y="326" text-anchor="middle">React UI</text>
   <text class="m" x="730" y="342" text-anchor="middle">:18500</text>
   <line class="arrow" x1="730" y1="350" x2="730" y2="386" marker-end="url(#ah)"/>
-  <text class="s" x="738" y="372" text-anchor="start">REST + bearer token</text>
+  <text class="s" x="738" y="368" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="638" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="730" y="408" text-anchor="middle">FastMCP + REST</text>
   <text class="m" x="730" y="424" text-anchor="middle">luna-fiora-mcp :18000</text>
@@ -112,7 +115,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="t" x="926" y="326" text-anchor="middle">React UI</text>
   <text class="m" x="926" y="342" text-anchor="middle">:18501</text>
   <line class="arrow" x1="926" y1="350" x2="926" y2="386" marker-end="url(#ah)"/>
-  <text class="s" x="934" y="372" text-anchor="start">REST + bearer token</text>
+  <text class="s" x="934" y="368" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="834" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="926" y="408" text-anchor="middle">FastMCP + REST</text>
   <text class="m" x="926" y="424" text-anchor="middle">luna-lexia-mcp :18001</text>
@@ -124,24 +127,31 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="t" x="1122" y="326" text-anchor="middle">React UI</text>
   <text class="m" x="1122" y="342" text-anchor="middle">:18504</text>
   <line class="arrow" x1="1122" y1="350" x2="1122" y2="386" marker-end="url(#ah)"/>
-  <text class="s" x="1130" y="372" text-anchor="start">REST + bearer token</text>
+  <text class="s" x="1130" y="368" text-anchor="start">REST + bearer token</text>
   <rect class="box" x="1030" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="1122" y="408" text-anchor="middle">FastMCP + REST</text>
   <text class="m" x="1122" y="424" text-anchor="middle">luna-vibia-mcp :18004</text>
   <text class="s" x="1122" y="444" text-anchor="middle">CLAP: listen + embed</text>
   <text class="s" x="1122" y="460" text-anchor="middle">on the GPU, exits when idle</text>
   <text class="t b" x="1318" y="282" text-anchor="middle">Luna Socia</text>
-  <text class="s" x="1318" y="298" text-anchor="middle">chat with Luna · early</text>
+  <text class="s" x="1318" y="298" text-anchor="middle">chat with Luna · uses your apps</text>
   <rect class="app" x="1226" y="308" width="184" height="42" rx="6"/>
   <text class="t" x="1318" y="326" text-anchor="middle">Chat page</text>
   <text class="m" x="1318" y="342" text-anchor="middle">:18503 · owner only</text>
   <line class="arrow" x1="1318" y1="350" x2="1318" y2="386" marker-end="url(#ah)"/>
-  <text class="s" x="1326" y="372" text-anchor="start">same service</text>
+  <text class="s" x="1326" y="368" text-anchor="start">same service</text>
   <rect class="box" x="1226" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="1318" y="408" text-anchor="middle">Chat API (Starlette)</text>
-  <text class="m" x="1318" y="424" text-anchor="middle">luna-socia-ui, no MCP</text>
-  <text class="s" x="1318" y="444" text-anchor="middle">Whisper + Kokoro on CPU:</text>
-  <text class="s" x="1318" y="460" text-anchor="middle">voice in, voice out</text>
+  <text class="m" x="1318" y="424" text-anchor="middle">luna-socia-ui · MCP client</text>
+  <text class="s" x="1318" y="444" text-anchor="middle">Whisper + Kokoro on CPU</text>
+  <text class="s" x="1318" y="460" text-anchor="middle">every app's tools, as you</text>
+  <polyline class="slink" points="1226,429 1220,429 1220,380 196,380"/>
+  <line class="slink" x1="196" y1="380" x2="196" y2="387" marker-end="url(#ahs)"/>
+  <line class="slink" x1="392" y1="380" x2="392" y2="387" marker-end="url(#ahs)"/>
+  <line class="slink" x1="588" y1="380" x2="588" y2="387" marker-end="url(#ahs)"/>
+  <line class="slink" x1="784" y1="380" x2="784" y2="387" marker-end="url(#ahs)"/>
+  <line class="slink" x1="980" y1="380" x2="980" y2="387" marker-end="url(#ahs)"/>
+  <line class="slink" x1="1176" y1="380" x2="1176" y2="387" marker-end="url(#ahs)"/>
   <polyline class="xlink" points="162,470 162,490 338,490 338,474" marker-end="url(#ahl)"/>
   <text class="lk" x="250.0" y="485" text-anchor="middle">food image URLs for Vita</text>
   <polyline class="plan" points="926,470 926,490 750,490 750,474" marker-end="url(#ahp)"/>
@@ -163,8 +173,8 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <line class="arrow" x1="860" y1="628" x2="860" y2="836" marker-end="url(#ah)"/>
   <text class="lbl" x="868" y="650" text-anchor="start">Socia: pictures</text>
   <line class="arrow" x1="1225" y1="628" x2="1225" y2="700" marker-end="url(#ah)"/>
-  <text class="lbl" x="1217" y="650" text-anchor="end">Visia, Fiora, Lexia, Vibia: vision, text,</text>
-  <text class="lbl" x="1217" y="664" text-anchor="end">embeddings at 16k · Socia: chat at 8k</text>
+  <text class="lbl" x="1217" y="650" text-anchor="end">Visia, Fiora, Lexia, Vibia, Socia's photos:</text>
+  <text class="lbl" x="1217" y="664" text-anchor="end">vision, text, embeddings at 16k · Socia's chat: 8k</text>
   <rect class="zone" x="42" y="674" width="1376" height="286" rx="10"/>
   <text class="ct" x="510" y="692" text-anchor="start">LUNA SENTIA · STARTS FIRST</text>
   <rect class="core" x="60" y="702" width="200" height="100" rx="8"/>
@@ -188,7 +198,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="s" x="750" y="776" text-anchor="middle">browse any DB</text>
   <rect class="core" x="1060" y="702" width="330" height="100" rx="8"/>
   <text class="t b" x="1225" y="720" text-anchor="middle">Model monitor</text>
-  <text class="m" x="1225" y="736" text-anchor="middle">luna-sentia-ollama:11434 · page :19003</text>
+  <text class="m" x="1225" y="736" text-anchor="middle">luna-sentia-ollama:11434 · :19003 · MCP :18003</text>
   <text class="s" x="1225" y="753" text-anchor="middle">times every app's call · samples the GPU</text>
   <text class="s" x="1225" y="769" text-anchor="middle">keeps qwen3-abliterated:14b resident; others leave</text>
   <text class="s" x="1225" y="785" text-anchor="middle">2 min after use · stats in lunamonitor</text>

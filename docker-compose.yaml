@@ -51,6 +51,12 @@ services:
     image: ghcr.io/pranjallk1995/luna-sentia-comfyui:${LUNA_IMAGE_TAG:-v1.5.0}
     restart: unless-stopped
     gpus: all
+    # The model files (about 24 GB) are more than the GPU and WSL's RAM hold together.
+    # --fast-disk reads weights from the files as needed, as page cache the kernel can
+    # drop, instead of copying them into RAM, where they pushed everything else to swap.
+    # --disable-pinned-memory: WSL cannot pin that much memory ("Pin error").
+    command: ["python", "main.py", "--listen", "0.0.0.0", "--port", "8188", "--disable-auto-launch",
+              "--fast-disk", "--disable-pinned-memory"]
     volumes:
       - comfyui_models:/opt/comfyui/models
     # No host port: ComfyUI has no sign-in, so people reach its page only through the

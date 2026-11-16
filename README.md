@@ -50,7 +50,7 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 
 Every Luna app but Luna Socia is a React UI plus a FastMCP service on Luna Sentia's
 `luna_sentia_network`; Socia, the owner's chat with Luna, is one service with no MCP
-server. Each app's data lives in Sentia's PostgreSQL, people sign in through Sentia's
+server of its own. Each app's data lives in Sentia's PostgreSQL, people sign in through Sentia's
 `auth`, and model calls go through Sentia's model monitor, which times each one, samples
 the GPU and keeps Socia's chat model resident, to its Ollama. Socia's pictures come from
 Sentia's ComfyUI, which takes turns with Ollama on the GPU. Visia's SigLIP 2, Vibia's CLAP
@@ -60,7 +60,9 @@ for Lumia, and cover art for Vibia. Grey dashed lines are planned: links into Fi
 details from Lexia, transaction image and icon URLs from Visia). Luna Unia is the one home
 for the other apps, on port 42069: it checks which Luna stacks are running and opens each
 one with the shared sign-in. The purple line is the mood and beats of the track Vibia
-plays, which Lumia's lights follow.
+plays, which Lumia's lights follow. The green line is Socia using every app's MCP tools,
+and Sentia's, as the owner: it signs in to them with OAuth like any MCP client, so Luna can
+play music, dim the lights or find a photo from the chat.
 
 | Component | Technology | Purpose |
 | --- | --- | --- |
@@ -129,15 +131,15 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 
 | App | Latest release |
 | --- | --- |
-| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.5.0](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.5.0) |
-| [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | [v0.1.0](https://github.com/pranjallk1995/Luna_Fiora/releases/tag/v0.1.0) (pre-release) |
-| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v1.4.0](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v1.4.0) |
-| [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v1.2.1](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v1.2.1) |
-| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v0.5.0](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v0.5.0) (pre-release) |
-| [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v1.4.1](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v1.4.1) |
-| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v1.7.1](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v1.7.1) |
-| [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v1.5.1](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v1.5.1) |
-| [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | [v1.5.1](https://github.com/pranjallk1995/Luna_Vita/releases/tag/v1.5.1) |
+| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.5.1](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.5.1) |
+| [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | [v0.1.1](https://github.com/pranjallk1995/Luna_Fiora/releases/tag/v0.1.1) (pre-release) |
+| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v1.4.1](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v1.4.1) |
+| [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v1.2.2](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v1.2.2) |
+| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v0.6.0](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v0.6.0) (pre-release) |
+| [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v1.4.2](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v1.4.2) |
+| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v1.8.0](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v1.8.0) |
+| [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v1.5.2](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v1.5.2) |
+| [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | [v1.5.2](https://github.com/pranjallk1995/Luna_Vita/releases/tag/v1.5.2) |
 
 ## Start everything
 
@@ -398,7 +400,7 @@ its database, and scores the two runs. Results hold personal data and stay out o
 | Vibia's tracks | Captions that match the track's sound less well in CLAP's space, tags the evidence does not support, failed replies | `Luna_Vibia/model_evaluations/` (`CAPTION_MODEL`) |
 | Socia's chat | Texting style (length, lists, emoji), saying she is an AI, the wrong language, `create_image` called when it should not be or not called when it should, wrong tool arguments | `Luna_Socia/model_evaluations/` (`LUNASOCIA_CHAT_MODEL`), on a fixed set of made-up conversations |
 | Fits beside the others | A model that leaves no room for SigLIP 2, CLAP or Docling during a batch | `ollama ps` shows `100% GPU` while an evaluation runs; the monitor's page shows VRAM; Luna Socia's chat model is resident again afterwards |
-| One context size | Ollama reloading a model on every call | The apps all ask for 16k; Socia asks for `SENTIA_RESIDENT_CONTEXT` (8k) |
+| One context size | Ollama reloading a model on every call | The apps all ask for 16k, Socia's photo descriptions too; Socia's chat asks for `SENTIA_RESIDENT_CONTEXT` (8k) |
 | Unit tests | Code that breaks with the new setting | Each app's tests in CI; they use fake models, so they say nothing about a model's answers |
 
 The scores cannot judge everything: read the examples each `report.md` lists (the biggest
@@ -568,7 +570,7 @@ page and from each Hidden tab.
   thumbnails, and it never lets the browser cache them.
 - **Deleting someone** removes their PIN with their account.
 
-**Starter images:** Luna Visia can give everyone the images the owner chooses, as their own copy; see its [Starter library](https://github.com/pranjallk1995/Luna_Visia#starter-library).
+**Starter images and tracks:** Luna Visia and Luna Vibia can give everyone the images and tracks the owner chooses, as their own copy; see Visia's and Vibia's [Starter library](https://github.com/pranjallk1995/Luna_Visia#starter-library) ([Vibia's](https://github.com/pranjallk1995/Luna_Vibia#starter-library)).
 
 ### Connecting an MCP client
 
@@ -577,7 +579,13 @@ Add a server's address, such as `https://vita-mcp.lunaapps.fyi/mcp`, as a custom
 (see [MCP tools](#mcp-tools)).
 The client registers itself, sends the person to sign in with Google, and shows an
 approval page; the tools then act on that person's data alone. An MCP server without a
-valid token answers 401, and a token is only valid on the server it was issued for.
+valid token answers 401. A token asked for one server (with `resource`) is valid only
+there; one asked for without a `resource` is valid on every Luna MCP server.
+
+Luna Socia is such a client inside the network: choosing **Connect Luna apps** in Socia
+registers it and asks for one token without a `resource`, so Luna can use every app's
+tools, and Sentia's, as the owner, from the chat. See Socia's
+[Her phone: your Luna apps](https://github.com/pranjallk1995/Luna_Socia#her-phone-your-luna-apps).
 
 | Route | Purpose |
 | --- | --- |
@@ -598,6 +606,13 @@ the apps that make pictures, today Luna Socia. `comfyui-pull` downloads its file
 host port: the apps call it on the private network. The GPU holds Ollama's models or ComfyUI's, not
 both: an app unloads Ollama's models before a picture and asks ComfyUI to free its own
 after (`POST /free`), so the next model call after a picture first reloads its model.
+
+The files are more than the GPU and WSL's RAM hold together, so ComfyUI starts with
+`--fast-disk`: it reads weights from the files as it needs them, as page cache the kernel
+can drop, instead of copying them into RAM. Without it a picture filled the RAM, pushed
+everything else to swap and could stall for minutes. `--disable-pinned-memory` stops the
+"Pin error" warnings, since WSL cannot pin that much memory. A picture takes about 2
+minutes, nearly all of it reading the files again after the last one was freed.
 
 Its own page, the node editor, is for the owner only. The model monitor serves it on
 `127.0.0.1:19002` behind Luna's sign-on (`monitor/app/comfyui_gate.py`): like the monitor's
