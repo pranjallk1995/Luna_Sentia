@@ -135,7 +135,7 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | [v0.1.1](https://github.com/pranjallk1995/Luna_Fiora/releases/tag/v0.1.1) (pre-release) |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v1.4.1](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v1.4.1) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v1.2.2](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v1.2.2) |
-| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v0.7.0](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v0.7.0) (pre-release) |
+| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v0.8.0](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v0.8.0) (pre-release) |
 | [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v1.4.2](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v1.4.2) |
 | [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v1.8.0](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v1.8.0) |
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v1.5.2](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v1.5.2) |
@@ -230,7 +230,7 @@ not the sum.
 | Visia, Lexia, Vibia | `luna-<app>-mcp` | 12–13 GB each | MCP server and jobs, with PyTorch for CUDA (SigLIP, Docling, CLAP) |
 | Vita, Lumia, Fiora | `luna-<app>-mcp` | 0.3–0.5 GB each | MCP server and jobs |
 | Every app but Socia | `luna-<app>-ui` | 0.25–0.3 GB each | The app's page |
-| Socia | `luna-socia-ui` | 0.9 GB | Socia's page, with the Whisper and Kokoro voice models' runtime |
+| Socia | `luna-socia-ui` | 3.6 GB | Socia's page, with the Whisper and Kokoro voice models' runtime and CUDA 12 for them |
 
 The models themselves are not in any image: Ollama's models (about 16 GB) and ComfyUI's
 (about 24 GB) download into volumes the first time Sentia starts, and Socia's voice models
@@ -310,14 +310,15 @@ nvidia-smi
 
 | Model | Served by | Used by | Before changing it |
 | --- | --- | --- | --- |
-| `qwen3-vl:8b-instruct` | Ollama | Lexia (`DOCUMENT_MODEL`), Visia (`VISION_MODEL`), Vibia (`CAPTION_MODEL`), Fiora (`OLLAMA_MODEL`), Socia's photo descriptions (`LUNASOCIA_VISION_MODEL`) | `model_checks/check_model.py`, then Lexia's, Visia's and Vibia's `model_evaluations/` |
-| `huihui_ai/qwen3-abliterated:14b` (Qwen3 14B, uncensored) | Ollama, resident at `SENTIA_RESIDENT_CONTEXT` | Socia's chat (`LUNASOCIA_CHAT_MODEL`) | `model_checks/check_model.py --context 8192`, then Socia's `model_evaluations/` |
+| `qwen3-vl:8b-instruct` | Ollama | Lexia (`DOCUMENT_MODEL`), Visia (`VISION_MODEL`), Vibia (`CAPTION_MODEL`), Fiora (`OLLAMA_MODEL`) | `model_checks/check_model.py`, then Lexia's, Visia's and Vibia's `model_evaluations/` |
+| `huihui_ai/qwen3-abliterated:8b` (Qwen3 8B, uncensored) | Ollama, resident at `SENTIA_RESIDENT_CONTEXT` | Socia's chat (`LUNASOCIA_CHAT_MODEL`) | `model_checks/check_model.py --context 8192`, then Socia's `model_evaluations/` |
+| `huihui_ai/qwen3-vl-abliterated:8b-instruct` (Qwen3-VL 8B, uncensored) | Ollama, in the chat model's place while Luna looks at a photo | Socia's photo replies (`LUNASOCIA_VISION_MODEL`) | Socia's cat game, then a few photos by hand |
 | `qwen3-embedding:0.6b` | Ollama | Lexia's semantic search (`EMBEDDING_MODEL`) | Re-embed with Lexia's `reindex_semantic_search` |
 | Qwen-Image 2.1 Turbo | ComfyUI | Socia's pictures of Luna | A few pictures by hand |
 | SigLIP 2 (`google/siglip2-base-patch16-224`) | Visia itself, GPU only | Visia's meaning search | Pinned in Visia's image; `backfill_metadata` re-embeds |
 | CLAP (`laion/clap-htsat-unfused`) | Vibia itself, GPU or CPU | Vibia's listening and search | Pinned in Vibia's image; every track is heard again |
 | Docling (layout, tables, OCR) | Lexia itself, GPU or CPU | Lexia's page reading | Pinned in Lexia's image |
-| Whisper `large-v3-turbo`, Kokoro 82M | Socia itself, CPU | Socia's voice messages and Luna's voice (`LUNASOCIA_STT_MODEL`, `LUNASOCIA_TTS_VOICE`) | Listen to a few replies; downloaded on first use |
+| Whisper `large-v3-turbo`, Kokoro 82M | Socia itself, GPU (about 1.75 GB, loaded at start) or CPU | Socia's voice messages and Luna's voice (`LUNASOCIA_STT_MODEL`, `LUNASOCIA_TTS_VOICE`, `LUNASOCIA_VOICE_DEVICE`) | Listen to a few replies; downloaded on first use |
 
 See [Changing a model](#changing-a-model) for what each check catches.
 
@@ -346,8 +347,8 @@ them all.
 
 ### GPU residency
 
-The 12 GB GPU holds Luna Socia's chat model (`huihui_ai/qwen3-abliterated:14b`, an uncensored Qwen3 14B, about 9.4 GB at 8k context)
-or the apps' working models (Qwen3-VL 8B with SigLIP 2, CLAP or Docling), not both. The
+The 12 GB GPU holds Luna Socia's chat model (`huihui_ai/qwen3-abliterated:8b`, an uncensored Qwen3 8B, about 5.2 GB at 8k context)
+and her voice (about 1.75 GB, in Socia itself), or the apps' working models (Qwen3-VL 8B with SigLIP 2, CLAP or Docling), not both. The
 monitor, which every Ollama call passes through, decides who stays:
 
 - The resident model, `SENTIA_RESIDENT_MODEL`, is asked to stay loaded for good. It can be
@@ -360,6 +361,11 @@ monitor, which every Ollama call passes through, decides who stays:
 - Once no model has been used for `SENTIA_RESIDENT_IDLE_SECONDS` (30), ComfyUI is not
   drawing, and the GPU has room, the monitor loads the resident model back at
   `SENTIA_RESIDENT_CONTEXT` (8192, the context Socia asks for; any other would reload it).
+
+When Luna looks at a photo, Socia's vision model (`huihui_ai/qwen3-vl-abliterated:8b-instruct`,
+about 5.7 GB) takes the chat model's place for that reply, and Socia asks for the chat model
+back right after (about 4 s), before the monitor would. Measured on the RTX 5070: 8 GB at rest
+with her chat model and voice, 10.5 GB while she looks at a photo.
 
 The apps' own models leave too: Visia's SigLIP 2, Vibia's CLAP, and Lexia's Docling each
 run in a child process that exits after `GPU_MODEL_IDLE_SECONDS` (120) unused
@@ -380,9 +386,12 @@ Three settings in `.env` tune the server for a 12 GB GPU:
 
 ### Changing a model
 
-**Last changed:** Socia's chat model, `qwen3:14b` to `huihui_ai/qwen3-abliterated:14b`, on
-2026-11-11, after Socia's evaluation: the same scores everywhere, and no refusals of
-intimacy (3 before). See `Luna_Socia/model_evaluations/README.md`.
+**Last changed:** Socia's chat model, `huihui_ai/qwen3-abliterated:14b` to
+`huihui_ai/qwen3-abliterated:8b`, and her photos from descriptions by `qwen3-vl:8b-instruct`
+to `huihui_ai/qwen3-vl-abliterated:8b-instruct` seeing them, on 2026-11-16, after Socia's
+evaluation: the 8B calls her tools as well as the 14B, answers about twice as fast, and leaves
+room on the GPU for her voice and for a vision model that sees the photos themselves, which
+told photos apart far better than her chat model reading descriptions of them.
 
 **Last tried:** `qwen3.5:9b` for `qwen3-vl:8b-instruct`, on 2026-11-10. Not adopted: on
 Lexia's 89 documents it fixed PF amounts on payslips and ID numbers, but left Form 16
