@@ -63,10 +63,11 @@ class MonitorConfig:
     call_days: int = 365
     # Each app's private API token (LUNA<APP>_API_TOKEN), to ask it about its own models.
     app_tokens: tuple[tuple[str, str, str], ...] = ()
-    # The model that lives on the GPU, at the context its app asks for (a different
-    # context would make Ollama load it again); blank turns residency off.
+    # The models that live on the GPU (comma-separated), each at the context its app asks for
+    # (a different context would make Ollama load it again): one context for all, or one per
+    # model in the same order. Blank turns residency off.
     resident_model: str = ""
-    resident_context: int = 8192
+    resident_context: str = "8192"
     # How long any other model stays loaded after its last request.
     guest_keep_alive: str = "2m"
     # Quiet seconds before the resident model is loaded back.
@@ -96,7 +97,7 @@ class MonitorConfig:
             sample_days=int(os.getenv("MONITOR_SAMPLE_DAYS", "30")),
             call_days=int(os.getenv("MONITOR_CALL_DAYS", "365")),
             resident_model=os.getenv("SENTIA_RESIDENT_MODEL", "").strip(),
-            resident_context=int(os.getenv("SENTIA_RESIDENT_CONTEXT", "8192") or 8192),
+            resident_context=os.getenv("SENTIA_RESIDENT_CONTEXT", "").strip() or "8192",
             guest_keep_alive=os.getenv("SENTIA_GUEST_KEEP_ALIVE", "").strip() or "2m",
             resident_idle_seconds=float(os.getenv("SENTIA_RESIDENT_IDLE_SECONDS", "30") or 30),
             comfyui_url=os.getenv("SENTIA_COMFYUI_URL", "").strip(),

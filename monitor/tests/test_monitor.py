@@ -302,7 +302,8 @@ class AssetTests(unittest.TestCase):
 
 
 class ResidencyTests(unittest.TestCase):
-    def residency(self, models=(), samples=(), in_flight=False, comfy_queue=None, now=1000.0):
+    def residency(self, models=(), samples=(), in_flight=False, comfy_queue=None, now=1000.0,
+                  resident="qwen3:14b", context=8192):
         from app.residency import Residency
 
         live = LiveState()
@@ -317,7 +318,7 @@ class ResidencyTests(unittest.TestCase):
             return httpx.Response(200, json={})
 
         clock = Clock(now)
-        residency = Residency(live, "http://engine", "qwen3:14b", 8192, "2m", 30.0,
+        residency = Residency(live, "http://engine", resident, context, "2m", 30.0,
                               transport=httpx.MockTransport(engine), clock=clock)
         residency.comfyui_busy = lambda: asyncio.sleep(0, result=bool(comfy_queue))
         return residency, clock, seen
@@ -354,12 +355,35 @@ class ResidencyTests(unittest.TestCase):
 
         # SigLIP still holds 2 GB: 9.6 GB would not fit in the 8.8 GB left, so wait.
         crowded, clock, _ = self.residency(samples=[{"vram_total_mb": 12227, "vram_used_mb": 3400}])
-        crowded.resident_mb = 9600
+        crowded.resident_mb = {"qwen3:14b": 9600}
         clock.now = quiet
         self.assertEqual(asyncio.run(crowded.why_not_now()), "an app's own model still holds the GPU")
         # A visiting Ollama model counts as room: Ollama unloads it to fit the resident.
         crowded.live.models = [{"name": "qwen3-vl:8b-instruct", "vram_mb": 6600}]
         self.assertIsNone(asyncio.run(crowded.why_not_now()))
+
+
+    def test_several_residents_each_stay_at_their_context_and_the_missing_ones_come_back(self):
+        chat, vision = "huihui_ai/qwen3-abliterated:8b", "huihui_ai/qwen3-vl-abliterated:4b-instruct"
+        residency, clock, seen = self.residency(resident=f"{chat}, {vision}", context="16384,4096",
+                                                models=[{"name": chat, "vram_mb": 5900}])
+        stay = lambda model: json.loads(residency.rewrite("/api/chat", json.dumps({"model": model}).encode()))["keep_alive"]
+        self.assertEqual((stay(chat), stay(vision), stay("qwen3-vl:8b-instruct")), (-1, -1, "2m"))
+        clock.now = 1000.0 + 31
+        residency.last_activity = 1000.0
+        self.assertIsNone(asyncio.run(residency.why_not_now()))
+        asyncio.run(residency.load())
+        # Only the vision model was missing, and it comes back at its own context.
+        self.assertEqual(seen, [{"model": vision, "keep_alive": -1, "options": {"num_ctx": 4096}}])
+        # Both gone: chat first; one context given applies to every resident.
+        both, clock, seen = self.residency(resident=f"{chat},{vision}", context="16384")
+        clock.now = 1000.0 + 31
+        asyncio.run(both.load())
+        self.assertEqual([(r["model"], r["options"]["num_ctx"]) for r in seen], [(chat, 16384), (vision, 16384)])
+        # Known sizes that do not fit the free VRAM together wait.
+        both.resident_mb = {chat: 5900, vision: 3200}
+        both.live.samples.append({"vram_total_mb": 12227, "vram_used_mb": 4000})
+        self.assertEqual(asyncio.run(both.why_not_now()), "an app's own model still holds the GPU")
 
 
 class ComfyUIGateTests(unittest.TestCase):

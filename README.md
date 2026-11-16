@@ -131,11 +131,11 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 
 | App | Latest release |
 | --- | --- |
-| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.5.1](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.5.1) |
+| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.6.0](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.6.0) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | [v0.1.1](https://github.com/pranjallk1995/Luna_Fiora/releases/tag/v0.1.1) (pre-release) |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v1.4.1](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v1.4.1) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v1.2.2](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v1.2.2) |
-| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v0.6.0](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v0.6.0) (pre-release) |
+| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v0.7.0](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v0.7.0) (pre-release) |
 | [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v1.4.2](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v1.4.2) |
 | [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v1.8.0](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v1.8.0) |
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v1.5.2](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v1.5.2) |
@@ -350,7 +350,10 @@ The 12 GB GPU holds Luna Socia's chat model (`huihui_ai/qwen3-abliterated:14b`, 
 or the apps' working models (Qwen3-VL 8B with SigLIP 2, CLAP or Docling), not both. The
 monitor, which every Ollama call passes through, decides who stays:
 
-- The resident model, `SENTIA_RESIDENT_MODEL`, is asked to stay loaded for good.
+- The resident model, `SENTIA_RESIDENT_MODEL`, is asked to stay loaded for good. It can be
+  a comma-separated list, such as Socia's chat model and a small vision model of her own
+  that fits beside it; `SENTIA_RESIDENT_CONTEXT` is then one context for all, or one per
+  model in the same order (`8192,4096`). Each missing one is loaded back on its own.
 - Every other model stays only `SENTIA_GUEST_KEEP_ALIVE` (2 minutes) after its last
   request, whatever the app asked. A request that asks a model to leave (`keep_alive` 0,
   as Socia sends before a picture) passes unchanged.
