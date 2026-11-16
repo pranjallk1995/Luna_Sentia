@@ -131,7 +131,7 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 
 | App | Latest release |
 | --- | --- |
-| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.6.0](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.6.0) |
+| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.7.0](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.7.0) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | [v0.1.1](https://github.com/pranjallk1995/Luna_Fiora/releases/tag/v0.1.1) (pre-release) |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v1.4.1](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v1.4.1) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v1.2.2](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v1.2.2) |
