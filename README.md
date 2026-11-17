@@ -131,11 +131,11 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 
 | App | Latest release |
 | --- | --- |
-| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.7.0](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.7.0) |
+| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.7.1](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.7.1) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | [v0.1.1](https://github.com/pranjallk1995/Luna_Fiora/releases/tag/v0.1.1) (pre-release) |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v1.4.1](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v1.4.1) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v1.2.2](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v1.2.2) |
-| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v0.9.0](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v0.9.0) (pre-release) |
+| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v0.9.1](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v0.9.1) (pre-release) |
 | [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v1.4.2](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v1.4.2) |
 | [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v1.8.0](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v1.8.0) |
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v1.5.2](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v1.5.2) |
@@ -318,8 +318,8 @@ nvidia-smi
 | SigLIP 2 (`google/siglip2-base-patch16-224`) | Visia itself, GPU only | Visia's meaning search | Pinned in Visia's image; `backfill_metadata` re-embeds |
 | CLAP (`laion/clap-htsat-unfused`) | Vibia itself, GPU or CPU | Vibia's listening and search | Pinned in Vibia's image; every track is heard again |
 | Docling (layout, tables, OCR) | Lexia itself, GPU or CPU | Lexia's page reading | Pinned in Lexia's image |
-| Whisper `large-v3-turbo`, Kokoro 82M | Socia itself, GPU (about 1.75 GB, loaded at start) or CPU | Socia's voice messages and Luna's voice (`LUNASOCIA_STT_MODEL`, `LUNASOCIA_TTS_VOICE`, `LUNASOCIA_VOICE_DEVICE`) | Listen to a few replies; downloaded on first use |
-| InsightFace `buffalo_l` (SCRFD, ArcFace) | Socia itself, GPU (about 0.5 GB, loaded at start) or CPU | Whose faces are in a photo, Luna's or the owner's, told to her vision model | Socia's `model_evaluations/self_recognition.py`; non-commercial licence |
+| Whisper `large-v3-turbo`, Kokoro 82M | Socia itself, GPU (about 1.5 GB, and 0.2 GB for CUDA, loaded at start) or CPU | Socia's voice messages and Luna's voice (`LUNASOCIA_STT_MODEL`, `LUNASOCIA_TTS_VOICE`, `LUNASOCIA_VOICE_DEVICE`) | Listen to a few replies; downloaded on first use |
+| InsightFace `buffalo_l` (SCRFD, ArcFace) | Socia itself, GPU (about 0.4 GB, loaded with the vision model for a photo) or CPU | Whose faces are in a photo, Luna's or the owner's, told to her vision model | Socia's `model_evaluations/self_recognition.py`; non-commercial licence |
 
 See [Changing a model](#changing-a-model) for what each check catches.
 
@@ -349,7 +349,7 @@ them all.
 ### GPU residency
 
 The 12 GB GPU holds Luna Socia's chat model (`huihui_ai/qwen3-abliterated:8b`, an uncensored Qwen3 8B, about 5.2 GB at 8k context)
-with her voice and face models (about 2.3 GB, in Socia itself), or the apps' working models (Qwen3-VL 8B with SigLIP 2, CLAP or Docling), not both. The
+with her voice (about 1.75 GB, in Socia itself), or the apps' working models (Qwen3-VL 8B with SigLIP 2, CLAP or Docling), not both. The
 monitor, which every Ollama call passes through, decides who stays:
 
 - The resident model, `SENTIA_RESIDENT_MODEL`, is asked to stay loaded for good. It can be
@@ -365,8 +365,9 @@ monitor, which every Ollama call passes through, decides who stays:
 
 When Luna looks at a photo, Socia's vision model (`huihui_ai/qwen3-vl-abliterated:8b-instruct`,
 about 5.7 GB) takes the chat model's place for that reply, and Socia asks for the chat model
-back right after (about 4 s), before the monitor would. Measured on the RTX 5070: 8.6 GB at rest
-with her chat model, voice and face models, 10.5 GB while she looks at a photo.
+back right after (about 4 s), before the monitor would. Her face models (about 0.4 GB, in Socia)
+load beside it while it swaps in, and leave with it. Measured on the RTX 5070: 8.3 GB at rest
+with her chat model and voice, about 10.5 GB while she looks at a photo.
 
 The apps' own models leave too: Visia's SigLIP 2, Vibia's CLAP, and Lexia's Docling each
 run in a child process that exits after `GPU_MODEL_IDLE_SECONDS` (120) unused
@@ -654,7 +655,12 @@ stored history:
   models hold), power, temperature, and clocks, every second. Under WSL the driver
   cannot split VRAM by process, so the total includes Visia's SigLIP, Lexia's Docling,
   Vibia's CLAP, and Windows.
-- **Requests in flight and waiting**, and the models Ollama has loaded.
+- **Requests in flight and waiting.**
+- **Every model**: those loaded now in one table, Ollama's, ComfyUI's (while it holds the
+  GPU) and the apps' own, with their VRAM, what they are for and when they unload; then the
+  rest, one line each: Ollama's installed models with the apps that called each (from
+  `model_calls`), ComfyUI's model files (diffusion model, text encoder, VAE), and the apps'
+  models not loaded now.
 - **Models outside Ollama**, which four apps run themselves: on the same GPU, Visia's
   SigLIP 2 (image and text embeddings), Lexia's Docling (layout, table-structure, and
   OCR models that read each document), and Vibia's CLAP (which hears each track); on the
@@ -662,8 +668,9 @@ stored history:
   work never passes through the monitor, so each app counts it and reports it at
   `GET /api/models`, for the owner only. Every ten seconds the monitor asks, with the
   app's `LUNA<APP>_API_TOKEN` from this `.env`, and shows whether each model is loaded
-  and where, its calls and busy time since the app started, and the GPU memory the
-  app's process holds.
+  and where, its calls and busy time since the app started, and the GPU memory it holds:
+  the app's process as torch reports it, or, for Socia's ONNX and CTranslate2 models, each
+  model's own share, measured as it loads.
 - **Signals for a batching server such as vLLM**: how often requests overlap, how much
   of their time is spent waiting, and how much VRAM stays free. The page's Guide
   explains each number.
