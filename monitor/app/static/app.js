@@ -373,48 +373,110 @@ function eventsTable(container, events) {
     <td class="num">${gb(e.vram_mb)}</td><td class="num">${e.context ? num(e.context) : "–"}</td></tr>`).join("")}</tbody></table>`;
 }
 
-function drawModels(container, models, totalVram, now) {
-  if (!models.length) {
-    container.innerHTML = `<p class="sm-empty">No model is loaded. Ollama loads one on the next call, which adds loading time to it.</p>`;
-    return;
-  }
-  container.innerHTML = `<div class="sm-models">${models.map((m) => {
-    const left = m.expires_at ? Math.max(m.expires_at - now, 0) : null;
-    const share = totalVram ? Math.min((m.vram_mb / totalVram) * 100, 100) : 0;
-    return `<div class="sm-model"><strong>${esc(m.name)}</strong>
-      <span>${esc([m.parameters, m.quantization].filter(Boolean).join(" · "))}${m.context ? ` · ${num(m.context)} context` : ""}</span>
-      <div class="sm-meter" role="img" aria-label="${esc(gb(m.vram_mb))} of VRAM"><i style="width:${share.toFixed(1)}%"></i></div>
-      <span>${gb(m.vram_mb)} of VRAM${left === null ? "" : left > 1 ? ` · unloads in ${ms(left * 1000)} if idle` : " · unloading"}</span></div>`;
-  }).join("")}</div>`;
+const APP_NAMES = {
+  visia: "Luna Visia", lexia: "Luna Lexia", vibia: "Luna Vibia", socia: "Luna Socia", fiora: "Luna Fiora", vita: "Luna Vita",
+  lumia: "Luna Lumia", unia: "Luna Unia", sentia: "the monitor, reloading it", "model-check": "model checks",
+};
+const appName = (app) => APP_NAMES[app] || app;
+/* "4 min", "2 h 5 min", "2 d 11 h": how long ago, or how long until. */
+const span = (seconds) => {
+  if (seconds < 60) return `${Math.round(seconds)} s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ${Math.round((seconds % 3600) / 60)} min`;
+  return `${Math.floor(seconds / 86400)} d ${Math.round((seconds % 86400) / 3600)} h`;
+};
+const RESIDENT_AFTER = 30 * 86400; // Ollama's "keep loaded for good" expires centuries from now.
+
+function vramCell(mb, totalVram, note = "") {
+  if (!mb) return `<span class="sm-dim">${note || "–"}</span>`;
+  const share = totalVram ? Math.min((mb / totalVram) * 100, 100) : 0;
+  return `<div class="sm-cell-meter"><div class="sm-meter" role="img" aria-label="${esc(gb(mb))} of VRAM"><i style="width:${share.toFixed(1)}%"></i></div>${gb(mb)}${note ? ` <span class="sm-dim">${note}</span>` : ""}</div>`;
 }
 
-const APP_NAMES = { visia: "Luna Visia", lexia: "Luna Lexia", vibia: "Luna Vibia", socia: "Luna Socia" };
+const usage = (m, now) => [
+  m.calls ? `${num(m.calls)} call${m.calls === 1 ? "" : "s"}, ${ms(m.busy_seconds * 1000)} busy` : "",
+  m.failures ? `${num(m.failures)} failed` : "",
+  m.last_used ? `last used ${span(now - m.last_used)} ago` : "not used since the app started",
+].filter(Boolean).join(" · ");
 
-/* Models the apps run themselves, outside Ollama, as each app last reported them. */
-function drawAppModels(container, apps, totalVram, now) {
-  if (!apps || !apps.length) {
-    container.innerHTML = `<p class="sm-empty">Waiting for the apps' first report.</p>`;
-    return;
+/* Who called each Ollama model: the calls kept in the database, and those in memory since. */
+function callersOf(model, usage, calls) {
+  const byApp = new Map();
+  for (const u of usage || []) if (u.model === model) byApp.set(u.app, { calls: u.calls, last: u.last_call });
+  for (const c of calls) if (c.model === model && !byApp.has(c.app)) byApp.set(c.app, { calls: 1, last: c.started_at });
+  return [...byApp.entries()].sort((x, y) => y[1].calls - x[1].calls);
+}
+const callersText = (callers, now) => callers.length
+  ? callers.map(([app, u]) => `${appName(app)} (${num(u.calls)} call${u.calls === 1 ? "" : "s"}, last ${span(now - u.last)} ago)`).join(", ")
+  : "";
+const COMFYUI_FOR = "Socia's pictures of Luna";
+
+/* Every model loaded now, Ollama's, ComfyUI's and the apps' own, in one table; every other model below,
+   one line each, by where it runs. */
+function drawModels(container, list, models, apps, inventory, calls, totalVram, now) {
+  inventory = inventory || {};
+  const rows = models.map((m) => {
+    const left = m.expires_at ? m.expires_at - now : null;
+    const state = left === null ? "loaded" : left > RESIDENT_AFTER ? "stays loaded (resident)" : left > 1 ? `unloads in ${span(left)} if idle` : "unloading";
+    const callers = callersText(callersOf(m.name, inventory.usage, calls), now);
+    const what = [[m.parameters, m.quantization].filter(Boolean).join(" · "), m.context ? `${num(m.context)} context` : ""].filter(Boolean).join(" · ");
+    return `<tr><td><strong>${esc(m.name)}</strong><br><span class="sm-dim">${esc(what)}</span></td><td>Ollama</td>
+      <td class="wrap">${callers ? `Called by ${esc(callers)}` : "<span class=\"sm-dim\">No call kept</span>"}</td>
+      <td>${vramCell(m.vram_mb, totalVram)}</td><td class="wrap">${esc(state)}</td></tr>`;
+  });
+  const comfy = inventory.comfyui;
+  const comfyLoaded = comfy && !comfy.problem && (comfy.drawing || comfy.held_mb > 512);
+  const comfyFiles = comfy && comfy.files ? comfy.files.map((f) => `${f.kind} ${f.name}`).join(", ") : "";
+  if (comfyLoaded) {
+    rows.push(`<tr><td><strong>Qwen-Image</strong><br><span class="sm-dim">${esc(comfyFiles)}</span></td><td>ComfyUI</td>
+      <td class="wrap">${COMFYUI_FOR}</td><td>${vramCell(comfy.held_mb, totalVram)}</td>
+      <td class="wrap">${comfy.drawing ? "<b>drawing now</b>" : "loaded until Socia or the monitor frees it"}</td></tr>`);
   }
-  container.innerHTML = `<div class="sm-models">${apps.map((app) => {
-    const title = `<strong>${esc(APP_NAMES[app.app] || app.app)}</strong>`;
-    if (app.problem) return `<div class="sm-model">${title}<span>${esc(app.problem)}</span></div>`;
+  const loadedNames = new Set(models.map((m) => m.name));
+  const idleOllama = (inventory.ollama || []).filter((m) => !loadedNames.has(m.name)).map((m) => {
+    const callers = callersText(callersOf(m.name, inventory.usage, calls), now);
+    const what = [m.parameters, m.quantization, gb(m.size_mb)].filter(Boolean).join(" · ");
+    return `<li>${esc(m.name)} <span class="sm-dim">· ${esc(what)} · ${callers ? `called by ${esc(callers)}` : "no call kept"}</span></li>`;
+  });
+  const idleComfy = comfy && !comfyLoaded
+    ? [comfy.problem ? `<li><span class="sm-dim">${esc(comfy.problem)}</span></li>`
+      : (comfy.files || []).map((f) => `<li>${esc(f.name)} <span class="sm-dim">· ${esc(f.kind)} · ${COMFYUI_FOR}; loads for each picture</span></li>`).join("")]
+    : [];
+  const idleApps = [];
+  for (const app of apps || []) {
+    if (app.problem) { idleApps.push(`<li><b>${esc(appName(app.app))}</b> <span class="sm-dim">${esc(app.problem)}</span></li>`); continue; }
     const held = app.gpu ? app.gpu.reserved_mb : null;
-    const share = held && totalVram ? Math.min((held / totalVram) * 100, 100) : 0;
-    const models = app.models.length
-      ? app.models.map((m) => {
-          const used = m.last_used ? `last used ${ms((now - m.last_used) * 1000)} ago` : "not used since the app started";
-          const busy = m.calls ? ` · ${num(m.calls)} call${m.calls === 1 ? "" : "s"}, ${ms(m.busy_seconds * 1000)} busy` : "";
-          const active = m.active ? ` · <b>working now</b>` : "";
-          return `<span>${esc(m.name)}<br>${esc(m.purpose)}<br>${m.loaded ? "Loaded on " : ""}${esc(m.device)}${busy}${active}${m.failures ? ` · ${num(m.failures)} failed` : ""}<br>${esc(used)}</span>`;
-        }).join("")
-      : `<span>No model of its own is set up in this app.</span>`;
-    const cpuOnly = app.models.length && app.models.every((m) => /CPU/.test(m.device));
-    const memory = held === null ? `<span>${cpuOnly ? "Runs on the CPU, so the GPU stays free" : "Not using the GPU yet"}</span>`
-      : `<div class="sm-meter" role="img" aria-label="${esc(gb(held))} of VRAM"><i style="width:${share.toFixed(1)}%"></i></div>
-         <span>${gb(held)} of VRAM held by the app's process</span>`;
-    return `<div class="sm-model">${title}${models}${memory}</div>`;
-  }).join("")}</div>`;
+    const measured = app.gpu && app.gpu.measured;
+    let first = true;
+    for (const m of app.models) {
+      const size = m.vram_mb ? `about ${gb(m.vram_mb)} when loaded · ` : "";
+      if (!m.loaded) {
+        idleApps.push(`<li><b>${esc(appName(app.app))}</b> ${esc(m.name)} <span class="sm-dim">· ${esc(m.purpose)} · ${esc(m.device)} · ${esc(size)}${esc(usage(m, now))}</span></li>`);
+        continue;
+      }
+      // Measured per model where the app can (Socia); otherwise its whole process's share, on its first model.
+      const memory = m.vram_mb ? vramCell(m.vram_mb, totalVram, "measured at load")
+        : held && !measured ? vramCell(first ? held : 0, totalVram, first ? "the app's process" : "in the same process")
+        : vramCell(0, totalVram, /CPU/.test(m.device) ? "CPU, no VRAM" : "not reported");
+      first = false;
+      rows.push(`<tr><td><strong>${esc(m.name)}</strong><br><span class="sm-dim">${esc(m.device)}</span></td><td>${esc(appName(app.app))}</td>
+        <td class="wrap">${esc(m.purpose)}</td><td>${memory}</td>
+        <td class="wrap">${m.active ? "<b>working now</b> · " : ""}${esc(usage(m, now))}</td></tr>`);
+    }
+    if (measured && app.gpu.context_mb > 0) {
+      rows.push(`<tr><td><strong>CUDA runtime</strong><br><span class="sm-dim">shared by its models</span></td><td>${esc(appName(app.app))}</td>
+        <td class="wrap"><span class="sm-dim">The GPU context every model in the app uses</span></td><td>${vramCell(app.gpu.context_mb, totalVram)}</td><td>loaded</td></tr>`);
+    }
+  }
+  container.innerHTML = rows.length
+    ? `<table class="sm-table"><thead><tr><th>Model</th><th>Runs in</th><th>For</th><th>VRAM</th><th>State</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+    : `<p class="sm-empty">No model is loaded. Ollama loads one on the next call, which adds loading time to it.</p>`;
+  const group = (title, items, empty) => `<h4 class="sm-sub">${title}</h4><ul class="sm-list">${items.length ? items.join("") : `<li class="sm-dim">${empty}</li>`}</ul>`;
+  list.innerHTML = [
+    group("Ollama, installed", idleOllama, inventory.ollama ? "Every installed model is loaded." : "Waiting for Ollama's list."),
+    comfy ? group("ComfyUI", idleComfy, "Its models are loaded, above.") : "",
+    group("Inside the apps", idleApps, apps ? "Every model the apps run themselves is loaded." : "Waiting for the apps' first report."),
+  ].join("");
 }
 
 /* The verdict: the rules of thumb and the numbers behind them. */
@@ -468,6 +530,7 @@ function applyLive(data, full) {
   live.inFlight = data.in_flight;
   live.models = data.models;
   live.appModels = data.app_models;
+  live.inventory = data.inventory;
   live.signals = data.signals;
   live.parallel = data.parallel;
   live.gpu = data.gpu || {};
@@ -484,8 +547,8 @@ function drawLive() {
   drawCharts(live.charts, points, { start, end: now, gap: 5, gpuName: live.gpu.name, parallel: live.parallel, powerLimit: last.power_limit_w });
   const running = live.inFlight.map((c) => ({ ...c, outcome: "running" }));
   drawTimeline(document.getElementById("live-timeline"), [...running, ...live.calls], { start, end: now, now });
-  drawModels(document.getElementById("models"), live.models, last.vram_total_mb, now);
-  drawAppModels(document.getElementById("app-models"), live.appModels, last.vram_total_mb, now);
+  drawModels(document.getElementById("models"), document.getElementById("app-models"), live.models, live.appModels,
+    live.inventory, [...running, ...live.calls], last.vram_total_mb, now);
   callsTable(document.getElementById("live-calls"), [...running, ...live.calls]);
   document.getElementById("live-calls-note").textContent = `The last ${Math.min(live.calls.length, TABLE_ROWS)} of ${live.calls.length} kept in memory`;
   drawVerdict(document.getElementById("live-verdict"), live.signals, "Calls in the last few minutes, from memory");

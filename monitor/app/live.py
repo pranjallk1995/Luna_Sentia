@@ -35,6 +35,8 @@ class LiveState:
         self.engine_problem: str | None = None
         # The models each app runs itself, as the apps last reported them.
         self.app_models: list[dict[str, Any]] = []
+        # Every model there is, loaded or not: Ollama's installed ones, ComfyUI's, and who calls each.
+        self.inventory: dict[str, Any] = {}
         # Rows for the database, taken by the flusher.
         self.pending_calls: list[Call] = []
         self.pending_samples: list[dict[str, Any]] = []
@@ -160,4 +162,5 @@ class LiveState:
                 "last_call": self.calls[-1][0] if self.calls else 0,
                 "models": list(self.models),
                 "app_models": list(self.app_models),
+                "inventory": self.inventory,
             }

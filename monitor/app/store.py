@@ -116,6 +116,13 @@ class MonitorStore:
             db.execute("DELETE FROM model_calls WHERE started_at < now() - make_interval(days => %s)", (call_days,))
             db.execute("DELETE FROM model_events WHERE at < now() - make_interval(days => %s)", (call_days,))
 
+    def model_usage(self) -> list[dict[str, Any]]:
+        """Which app called which model, how often and when last, over the calls kept."""
+        with self.connect() as db:
+            return db.execute(
+                """SELECT model, app, count(*) AS calls, extract(epoch FROM max(started_at))::float AS last_call
+                   FROM model_calls GROUP BY model, app ORDER BY model, count(*) DESC""").fetchall()
+
     def history(self, start: float, end: float) -> dict[str, Any]:
         size = bucket_seconds(int(end - start))
         window = (start, end)

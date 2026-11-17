@@ -32,6 +32,8 @@ class MonitorConfig:
     MODELS_SECONDS: ClassVar[float] = 2.0
     # How often the apps are asked about the models they run themselves, outside Ollama.
     APP_MODELS_SECONDS: ClassVar[float] = 10.0
+    # Ollama's installed models, ComfyUI's model files, and which apps called which model.
+    INVENTORY_SECONDS: ClassVar[float] = 30.0
     # The apps with models of their own: Visia's SigLIP 2, Lexia's Docling, Vibia's CLAP,
     # and Socia's Whisper and Kokoro (on the CPU).
     APP_BACKENDS: ClassVar[tuple[tuple[str, str], ...]] = (

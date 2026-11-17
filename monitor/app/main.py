@@ -110,6 +110,60 @@ async def watch_app_models(live: LiveState, config: MonitorConfig) -> None:
             await asyncio.sleep(MonitorConfig.APP_MODELS_SECONDS)
 
 
+def installed_models(reply: dict) -> list[dict]:
+    """Ollama's /api/tags: every model it has, loaded or not."""
+    return [{
+        "name": model.get("name") or model.get("model"),
+        "size_mb": (model.get("size") or 0) / MB,
+        "quantization": (model.get("details") or {}).get("quantization_level"),
+        "parameters": (model.get("details") or {}).get("parameter_size"),
+    } for model in reply.get("models") or []]
+
+
+# ComfyUI's model folders, and what each holds for a picture.
+COMFYUI_FOLDERS = (("diffusion_models", "diffusion model"), ("text_encoders", "text encoder"), ("vae", "VAE"),
+                   ("loras", "LoRA"), ("checkpoints", "checkpoint"))
+
+
+async def comfyui_models(client: httpx.AsyncClient, url: str) -> dict:
+    """ComfyUI's model files, and whether it holds them on the GPU now (it keeps no list of loaded models,
+    so its share of the GPU tells: torch's reserved memory)."""
+    try:
+        files = []
+        for folder, kind in COMFYUI_FOLDERS:
+            reply = await client.get(f"{url}/models/{folder}")
+            if reply.status_code == 200:
+                files += [{"kind": kind, "name": name} for name in reply.json()]
+        device = ((await client.get(f"{url}/system_stats")).json().get("devices") or [{}])[0]
+        queue = (await client.get(f"{url}/queue")).json()
+    except (httpx.HTTPError, ValueError):
+        return {"problem": "not running", "files": []}
+    return {"problem": None, "files": files, "held_mb": (device.get("torch_vram_total") or 0) / MB,
+            "drawing": bool(queue.get("queue_running") or queue.get("queue_pending"))}
+
+
+async def watch_inventory(live: LiveState, config: MonitorConfig, store: MonitorStore) -> None:
+    """Every model there is, loaded or not, for the page's list of models not loaded now."""
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        while True:
+            inventory: dict = {}
+            try:
+                reply = await client.get(f"{config.upstream_url}/api/tags")
+                reply.raise_for_status()
+                inventory["ollama"] = installed_models(reply.json())
+            except (httpx.HTTPError, ValueError):
+                inventory["ollama"] = []
+            if config.comfyui_url:
+                inventory["comfyui"] = await comfyui_models(client, config.comfyui_url.rstrip("/"))
+            try:
+                inventory["usage"] = await asyncio.to_thread(store.model_usage)
+            except Exception as error:  # noqa: BLE001 - the list goes without who called what
+                logger.warning("Could not read which app called which model: %s", error)
+                inventory["usage"] = (live.inventory or {}).get("usage", [])
+            live.inventory = inventory
+            await asyncio.sleep(MonitorConfig.INVENTORY_SECONDS)
+
+
 async def flush(live: LiveState, store: MonitorStore, config: MonitorConfig) -> None:
     ready = False
     last_purge = 0.0
@@ -156,6 +210,7 @@ async def main() -> None:
             forwarded_allow_ips="*", log_level="warning", access_log=False)))
     tasks = [asyncio.create_task(job) for job in (
         sample_gpu(live, GpuReader()), watch_models(live, config.upstream_url), watch_app_models(live, config),
+        watch_inventory(live, config, store),
         flush(live, store, config), residency.run())]
     try:
         await asyncio.gather(*(server.serve() for server in servers))
