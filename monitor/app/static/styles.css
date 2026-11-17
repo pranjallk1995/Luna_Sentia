@@ -103,7 +103,23 @@ code { font-size: 0.95em; color: var(--lv-text); }
 .sm-card-head { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: baseline; justify-content: space-between; margin-bottom: 0.6rem; }
 /* Loaded models: one table, then the apps' idle models one line each. */
 .sm-table td.wrap { min-width: 12rem; white-space: normal; }
-#models .sm-table td { vertical-align: top; }
+/* The models table fits its card: fixed columns, long names wrap, no sideways scrolling. */
+.sm-models-table { table-layout: fixed; white-space: normal; }
+.sm-models-table th, .sm-models-table td { vertical-align: top; overflow-wrap: anywhere; }
+.sm-models-table td.wrap { min-width: 0; }
+.sm-models-table .c-model { width: 30%; }
+.sm-models-table .c-where { width: 11%; }
+.sm-models-table .c-for { width: 23%; }
+.sm-models-table .c-vram { width: 13%; }
+.sm-models-table .c-state { width: 23%; }
+.sm-models-table .sm-cell-meter { min-width: 0; }
+/* On a phone, each model is a small block instead of a row. */
+@media (max-width: 700px) {
+  .sm-models-table, .sm-models-table tbody, .sm-models-table tr, .sm-models-table td { display: block; width: auto; }
+  .sm-models-table thead, .sm-models-table colgroup { display: none; }
+  .sm-models-table tr { padding: 0.5rem 0; border-bottom: 1px solid var(--lv-border); }
+  .sm-models-table td { padding: 0.1rem 0; border: 0; }
+}
 .sm-dim { color: var(--lv-muted); }
 .sm-cell-meter { display: grid; gap: 0.25rem; min-width: 7rem; }
 .sm-heading { margin: 1.1rem 0 0; font-size: 0.85rem; font-weight: 650; }

@@ -426,9 +426,9 @@ function drawModels(container, list, models, apps, inventory, calls, totalVram, 
   });
   const comfy = inventory.comfyui;
   const comfyLoaded = comfy && !comfy.problem && (comfy.drawing || comfy.held_mb > 512);
-  const comfyFiles = comfy && comfy.files ? comfy.files.map((f) => `${f.kind} ${f.name}`).join(", ") : "";
   if (comfyLoaded) {
-    rows.push(`<tr><td><strong>Qwen-Image</strong><br><span class="sm-dim">${esc(comfyFiles)}</span></td><td>ComfyUI</td>
+    const fileLines = (comfy.files || []).map((f) => `${esc(f.kind)}: ${esc(f.name)}`).join("<br>");
+    rows.push(`<tr><td><strong>Qwen-Image</strong><br><span class="sm-dim">${fileLines}</span></td><td>ComfyUI</td>
       <td class="wrap">${COMFYUI_FOR}</td><td>${vramCell(comfy.held_mb, totalVram)}</td>
       <td class="wrap">${comfy.drawing ? "<b>drawing now</b>" : "loaded until Socia or the monitor frees it"}</td></tr>`);
   }
@@ -469,7 +469,8 @@ function drawModels(container, list, models, apps, inventory, calls, totalVram, 
     }
   }
   container.innerHTML = rows.length
-    ? `<table class="sm-table"><thead><tr><th>Model</th><th>Runs in</th><th>For</th><th>VRAM</th><th>State</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+    ? `<table class="sm-table sm-models-table"><colgroup><col class="c-model"><col class="c-where"><col class="c-for"><col class="c-vram"><col class="c-state"></colgroup>
+       <thead><tr><th>Model</th><th>Runs in</th><th>For</th><th>VRAM</th><th>State</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
     : `<p class="sm-empty">No model is loaded. Ollama loads one on the next call, which adds loading time to it.</p>`;
   const group = (title, items, empty) => `<h4 class="sm-sub">${title}</h4><ul class="sm-list">${items.length ? items.join("") : `<li class="sm-dim">${empty}</li>`}</ul>`;
   list.innerHTML = [
