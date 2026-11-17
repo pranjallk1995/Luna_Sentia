@@ -135,7 +135,7 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | [v0.1.1](https://github.com/pranjallk1995/Luna_Fiora/releases/tag/v0.1.1) (pre-release) |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v1.4.1](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v1.4.1) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v1.2.2](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v1.2.2) |
-| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v0.8.0](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v0.8.0) (pre-release) |
+| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v0.9.0](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v0.9.0) (pre-release) |
 | [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v1.4.2](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v1.4.2) |
 | [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v1.8.0](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v1.8.0) |
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v1.5.2](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v1.5.2) |
@@ -230,10 +230,10 @@ not the sum.
 | Visia, Lexia, Vibia | `luna-<app>-mcp` | 12–13 GB each | MCP server and jobs, with PyTorch for CUDA (SigLIP, Docling, CLAP) |
 | Vita, Lumia, Fiora | `luna-<app>-mcp` | 0.3–0.5 GB each | MCP server and jobs |
 | Every app but Socia | `luna-<app>-ui` | 0.25–0.3 GB each | The app's page |
-| Socia | `luna-socia-ui` | 3.6 GB | Socia's page, with the Whisper and Kokoro voice models' runtime and CUDA 12 for them |
+| Socia | `luna-socia-ui` | 3.7 GB | Socia's page, with the runtime of her voice (Whisper, Kokoro) and face models, and CUDA 12 for them |
 
 The models themselves are not in any image: Ollama's models (about 16 GB) and ComfyUI's
-(about 24 GB) download into volumes the first time Sentia starts, and Socia's voice models
+(about 24 GB) download into volumes the first time Sentia starts, and Socia's voice and face models
 the first time they are used. `--build` also downloads the base images `python:3.12-slim`
 and `node:22-slim`.
 
@@ -285,8 +285,8 @@ If `postgres` is not healthy, check `docker compose logs postgres`; an app
 started now will restart until the database answers. Models can still be
 downloading; that only delays the first model call, not startup.
 
-The first start pulls every model in `SENTIA_MODELS` (`qwen3-vl:8b-instruct`, `qwen3-embedding:0.6b`, and
-`huihui_ai/qwen3-abliterated:14b` by default), which can take several minutes. Follow progress with:
+The first start pulls every model in `SENTIA_MODELS` (`qwen3-vl:8b-instruct`, `qwen3-embedding:0.6b`,
+`huihui_ai/qwen3-abliterated:8b` and `huihui_ai/qwen3-vl-abliterated:8b-instruct` by default), which can take several minutes. Follow progress with:
 
 ```sh
 docker compose logs -f ollama-pull
@@ -319,6 +319,7 @@ nvidia-smi
 | CLAP (`laion/clap-htsat-unfused`) | Vibia itself, GPU or CPU | Vibia's listening and search | Pinned in Vibia's image; every track is heard again |
 | Docling (layout, tables, OCR) | Lexia itself, GPU or CPU | Lexia's page reading | Pinned in Lexia's image |
 | Whisper `large-v3-turbo`, Kokoro 82M | Socia itself, GPU (about 1.75 GB, loaded at start) or CPU | Socia's voice messages and Luna's voice (`LUNASOCIA_STT_MODEL`, `LUNASOCIA_TTS_VOICE`, `LUNASOCIA_VOICE_DEVICE`) | Listen to a few replies; downloaded on first use |
+| InsightFace `buffalo_l` (SCRFD, ArcFace) | Socia itself, GPU (about 0.5 GB, loaded at start) or CPU | Whose faces are in a photo, Luna's or the owner's, told to her vision model | Socia's `model_evaluations/self_recognition.py`; non-commercial licence |
 
 See [Changing a model](#changing-a-model) for what each check catches.
 
@@ -348,7 +349,7 @@ them all.
 ### GPU residency
 
 The 12 GB GPU holds Luna Socia's chat model (`huihui_ai/qwen3-abliterated:8b`, an uncensored Qwen3 8B, about 5.2 GB at 8k context)
-and her voice (about 1.75 GB, in Socia itself), or the apps' working models (Qwen3-VL 8B with SigLIP 2, CLAP or Docling), not both. The
+with her voice and face models (about 2.3 GB, in Socia itself), or the apps' working models (Qwen3-VL 8B with SigLIP 2, CLAP or Docling), not both. The
 monitor, which every Ollama call passes through, decides who stays:
 
 - The resident model, `SENTIA_RESIDENT_MODEL`, is asked to stay loaded for good. It can be
@@ -364,8 +365,8 @@ monitor, which every Ollama call passes through, decides who stays:
 
 When Luna looks at a photo, Socia's vision model (`huihui_ai/qwen3-vl-abliterated:8b-instruct`,
 about 5.7 GB) takes the chat model's place for that reply, and Socia asks for the chat model
-back right after (about 4 s), before the monitor would. Measured on the RTX 5070: 8 GB at rest
-with her chat model and voice, 10.5 GB while she looks at a photo.
+back right after (about 4 s), before the monitor would. Measured on the RTX 5070: 8.6 GB at rest
+with her chat model, voice and face models, 10.5 GB while she looks at a photo.
 
 The apps' own models leave too: Visia's SigLIP 2, Vibia's CLAP, and Lexia's Docling each
 run in a child process that exits after `GPU_MODEL_IDLE_SECONDS` (120) unused
@@ -410,14 +411,15 @@ its database, and scores the two runs. Results hold personal data and stay out o
 | Lexia's documents | Worse extraction: values not found in the document's text, empty fields, malformed PAN, TAN, GSTIN and IFSC numbers, review flags, crashes, slower documents, and the known regressions of the last change | `Luna_Lexia/model_evaluations/` (`DOCUMENT_MODEL`) |
 | Visia's images | Captions and tags that match their image less well in SigLIP 2's space (what meaning search uses), failed replies, captions not in English | `Luna_Visia/model_evaluations/` (`VISION_MODEL`) |
 | Vibia's tracks | Captions that match the track's sound less well in CLAP's space, tags the evidence does not support, failed replies | `Luna_Vibia/model_evaluations/` (`CAPTION_MODEL`) |
+| Socia's photos | Telling photos apart (the cat game), and taking women who look like her for herself | `Luna_Socia/model_evaluations/` (`LUNASOCIA_VISION_MODEL`): the cat game and `self_recognition.py` |
 | Socia's chat | Texting style (length, lists, emoji), saying she is an AI, the wrong language, `create_image` called when it should not be or not called when it should, wrong tool arguments | `Luna_Socia/model_evaluations/` (`LUNASOCIA_CHAT_MODEL`), on a fixed set of made-up conversations |
 | Fits beside the others | A model that leaves no room for SigLIP 2, CLAP or Docling during a batch | `ollama ps` shows `100% GPU` while an evaluation runs; the monitor's page shows VRAM; Luna Socia's chat model is resident again afterwards |
-| One context size | Ollama reloading a model on every call | The apps all ask for 16k, Socia's photo descriptions too; Socia's chat asks for `SENTIA_RESIDENT_CONTEXT` (8k) |
+| One context size | Ollama reloading a model on every call | The apps all ask for 16k; Socia's chat asks for `SENTIA_RESIDENT_CONTEXT` (8k), and her vision model for `LUNASOCIA_VISION_CONTEXT_TOKENS` (8k) |
 | Unit tests | Code that breaks with the new setting | Each app's tests in CI; they use fake models, so they say nothing about a model's answers |
 
 The scores cannot judge everything: read the examples each `report.md` lists (the biggest
 drops, and every Socia reply) before deciding. Not covered: Fiora's parsing of bank messages
-its rules cannot read, and Socia's photo descriptions (`LUNASOCIA_VISION_MODEL`); check a
+its rules cannot read, and Socia's descriptions of photos for her later replies; check a
 few by hand after a change.
 
 ## CPU fallback
@@ -656,7 +658,7 @@ stored history:
 - **Models outside Ollama**, which four apps run themselves: on the same GPU, Visia's
   SigLIP 2 (image and text embeddings), Lexia's Docling (layout, table-structure, and
   OCR models that read each document), and Vibia's CLAP (which hears each track); on the
-  CPU, Socia's Whisper (voice messages) and Kokoro (her voice). Their
+  GPU or CPU, Socia's Whisper (voice messages), Kokoro (her voice) and face recognition. Their
   work never passes through the monitor, so each app counts it and reports it at
   `GET /api/models`, for the owner only. Every ten seconds the monitor asks, with the
   app's `LUNA<APP>_API_TOKEN` from this `.env`, and shows whether each model is loaded
