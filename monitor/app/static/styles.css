@@ -126,6 +126,32 @@ code { font-size: 0.95em; color: var(--lv-text); }
 .sm-sub { margin: 0.6rem 0 0.3rem; color: var(--lv-muted); font-size: var(--luna-text-small); font-weight: 600; }
 .sm-list { display: grid; gap: 0.3rem; margin: 0; padding: 0; list-style: none; font-size: var(--luna-text-small); }
 .sm-list li b { font-weight: 600; }
+/* Not loaded models: short wrapping chips, a name and its size. */
+.sm-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; padding: 0; list-style: none; font-size: var(--luna-text-small); }
+.sm-chips li { padding: 0.15rem 0.55rem; border: 1px solid var(--chip, var(--lv-border)); border-radius: 999px; overflow-wrap: anywhere;
+  background: color-mix(in srgb, var(--chip, transparent) 14%, transparent); color: color-mix(in srgb, var(--chip, var(--lv-text)) 35%, var(--lv-text)); }
+.sm-chips li .sm-dim { color: color-mix(in srgb, var(--chip, var(--lv-muted)) 55%, var(--lv-muted)); }
+.sm-chips li.sm-dim { border: 0; padding-left: 0; background: none; color: var(--lv-muted); }
+/* The ecosystem diagram's colors: purple for Ollama's models, amber for ComfyUI, teal for the apps. */
+.sm-chips-ollama { --chip: #b394f0; }
+.sm-chips-comfyui { --chip: #e3a35f; }
+.sm-chips-apps { --chip: #5fb8c1; }
+/* Models by app: one row per app, a dot on the models loaded now. */
+.sm-by-app { table-layout: fixed; white-space: normal; }
+.sm-by-app th:first-child { width: 18%; }
+.sm-by-app td { vertical-align: top; overflow-wrap: anywhere; }
+.sm-app-models { display: grid; gap: 0.2rem; margin: 0; padding: 0; list-style: none; }
+.sm-app-models li::before { content: ""; display: inline-block; width: 0.45rem; height: 0.45rem; margin-right: 0.4rem; border-radius: 50%; border: 1px solid var(--lv-muted); vertical-align: 0.05rem; }
+.sm-app-models li.sm-on::before { background: var(--lv-success, #3fb950); border-color: transparent; }
+.sm-app-models .sm-dim, .sm-app-models .sm-older { font-size: var(--luna-text-small); }
+.sm-app-models li.sm-older { color: var(--lv-muted); cursor: help; }
+.sm-app-models li.sm-older::before { display: none; }
+@media (max-width: 700px) {
+  .sm-by-app, .sm-by-app tbody, .sm-by-app tr, .sm-by-app td { display: block; width: auto !important; }
+  .sm-by-app thead { display: none; }
+  .sm-by-app tr { padding: 0.5rem 0; border-bottom: 1px solid var(--lv-border); }
+  .sm-by-app td { padding: 0.1rem 0; border: 0; }
+}
 .sm-empty { margin: 0; color: var(--lv-muted); font-size: var(--luna-text-small); }
 
 /* Verdict */

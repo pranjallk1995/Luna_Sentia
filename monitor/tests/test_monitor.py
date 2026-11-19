@@ -492,3 +492,71 @@ class ComfyUIGateTests(unittest.TestCase):
         finally:
             port["loop"].call_soon_threadsafe(stop.set_result, None)
             thread.join(5)
+
+
+class ModelsByAppTests(unittest.TestCase):
+    """The page's "Models by app" lists the Ollama models the README's Models table gives each app."""
+
+    ROOT = __import__("pathlib").Path(__file__).resolve().parents[2]
+    APPS = {"Socia": "socia", "Visia": "visia", "Lexia": "lexia", "Vibia": "vibia", "Fiora": "fiora",
+            "Vita": "vita", "Lumia": "lumia", "Unia": "unia"}
+
+    def readme_table(self) -> dict[str, set[str]]:
+        import re
+        text = (self.ROOT / "README.md").read_text()
+        table = text.split("## Models", 1)[1].split("\n\n", 2)[1]
+        wanted: dict[str, set[str]] = {}
+        for row in table.splitlines()[2:]:
+            model, served, used = [cell.strip() for cell in row.strip("|").split("|")][:3]
+            if not served.startswith("Ollama"):
+                continue
+            name = re.search(r"`([^`]+)`", model).group(1)
+            for word, app in self.APPS.items():
+                if re.search(rf"\b{word}('s)?\b", used):
+                    wanted.setdefault(app, set()).add(name)
+        return wanted
+
+    def page_table(self) -> dict[str, set[str]]:
+        import re
+        script = (self.ROOT / "monitor/app/static/app.js").read_text()
+        block = script.split("const APP_OLLAMA_MODELS = {", 1)[1].split("};", 1)[0]
+        return {app: set(re.findall(r'"([^"]+)"', models)) for app, models in re.findall(r"(\w+): \[([^\]]*)\]", block)}
+
+    def test_the_page_and_the_readme_agree(self):
+        if not (self.ROOT / "README.md").exists():
+            self.skipTest("needs the repository's README")
+        self.assertEqual(self.page_table(), self.readme_table())
+
+
+class ModelSizeTests(unittest.TestCase):
+    def test_an_unloaded_app_model_keeps_the_size_it_was_last_seen_at(self):
+        from app.main import remember_sizes
+        seen = {}
+        loaded = [{"app": "visia", "models": [{"name": "siglip", "loaded": True}], "gpu": {"reserved_mb": 812.0}},
+                  {"app": "socia", "models": [{"name": "faces", "loaded": False, "vram_mb": 313}], "gpu": None}]
+        remember_sizes(loaded, seen)
+        idle = remember_sizes([{"app": "visia", "models": [{"name": "siglip", "loaded": False}], "gpu": None},
+                               {"app": "lexia", "models": [{"name": "docling", "loaded": False}], "gpu": None}], seen)
+        self.assertEqual(idle[0]["models"][0]["vram_mb"], 812.0)
+        self.assertTrue(idle[0]["models"][0]["vram_last_seen"])
+        self.assertNotIn("vram_mb", idle[1]["models"][0])  # never seen loaded: no size to show
+        self.assertEqual(seen[("socia", "faces")], 313)
+
+    def test_comfyui_files_come_with_their_sizes(self):
+        from app.main import comfyui_models
+
+        def reply(request: httpx.Request) -> httpx.Response:
+            path = request.url.path
+            if path == "/experiment/models/vae":
+                return httpx.Response(200, json=[{"name": "vae.safetensors", "size": 254 * 1024 * 1024}])
+            if path.startswith("/experiment/models/"):
+                return httpx.Response(200, json=[])
+            if path == "/system_stats":
+                return httpx.Response(200, json={"devices": [{"torch_vram_total": 0}]})
+            return httpx.Response(200, json={"queue_running": [], "queue_pending": []})
+
+        async def run():
+            async with httpx.AsyncClient(transport=httpx.MockTransport(reply)) as client:
+                return await comfyui_models(client, "http://comfyui")
+        files = asyncio.run(run())["files"]
+        self.assertEqual(files, [{"kind": "VAE", "name": "vae.safetensors", "size_mb": 254.0}])

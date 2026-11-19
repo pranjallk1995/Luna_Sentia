@@ -100,13 +100,35 @@ async def ask_app(client: httpx.AsyncClient, app: str, url: str, token: str) -> 
         return app_models_entry(app, None, f"answered HTTP {reply.status_code}")
 
 
+def remember_sizes(entries: list[dict], seen: dict[tuple[str, str], float]) -> list[dict]:
+    """Give each app model the VRAM it was last seen to use, so an unloaded one still shows a size.
+
+    Socia measures each model itself (``vram_mb``). Visia, Lexia and Vibia run one model in a
+    process that reports only its whole share of the GPU, and only while loaded: that share is the
+    model's size. ``seen`` keeps these for as long as the monitor runs.
+    """
+    for entry in entries:
+        models = entry.get("models") or []
+        held = (entry.get("gpu") or {}).get("reserved_mb")
+        for model in models:
+            key = (entry["app"], model.get("name", ""))
+            if model.get("vram_mb"):
+                seen[key] = model["vram_mb"]
+            elif model.get("loaded") and held and len(models) == 1 and not (entry.get("gpu") or {}).get("measured"):
+                seen[key] = held
+            if not model.get("vram_mb") and key in seen:
+                model["vram_mb"], model["vram_last_seen"] = seen[key], True
+    return entries
+
+
 async def watch_app_models(live: LiveState, config: MonitorConfig) -> None:
     """Ask Visia, Lexia, Vibia, and Socia about the models they run themselves, outside Ollama."""
+    seen: dict[tuple[str, str], float] = {}
     async with httpx.AsyncClient(timeout=5.0) as client:
         while True:
-            live.app_models = list(await asyncio.gather(
+            live.app_models = remember_sizes(list(await asyncio.gather(
                 *(ask_app(client, app, url, token) for app, url, token in config.app_tokens)
-            ))
+            )), seen)
             await asyncio.sleep(MonitorConfig.APP_MODELS_SECONDS)
 
 
@@ -131,9 +153,15 @@ async def comfyui_models(client: httpx.AsyncClient, url: str) -> dict:
     try:
         files = []
         for folder, kind in COMFYUI_FOLDERS:
+            # The experiment route gives each file's size; older ComfyUIs have only the names.
+            reply = await client.get(f"{url}/experiment/models/{folder}")
+            if reply.status_code == 200:
+                files += [{"kind": kind, "name": item["name"], "size_mb": (item.get("size") or 0) / MB or None}
+                          for item in reply.json()]
+                continue
             reply = await client.get(f"{url}/models/{folder}")
             if reply.status_code == 200:
-                files += [{"kind": kind, "name": name} for name in reply.json()]
+                files += [{"kind": kind, "name": name, "size_mb": None} for name in reply.json()]
         device = ((await client.get(f"{url}/system_stats")).json().get("devices") or [{}])[0]
         queue = (await client.get(f"{url}/queue")).json()
     except (httpx.HTTPError, ValueError):

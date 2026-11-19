@@ -131,7 +131,7 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 
 | App | Latest release |
 | --- | --- |
-| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.7.1](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.7.1) |
+| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.8.0](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.8.0) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | [v0.1.1](https://github.com/pranjallk1995/Luna_Fiora/releases/tag/v0.1.1) (pre-release) |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v1.4.1](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v1.4.1) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v1.2.2](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v1.2.2) |
@@ -320,6 +320,7 @@ nvidia-smi
 | Docling (layout, tables, OCR) | Lexia itself, GPU or CPU | Lexia's page reading | Pinned in Lexia's image |
 | Whisper `large-v3-turbo`, Kokoro 82M | Socia itself, GPU (about 1.5 GB, and 0.2 GB for CUDA, loaded at start) or CPU | Socia's voice messages and Luna's voice (`LUNASOCIA_STT_MODEL`, `LUNASOCIA_TTS_VOICE`, `LUNASOCIA_VOICE_DEVICE`) | Listen to a few replies; downloaded on first use |
 | InsightFace `buffalo_l` (SCRFD, ArcFace) | Socia itself, GPU (about 0.4 GB, loaded with the vision model for a photo) or CPU | Whose faces are in a photo, Luna's or the owner's, told to her vision model | Socia's `model_evaluations/self_recognition.py`; non-commercial licence |
+| Qwen3-Embedding 0.6B (ONNX, `onnx-community/Qwen3-Embedding-0.6B-ONNX`) | Socia itself, CPU (2.4 GB of RAM, about 0.4 s a turn) or GPU (1.2 GB), loaded at start | Whether a message holds a lasting fact Luna should remember, about the owner or herself (`LUNASOCIA_REMEMBER_AUTO`, `LUNASOCIA_REMEMBER_DEVICE`) | Socia's notebook 03, Part B: its neurons are trained on this model's embeddings |
 
 See [Changing a model](#changing-a-model) for what each check catches.
 
@@ -642,6 +643,14 @@ resident model back.
 
 ## Model monitor
 
+<p align="center">
+  <img src="assets/luna-sentia-monitor.webp" alt="The model monitor while Luna Lexia reads a document: one request in flight, the GPU's power, Lexia's calls on the timeline split into loading, reading input and writing output, and the Models card with qwen3-vl:8b-instruct, the apps that called it, and Luna Socia's voice and memory models with their measured VRAM" width="900">
+</p>
+
+<p align="center"><em>The monitor while Luna Lexia reads a document: its calls on the timeline, split into
+reading input and writing output, and the Models card with every model loaded now, who calls
+it, and its VRAM.</em></p>
+
 Every app still calls `http://luna-sentia-ollama:11434`. That name belongs to the
 monitor, which passes each request to Ollama at `luna-sentia-ollama-engine`
 unchanged and times it on the way back. It never stores prompts, images, or
@@ -657,10 +666,14 @@ stored history:
   Vibia's CLAP, and Windows.
 - **Requests in flight and waiting.**
 - **Every model**: those loaded now in one table, Ollama's, ComfyUI's (while it holds the
-  GPU) and the apps' own, with their VRAM, what they are for and when they unload; then the
-  rest, one line each: Ollama's installed models with the apps that called each (from
-  `model_calls`), ComfyUI's model files (diffusion model, text encoder, VAE), and the apps'
-  models not loaded now.
+  GPU) and the apps' own, with their VRAM, what they are for and when they unload. Then
+  **Models by app**, one row each: the Ollama models it is set up for (the [Models](#models)
+  table, which a test keeps the page in step with) with its calls to each from `model_calls`,
+  and the models it runs itself, a dot marking those loaded now; models it called but is not
+  set up for, such as old ones, fold into one line. Last, the models not loaded now, a name
+  and size each, colored as in the ecosystem diagram: Ollama's, ComfyUI's files, and the
+  apps' own. Visia, Lexia and Vibia report a model's VRAM only while it is loaded, so theirs
+  show the size the monitor last saw, or none until they first load after a restart.
 - **Models outside Ollama**, which four apps run themselves: on the same GPU, Visia's
   SigLIP 2 (image and text embeddings), Lexia's Docling (layout, table-structure, and
   OCR models that read each document), and Vibia's CLAP (which hears each track); on the
