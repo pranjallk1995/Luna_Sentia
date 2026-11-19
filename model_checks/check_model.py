@@ -1,6 +1,6 @@
 """Smoke-test a model before it replaces another in SENTIA_MODELS: what every Luna app needs of it.
 
-usage: python check_model.py <model> [--context 16384] [--resident huihui_ai/qwen3-abliterated:14b] [--chat]
+usage: python check_model.py <model> [--context 16384] [--resident huihui_ai/qwen3-abliterated:8b] [--chat]
 Runs inside the monitor container (standard library only), so its calls go through the
 monitor like the apps' calls and show on its page as "model-check":
 
@@ -32,7 +32,7 @@ import zlib
 parser = argparse.ArgumentParser()
 parser.add_argument("model")
 parser.add_argument("--context", type=int, default=16384, help="num_ctx the apps ask for (Socia: 8192)")
-parser.add_argument("--resident", default="huihui_ai/qwen3-abliterated:14b", help="the model that should stay loaded ('' to skip)")
+parser.add_argument("--resident", default="huihui_ai/qwen3-abliterated:8b", help="the model that should stay loaded ('' to skip)")
 parser.add_argument("--url", default="http://luna-sentia-ollama:11434", help="Ollama, through the monitor")
 parser.add_argument("--chat", action="store_true", help="a text-only chat model (Socia's): skip the image checks")
 args = parser.parse_args()

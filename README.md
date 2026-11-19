@@ -38,8 +38,8 @@ through `luna-sentia-auth`, and call `http://luna-sentia-ollama:11434`.
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | Its database and the shared network (reaches Luna Visia through it) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | Its database and the shared network (reaches Luna Vibia through it, so the lights follow the mood of the music Vibia plays) |
 
-> **GPU requirement for the default model:** `qwen3-vl:8b-instruct`, which Visia,
-> Lexia, Fiora, and Vibia all use, is larger than 6 GB and, with the default `gpus: all` setting, needs an NVIDIA GPU with at least
+> **GPU requirement for the default model:** `huihui_ai/qwen3-vl-abliterated:8b-instruct`, which Visia,
+> Lexia, Fiora, Vibia and Socia's photos all use, is larger than 6 GB and, with the default `gpus: all` setting, needs an NVIDIA GPU with at least
 > 8 GB of VRAM. See [CPU fallback](#cpu-fallback) to run without one.
 
 ## Architecture
@@ -131,14 +131,14 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 
 | App | Latest release |
 | --- | --- |
-| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.8.0](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.8.0) |
-| [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | [v0.1.1](https://github.com/pranjallk1995/Luna_Fiora/releases/tag/v0.1.1) (pre-release) |
-| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v1.4.1](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v1.4.1) |
+| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.9.0](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.9.0) |
+| [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | [v0.2.0](https://github.com/pranjallk1995/Luna_Fiora/releases/tag/v0.2.0) (pre-release) |
+| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v1.5.0](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v1.5.0) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v1.2.2](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v1.2.2) |
-| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v1.3.0](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v1.3.0) |
+| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v1.3.1](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v1.3.1) |
 | [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v1.4.2](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v1.4.2) |
-| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v1.8.0](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v1.8.0) |
-| [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v1.5.2](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v1.5.2) |
+| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v1.9.0](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v1.9.0) |
+| [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v1.6.0](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v1.6.0) |
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | [v1.5.2](https://github.com/pranjallk1995/Luna_Vita/releases/tag/v1.5.2) |
 
 ## Start everything
@@ -285,7 +285,7 @@ If `postgres` is not healthy, check `docker compose logs postgres`; an app
 started now will restart until the database answers. Models can still be
 downloading; that only delays the first model call, not startup.
 
-The first start pulls every model in `SENTIA_MODELS` (`qwen3-vl:8b-instruct`, `qwen3-embedding:0.6b`,
+The first start pulls every model in `SENTIA_MODELS` (`qwen3-embedding:0.6b`,
 `huihui_ai/qwen3-abliterated:8b` and `huihui_ai/qwen3-vl-abliterated:8b-instruct` by default), which can take several minutes. Follow progress with:
 
 ```sh
@@ -310,9 +310,8 @@ nvidia-smi
 
 | Model | Served by | Used by | Before changing it |
 | --- | --- | --- | --- |
-| `qwen3-vl:8b-instruct` | Ollama | Lexia (`DOCUMENT_MODEL`), Visia (`VISION_MODEL`), Vibia (`CAPTION_MODEL`), Fiora (`OLLAMA_MODEL`) | `model_checks/check_model.py`, then Lexia's, Visia's and Vibia's `model_evaluations/` |
+| `huihui_ai/qwen3-vl-abliterated:8b-instruct` (Qwen3-VL 8B, uncensored) | Ollama, at 16k context for every app; in Socia's chat model's place while Luna looks at a photo | Lexia (`DOCUMENT_MODEL`), Visia (`VISION_MODEL`), Vibia (`CAPTION_MODEL`), Fiora (`OLLAMA_MODEL`), Socia's photo replies (`LUNASOCIA_VISION_MODEL`) | `model_checks/check_model.py`, then Lexia's, Visia's and Vibia's `model_evaluations/` and Socia's cat game |
 | `huihui_ai/qwen3-abliterated:8b` (Qwen3 8B, uncensored) | Ollama, resident at `SENTIA_RESIDENT_CONTEXT` | Socia's chat (`LUNASOCIA_CHAT_MODEL`) | `model_checks/check_model.py --context 8192`, then Socia's `model_evaluations/` |
-| `huihui_ai/qwen3-vl-abliterated:8b-instruct` (Qwen3-VL 8B, uncensored) | Ollama, in the chat model's place while Luna looks at a photo | Socia's photo replies (`LUNASOCIA_VISION_MODEL`) | Socia's cat game, then a few photos by hand |
 | `qwen3-embedding:0.6b` | Ollama | Lexia's semantic search (`EMBEDDING_MODEL`) | Re-embed with Lexia's `reindex_semantic_search` |
 | Qwen-Image 2.1 Turbo | ComfyUI | Socia's pictures of Luna | A few pictures by hand |
 | SigLIP 2 (`google/siglip2-base-patch16-224`) | Visia itself, GPU only | Visia's meaning search | Pinned in Visia's image; `backfill_metadata` re-embeds |
@@ -328,7 +327,7 @@ See [Changing a model](#changing-a-model) for what each check catches.
 copy `.env.example` to `.env` and edit it:
 
 ```dotenv
-SENTIA_MODELS=qwen3-vl:8b-instruct qwen3-embedding:0.6b llama3.2-vision:11b
+SENTIA_MODELS=qwen3-embedding:0.6b huihui_ai/qwen3-abliterated:8b huihui_ai/qwen3-vl-abliterated:8b-instruct llama3.2-vision:11b
 ```
 
 Restart with `docker compose up -d` to pull the new models. Each app then
@@ -384,12 +383,20 @@ Three settings in `.env` tune the server for a 12 GB GPU:
 | Variable | Value | Why |
 | --- | --- | --- |
 | `OLLAMA_FLASH_ATTENTION` | `1` | Needed for a quantized KV cache; less memory per token |
-| `OLLAMA_KV_CACHE_TYPE` | `q8_0` | Halves the KV cache: Qwen3-VL at 16k takes 6.6 GB instead of 7.8 GB |
+| `OLLAMA_KV_CACHE_TYPE` | `q8_0` | Halves the KV cache: Qwen3-VL 8B at 16k takes about 6.1 GB instead of 7.8 GB |
 | `OLLAMA_NUM_PARALLEL` | `1` | Ollama does not run Qwen3-VL requests in parallel ("model architecture does not currently support parallel requests"), so requests from the apps queue |
 
 ### Changing a model
 
-**Last changed:** Socia's chat model, `huihui_ai/qwen3-abliterated:14b` to
+**Last changed:** the vision model of Lexia, Visia, Vibia and Fiora, `qwen3-vl:8b-instruct` to
+`huihui_ai/qwen3-vl-abliterated:8b-instruct`, the model Socia already used for photos, on
+2026-11-19, so one vision model serves every app at one context (16k, 6.1 GB). On Lexia's 89
+documents it raised fewer review flags (17, not 21), filled more fields (90.0 %, not 89.2 %)
+and was 20 % faster, and none of the fields `qwen3.5:9b` emptied changed. On Visia's images
+it tied, and on Vibia's tracks it was slightly worse (tags grounded 0.91, not 0.94). See each
+app's `model_evaluations/README.md`.
+
+**Changed before that:** Socia's chat model, `huihui_ai/qwen3-abliterated:14b` to
 `huihui_ai/qwen3-abliterated:8b`, and her photos from descriptions by `qwen3-vl:8b-instruct`
 to `huihui_ai/qwen3-vl-abliterated:8b-instruct` seeing them, on 2026-11-16, after Socia's
 evaluation: the 8B calls her tools as well as the 14B, answers about twice as fast, and leaves
@@ -416,7 +423,7 @@ its database, and scores the two runs. Results hold personal data and stay out o
 | Socia's photos | Telling photos apart (the cat game), and taking women who look like her for herself | `Luna_Socia/model_evaluations/` (`LUNASOCIA_VISION_MODEL`): the cat game and `self_recognition.py` |
 | Socia's chat | Texting style (length, lists, emoji), saying she is an AI, the wrong language, `create_image` called when it should not be or not called when it should, wrong tool arguments | `Luna_Socia/model_evaluations/` (`LUNASOCIA_CHAT_MODEL`), on a fixed set of made-up conversations |
 | Fits beside the others | A model that leaves no room for SigLIP 2, CLAP or Docling during a batch | `ollama ps` shows `100% GPU` while an evaluation runs; the monitor's page shows VRAM; Luna Socia's chat model is resident again afterwards |
-| One context size | Ollama reloading a model on every call | The apps all ask for 16k; Socia's chat asks for `SENTIA_RESIDENT_CONTEXT` (8k), and her vision model for `LUNASOCIA_VISION_CONTEXT_TOKENS` (8k) |
+| One context size | Ollama reloading a model on every call | The vision model is asked for 16k by every app, Socia's photos included (`LUNASOCIA_VISION_CONTEXT_TOKENS`); Socia's chat asks for `SENTIA_RESIDENT_CONTEXT` (8k) |
 | Unit tests | Code that breaks with the new setting | Each app's tests in CI; they use fake models, so they say nothing about a model's answers |
 
 The scores cannot judge everything: read the examples each `report.md` lists (the biggest
