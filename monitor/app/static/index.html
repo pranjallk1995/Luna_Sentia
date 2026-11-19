@@ -114,7 +114,7 @@
     </section>
     <section class="sm-card">
       <h2>Models outside Ollama</h2>
-      <p>Four apps run models of their own, inside their backend, on the same GPU. Their work never passes through the monitor, so it is missing from the call timeline and the verdict; each app counts it instead, and the <b>Models</b> card asks them every ten seconds: loaded ones are in its table beside Ollama's, the rest in the list below it.</p>
+      <p>Four apps run models of their own, inside their backend, on the same GPU. Their work never passes through the monitor, so it is missing from the call timeline and the verdict; each app counts it instead, and the <b>Models</b> card asks them every ten seconds: loaded ones are in its table beside Ollama's, the rest in the list below it. <b>Models by app</b> shows, for each app, the Ollama models it is set up to use with its calls to each, and the models it runs itself; a filled dot marks one loaded now. Those not loaded show their size: Ollama's and ComfyUI's on disk, Socia's measured as they load, and Visia's, Lexia's and Vibia's as last seen loaded since the monitor started.</p>
       <dl class="sm-terms">
         <dt>Luna Visia: SigLIP 2</dt>
         <dd>Turns every image, and every search, into an embedding for meaning search. GPU only; it loads on the first image or search and stays loaded.</dd>
