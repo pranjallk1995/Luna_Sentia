@@ -71,7 +71,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <rect class="box" x="50" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="142" y="408" text-anchor="middle">FastMCP + REST</text>
   <text class="m" x="142" y="424" text-anchor="middle">luna-visia-mcp :18005</text>
-  <text class="s" x="142" y="444" text-anchor="middle">SigLIP 2: embed images</text>
+  <text class="s" x="142" y="444" text-anchor="middle">LangGraph: caption + SigLIP 2</text>
   <text class="s" x="142" y="460" text-anchor="middle">on the GPU, exits when idle</text>
   <text class="t b" x="338" y="282" text-anchor="middle">Luna Vita</text>
   <text class="s" x="338" y="298" text-anchor="middle">nutrition and fitness</text>
@@ -131,7 +131,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <rect class="box" x="1030" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="1122" y="408" text-anchor="middle">FastMCP + REST</text>
   <text class="m" x="1122" y="424" text-anchor="middle">luna-vibia-mcp :18004</text>
-  <text class="s" x="1122" y="444" text-anchor="middle">CLAP: listen + embed</text>
+  <text class="s" x="1122" y="444" text-anchor="middle">LangGraph: CLAP + caption</text>
   <text class="s" x="1122" y="460" text-anchor="middle">on the GPU, exits when idle</text>
   <text class="t b" x="1318" y="282" text-anchor="middle">Luna Socia</text>
   <text class="s" x="1318" y="298" text-anchor="middle">chat with Luna · uses your apps</text>
@@ -143,7 +143,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <rect class="box" x="1226" y="388" width="184" height="82" rx="6"/>
   <text class="t b" x="1318" y="408" text-anchor="middle">Chat API (Starlette)</text>
   <text class="m" x="1318" y="424" text-anchor="middle">luna-socia-ui · MCP client</text>
-  <text class="s" x="1318" y="444" text-anchor="middle">Whisper + Kokoro on CPU</text>
+  <text class="s" x="1318" y="444" text-anchor="middle">voice + faces on the GPU</text>
   <text class="s" x="1318" y="460" text-anchor="middle">every app's tools, as you</text>
   <polyline class="slink" points="1226,429 1220,429 1220,380 196,380"/>
   <line class="slink" x1="196" y1="380" x2="196" y2="387" marker-end="url(#ahs)"/>
@@ -200,7 +200,7 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="t b" x="1225" y="720" text-anchor="middle">Model monitor</text>
   <text class="m" x="1225" y="736" text-anchor="middle">luna-sentia-ollama:11434 · :19003 · MCP :18003</text>
   <text class="s" x="1225" y="753" text-anchor="middle">times every app's call · samples the GPU</text>
-  <text class="s" x="1225" y="769" text-anchor="middle">keeps qwen3-abliterated:8b resident; others leave</text>
+  <text class="s" x="1225" y="769" text-anchor="middle">keeps her chat + embedding models; others leave</text>
   <text class="s" x="1225" y="785" text-anchor="middle">2 min after use · stats in lunamonitor</text>
   <line class="arrow" x1="1225" y1="802" x2="1225" y2="834" marker-end="url(#ah)"/>
   <text class="lbl" x="1233" y="822" text-anchor="start">every call</text>
@@ -234,5 +234,5 @@ svg{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   <text class="lbl" x="1215" y="998" text-anchor="end">gpus: all</text>
   <rect class="ext" x="740" y="1010" width="650" height="46" rx="6"/>
   <text class="t" x="1065" y="1031" text-anchor="middle">NVIDIA GPU, 12 GB (WSL2 host)</text>
-  <text class="s" x="1065" y="1047" text-anchor="middle">qwen3-abliterated:8b resident (5.5 GB at 8k); the shared Qwen3-VL 8B (6.1 GB at 16k) visits</text>
+  <text class="s" x="1065" y="1047" text-anchor="middle">resident: qwen3-abliterated:8b (5.5 GB) + qwen3-embedding (1 GB); Qwen3-VL 8B (6.1 GB) visits</text>
 </svg>
