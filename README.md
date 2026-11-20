@@ -312,7 +312,7 @@ nvidia-smi
 | --- | --- | --- | --- |
 | `huihui_ai/qwen3-vl-abliterated:8b-instruct` (Qwen3-VL 8B, uncensored) | Ollama, at 16k context for every app; in Socia's chat model's place while Luna looks at a photo | Lexia (`DOCUMENT_MODEL`), Visia (`VISION_MODEL`), Vibia (`CAPTION_MODEL`), Fiora (`OLLAMA_MODEL`), Socia's photo replies (`LUNASOCIA_VISION_MODEL`) | `model_checks/check_model.py`, then Lexia's, Visia's and Vibia's `model_evaluations/` and Socia's cat game |
 | `huihui_ai/qwen3-abliterated:8b` (Qwen3 8B, uncensored) | Ollama, resident at `SENTIA_RESIDENT_CONTEXT` | Socia's chat (`LUNASOCIA_CHAT_MODEL`) | `model_checks/check_model.py --context 8192`, then Socia's `model_evaluations/` |
-| `qwen3-embedding:0.6b` (Qwen3-Embedding 0.6B) | Ollama | Lexia's semantic search (`EMBEDDING_MODEL`); what Socia remembers by herself, and the lines of her memory a message is about (`LUNASOCIA_EMBED_MODEL`) | Re-embed with Lexia's `reindex_semantic_search`; train Socia's neurons again (her notebook 03, Part B) |
+| `qwen3-embedding:0.6b` (Qwen3-Embedding 0.6B) | Ollama, resident beside Socia's chat model (1 GB, at 4k) | Lexia's semantic search (`EMBEDDING_MODEL`); what Socia remembers by herself, and the lines of her memory a message is about (`LUNASOCIA_EMBED_MODEL`) | Re-embed with Lexia's `reindex_semantic_search`; train Socia's neurons again (her notebook 03, Part B) |
 | Qwen-Image 2.1 Turbo | ComfyUI | Socia's pictures of Luna | A few pictures by hand |
 | SigLIP 2 (`google/siglip2-base-patch16-224`) | Visia itself, GPU only | Visia's meaning search | Pinned in Visia's image; `backfill_metadata` re-embeds |
 | CLAP (`laion/clap-htsat-unfused`) | Vibia itself, GPU or CPU | Vibia's listening and search | Pinned in Vibia's image; every track is heard again |
@@ -348,18 +348,20 @@ them all.
 ### GPU residency
 
 The 12 GB GPU holds Luna Socia's chat model (`huihui_ai/qwen3-abliterated:8b`, an uncensored Qwen3 8B, about 5.2 GB at 8k context)
-with her voice (about 1.75 GB, in Socia itself), or the apps' working models (Qwen3-VL 8B with SigLIP 2, CLAP or Docling), not both. The
+and the embedding model her memory reads with every turn (`qwen3-embedding:0.6b`, 1 GB at 4k), with her voice (about 1.75 GB, in Socia itself), or the apps' working models (Qwen3-VL 8B with SigLIP 2, CLAP or Docling), not both. The
 monitor, which every Ollama call passes through, decides who stays:
 
-- The resident model, `SENTIA_RESIDENT_MODEL`, is asked to stay loaded for good. It can be
-  a comma-separated list, such as Socia's chat model and a small vision model of her own
-  that fits beside it; `SENTIA_RESIDENT_CONTEXT` is then one context for all, or one per
-  model in the same order (`8192,4096`). Each missing one is loaded back on its own.
+- The resident models, `SENTIA_RESIDENT_MODEL`, are asked to stay loaded for good: a
+  comma-separated list, by default Socia's chat model and her embedding model
+  (`huihui_ai/qwen3-abliterated:8b,qwen3-embedding:0.6b`). `SENTIA_RESIDENT_CONTEXT` is
+  one context for all, or one per model in the same order (`8192,4096`). A resident asked
+  without a context (an embedding call) is given its own, so Ollama never reloads it. Each
+  missing one is loaded back on its own.
 - Every other model stays only `SENTIA_GUEST_KEEP_ALIVE` (2 minutes) after its last
   request, whatever the app asked. A request that asks a model to leave (`keep_alive` 0,
   as Socia sends before a picture) passes unchanged.
 - Once no model has been used for `SENTIA_RESIDENT_IDLE_SECONDS` (30), ComfyUI is not
-  drawing, and the GPU has room, the monitor loads the resident model back at
+  drawing, and the GPU has room, the monitor loads the resident models back at
   `SENTIA_RESIDENT_CONTEXT` (8192, the context Socia asks for; any other would reload it).
 
 When Luna looks at a photo, Socia's vision model (`huihui_ai/qwen3-vl-abliterated:8b-instruct`,

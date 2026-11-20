@@ -386,6 +386,35 @@ class ResidencyTests(unittest.TestCase):
         self.assertEqual(asyncio.run(both.why_not_now()), "an app's own model still holds the GPU")
 
 
+    def test_a_resident_asked_without_a_context_gets_its_own_and_one_asked_with_keeps_it(self):
+        chat, embedding = "huihui_ai/qwen3-abliterated:8b", "qwen3-embedding:0.6b"
+        residency, _, _ = self.residency(resident=f"{chat},{embedding}", context="8192,4096")
+        sent = lambda path, body: json.loads(residency.rewrite(path, json.dumps(body).encode()))
+        self.assertEqual(sent("/api/embed", {"model": embedding, "input": ["hi"]}),
+                         {"model": embedding, "input": ["hi"], "keep_alive": -1, "options": {"num_ctx": 4096}})
+        self.assertEqual(sent("/api/chat", {"model": chat, "options": {"num_ctx": 8192, "temperature": 0.8}})["options"],
+                         {"num_ctx": 8192, "temperature": 0.8})
+        # A visitor is left at the context it asked for, and the OpenAI paths take no options.
+        self.assertNotIn("options", sent("/api/embed", {"model": "nomic-embed-text"}))
+        self.assertNotIn("options", sent("/v1/embeddings", {"model": embedding}))
+
+    def test_an_embedding_resident_is_loaded_back_with_an_empty_embed(self):
+        from app.residency import Residency
+
+        seen = []
+
+        def engine(request: httpx.Request) -> httpx.Response:
+            seen.append((request.url.path, json.loads(request.content)))
+            if request.url.path == "/api/generate":
+                return httpx.Response(400, json={"error": '"qwen3-embedding:0.6b" does not support generate'})
+            return httpx.Response(200, json={"embeddings": []})
+
+        residency = Residency(LiveState(), "http://engine", "qwen3-embedding:0.6b", "4096", "2m", 30.0,
+                              transport=httpx.MockTransport(engine))
+        asyncio.run(residency.load())
+        body = {"model": "qwen3-embedding:0.6b", "keep_alive": -1, "options": {"num_ctx": 4096}}
+        self.assertEqual(seen, [("/api/generate", body), ("/api/embed", {**body, "input": []})])
+
 class ComfyUIGateTests(unittest.TestCase):
     """ComfyUI's page behind the owner's sign-in, passed through unchanged."""
 

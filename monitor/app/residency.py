@@ -81,8 +81,12 @@ class Residency:
         asked = request.get("keep_alive")
         if leaving_now(asked):
             return body
-        resident = any(self.same_model(request["model"], name) for name, _ in self.residents)
-        request["keep_alive"] = -1 if resident else self.guest_keep_alive
+        context = next((size for name, size in self.residents if self.same_model(request["model"], name)), None)
+        request["keep_alive"] = -1 if context else self.guest_keep_alive
+        # A resident model asked without a context (embedding calls) gets its own, so Ollama never
+        # reloads it at its default context.
+        if context and path.startswith("/api/") and not (request.get("options") or {}).get("num_ctx"):
+            request["options"] = {**(request.get("options") or {}), "num_ctx": context}
         return json.dumps(request).encode()
 
     def touched(self) -> None:
@@ -143,8 +147,11 @@ class Residency:
     async def load(self) -> None:
         """The missing resident models, in the order they are listed (Socia's chat model first)."""
         for name, context in self.missing():
-            reply = await self.client.post("/api/generate", json={
-                "model": name, "keep_alive": -1, "options": {"num_ctx": context}})
+            body = {"model": name, "keep_alive": -1, "options": {"num_ctx": context}}
+            reply = await self.client.post("/api/generate", json=body)
+            # An embedding model "does not support generate": an empty embed loads it instead.
+            if reply.status_code == 400 and "support generate" in reply.text:
+                reply = await self.client.post("/api/embed", json={**body, "input": []})
             reply.raise_for_status()
 
     async def run(self) -> None:

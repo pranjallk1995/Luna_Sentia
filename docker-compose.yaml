@@ -106,10 +106,11 @@ services:
       # The owner's MCP server (GPU and model calls, read only); clients add <this>/mcp.
       SENTIA_MCP_PUBLIC_URL: ${SENTIA_MCP_PUBLIC_URL:-http://localhost:18003}
       OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
-      # Residency: Luna Socia's chat model lives on the GPU and comes back after other
-      # models visit; they stay only SENTIA_GUEST_KEEP_ALIVE after their last request.
-      SENTIA_RESIDENT_MODEL: ${SENTIA_RESIDENT_MODEL:-huihui_ai/qwen3-abliterated:8b}
-      SENTIA_RESIDENT_CONTEXT: ${SENTIA_RESIDENT_CONTEXT:-8192}
+      # Residency: Luna Socia's chat model and the embedding model her memory reads with live on
+      # the GPU and come back after other models visit; those stay only SENTIA_GUEST_KEEP_ALIVE
+      # after their last request.
+      SENTIA_RESIDENT_MODEL: ${SENTIA_RESIDENT_MODEL:-huihui_ai/qwen3-abliterated:8b,qwen3-embedding:0.6b}
+      SENTIA_RESIDENT_CONTEXT: ${SENTIA_RESIDENT_CONTEXT:-8192,4096}
       SENTIA_GUEST_KEEP_ALIVE: ${SENTIA_GUEST_KEEP_ALIVE:-2m}
       SENTIA_RESIDENT_IDLE_SECONDS: ${SENTIA_RESIDENT_IDLE_SECONDS:-30}
       SENTIA_COMFYUI_URL: http://luna-sentia-comfyui:8188
