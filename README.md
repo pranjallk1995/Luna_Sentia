@@ -312,14 +312,13 @@ nvidia-smi
 | --- | --- | --- | --- |
 | `huihui_ai/qwen3-vl-abliterated:8b-instruct` (Qwen3-VL 8B, uncensored) | Ollama, at 16k context for every app; in Socia's chat model's place while Luna looks at a photo | Lexia (`DOCUMENT_MODEL`), Visia (`VISION_MODEL`), Vibia (`CAPTION_MODEL`), Fiora (`OLLAMA_MODEL`), Socia's photo replies (`LUNASOCIA_VISION_MODEL`) | `model_checks/check_model.py`, then Lexia's, Visia's and Vibia's `model_evaluations/` and Socia's cat game |
 | `huihui_ai/qwen3-abliterated:8b` (Qwen3 8B, uncensored) | Ollama, resident at `SENTIA_RESIDENT_CONTEXT` | Socia's chat (`LUNASOCIA_CHAT_MODEL`) | `model_checks/check_model.py --context 8192`, then Socia's `model_evaluations/` |
-| `qwen3-embedding:0.6b` | Ollama | Lexia's semantic search (`EMBEDDING_MODEL`) | Re-embed with Lexia's `reindex_semantic_search` |
+| `qwen3-embedding:0.6b` (Qwen3-Embedding 0.6B) | Ollama | Lexia's semantic search (`EMBEDDING_MODEL`); what Socia remembers by herself, and the lines of her memory a message is about (`LUNASOCIA_EMBED_MODEL`) | Re-embed with Lexia's `reindex_semantic_search`; train Socia's neurons again (her notebook 03, Part B) |
 | Qwen-Image 2.1 Turbo | ComfyUI | Socia's pictures of Luna | A few pictures by hand |
 | SigLIP 2 (`google/siglip2-base-patch16-224`) | Visia itself, GPU only | Visia's meaning search | Pinned in Visia's image; `backfill_metadata` re-embeds |
 | CLAP (`laion/clap-htsat-unfused`) | Vibia itself, GPU or CPU | Vibia's listening and search | Pinned in Vibia's image; every track is heard again |
 | Docling (layout, tables, OCR) | Lexia itself, GPU or CPU | Lexia's page reading | Pinned in Lexia's image |
 | Whisper `large-v3-turbo`, Kokoro 82M | Socia itself, GPU (about 1.5 GB, and 0.2 GB for CUDA, loaded at start) or CPU | Socia's voice messages and Luna's voice (`LUNASOCIA_STT_MODEL`, `LUNASOCIA_TTS_VOICE`, `LUNASOCIA_VOICE_DEVICE`) | Listen to a few replies; downloaded on first use |
 | InsightFace `buffalo_l` (SCRFD, ArcFace) | Socia itself, GPU (about 0.4 GB, loaded with the vision model for a photo) or CPU | Whose faces are in a photo, Luna's or the owner's, told to her vision model | Socia's `model_evaluations/self_recognition.py`; non-commercial licence |
-| Qwen3-Embedding 0.6B (ONNX, `onnx-community/Qwen3-Embedding-0.6B-ONNX`) | Socia itself, CPU (2.4 GB of RAM, about 0.4 s a turn) or GPU (1.2 GB), loaded at start | Whether a message holds a lasting fact Luna should remember, about the owner or herself (`LUNASOCIA_REMEMBER_AUTO`, `LUNASOCIA_REMEMBER_DEVICE`) | Socia's notebook 03, Part B: its neurons are trained on this model's embeddings |
 
 See [Changing a model](#changing-a-model) for what each check catches.
 
@@ -334,7 +333,7 @@ Restart with `docker compose up -d` to pull the new models. Each app then
 selects which served model it uses in its own `.env` (`VISION_MODEL` in Visia,
 `OLLAMA_MODEL` in Fiora, `DOCUMENT_MODEL` and `EMBEDDING_MODEL` in Lexia, `CAPTION_MODEL` in Vibia).
 The default list includes `qwen3-embedding:0.6b` (about 640 MB), the embedding
-model behind Lexia's semantic search. A model an app asks for that is not listed here fails
+model behind Lexia's semantic search and what Socia remembers by herself. A model an app asks for that is not listed here fails
 when that app first calls it. Two embedding models are not served here, and each is baked into
 its app's image: Visia's SigLIP 2 (`google/siglip2-base-patch16-224`, GPU only, about 0.75 GB of
 VRAM) and Vibia's CLAP (`laion/clap-htsat-unfused`, GPU or CPU, about 0.85 GB of VRAM on the GPU).

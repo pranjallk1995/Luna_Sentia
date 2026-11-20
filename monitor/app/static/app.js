@@ -484,7 +484,7 @@ function drawModels(container, list, byApp, models, apps, inventory, calls, tota
 /* The Ollama models each app is set up to use, as in the README's Models table
    (tests/test_monitor.py keeps the two the same). */
 const APP_OLLAMA_MODELS = {
-  socia: ["huihui_ai/qwen3-abliterated:8b", "huihui_ai/qwen3-vl-abliterated:8b-instruct"],
+  socia: ["huihui_ai/qwen3-abliterated:8b", "huihui_ai/qwen3-vl-abliterated:8b-instruct", "qwen3-embedding:0.6b"],
   visia: ["huihui_ai/qwen3-vl-abliterated:8b-instruct"],
   lexia: ["huihui_ai/qwen3-vl-abliterated:8b-instruct", "qwen3-embedding:0.6b"],
   vibia: ["huihui_ai/qwen3-vl-abliterated:8b-instruct"],

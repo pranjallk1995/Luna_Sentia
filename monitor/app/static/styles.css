@@ -137,7 +137,7 @@ code { font-size: 0.95em; color: var(--lv-text); }
 .sm-chips-comfyui { --chip: #e3a35f; }
 .sm-chips-apps { --chip: #5fb8c1; }
 /* Models by app: one row per app, a dot on the models loaded now. */
-.sm-by-app { table-layout: fixed; white-space: normal; }
+.sm-table.sm-by-app { table-layout: fixed; white-space: normal; }
 .sm-by-app th:first-child { width: 18%; }
 .sm-by-app td { vertical-align: top; overflow-wrap: anywhere; }
 .sm-app-models { display: grid; gap: 0.2rem; margin: 0; padding: 0; list-style: none; }
