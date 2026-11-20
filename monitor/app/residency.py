@@ -59,6 +59,8 @@ class Residency:
         # Each resident model's VRAM when last loaded, to know whether it fits again.
         self.resident_mb: dict[str, float] = {}
         self.state = "idle"
+        # Set while ComfyUI draws, so its models are freed once it is done.
+        self.comfyui_drew = False
 
     @staticmethod
     def same_model(a: str | None, b: str | None) -> bool:
@@ -141,8 +143,21 @@ class Residency:
         if all(sizes) and free is not None and free + visitors < sum(sizes) + MARGIN_MB:
             return "an app's own model still holds the GPU"
         if await self.comfyui_busy():
+            self.comfyui_drew = True
             return "ComfyUI is drawing"
+        if self.comfyui_drew:
+            # ComfyUI keeps its models after a picture (24 GB of RAM and the GPU's rest): let them go first.
+            await self.free_comfyui()
         return None
+
+    async def free_comfyui(self) -> None:
+        self.comfyui_drew = False
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                await client.post(f"{self.comfyui_url}/free", json={"unload_models": True, "free_memory": True})
+            logger.info("ComfyUI let go of its models after a picture")
+        except httpx.HTTPError as error:
+            logger.warning("Could not free ComfyUI's models: %s", error)
 
     async def load(self) -> None:
         """The missing resident models, in the order they are listed (Socia's chat model first)."""

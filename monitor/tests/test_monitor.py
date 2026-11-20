@@ -415,6 +415,17 @@ class ResidencyTests(unittest.TestCase):
         body = {"model": "qwen3-embedding:0.6b", "keep_alive": -1, "options": {"num_ctx": 4096}}
         self.assertEqual(seen, [("/api/generate", body), ("/api/embed", {**body, "input": []})])
 
+    def test_comfyui_is_freed_once_after_it_draws_before_the_residents_come_back(self):
+        residency, clock, _ = self.residency(comfy_queue=["job"])
+        clock.now = 1000.0 + 31
+        residency.last_activity = 1000.0
+        freed = []
+        residency.free_comfyui = lambda: asyncio.sleep(0, result=freed.append(1))
+        self.assertEqual(asyncio.run(residency.why_not_now()), "ComfyUI is drawing")
+        residency.comfyui_busy = lambda: asyncio.sleep(0, result=False)
+        self.assertIsNone(asyncio.run(residency.why_not_now()))
+        self.assertEqual(freed, [1])
+
 class ComfyUIGateTests(unittest.TestCase):
     """ComfyUI's page behind the owner's sign-in, passed through unchanged."""
 
