@@ -5,7 +5,7 @@
 ![Ollama included](https://img.shields.io/badge/Ollama-included-111111?logo=ollama&logoColor=white)
 ![PostgreSQL included](https://img.shields.io/badge/PostgreSQL-included-4169E1?logo=postgresql&logoColor=white)
 ![NVIDIA GPU optional](https://img.shields.io/badge/NVIDIA_GPU-optional-76B900?logo=nvidia&logoColor=white)
-![Status: v1.4](https://img.shields.io/badge/Status-v1.4-2EA043)
+![Status: v1.9](https://img.shields.io/badge/Status-v1.9-2EA043)
 
 <p align="center">
   <a href="assets/luna-sentia-showcase.mp4"><img src="assets/luna-sentia-showcase.webp" alt="Signing in, adding a person, hiding an app from everyone but the owner, then the model monitor timing a live Lexia question on the GPU and its history by app" width="900"></a>
@@ -131,15 +131,15 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 
 | App | Latest release |
 | --- | --- |
-| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.9.0](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.9.0) |
+| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v1.9.1](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v1.9.1) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | [v0.2.0](https://github.com/pranjallk1995/Luna_Fiora/releases/tag/v0.2.0) (pre-release) |
-| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v1.5.0](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v1.5.0) |
-| [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v1.2.2](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v1.2.2) |
-| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v1.3.1](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v1.3.1) |
-| [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v1.4.2](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v1.4.2) |
-| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v1.9.0](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v1.9.0) |
-| [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v1.6.0](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v1.6.0) |
-| [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | [v1.5.2](https://github.com/pranjallk1995/Luna_Vita/releases/tag/v1.5.2) |
+| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v1.5.1](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v1.5.1) |
+| [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v1.3.0](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v1.3.0) |
+| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v1.3.2](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v1.3.2) |
+| [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v1.4.3](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v1.4.3) |
+| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v1.9.1](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v1.9.1) |
+| [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v1.6.1](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v1.6.1) |
+| [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | [v1.6.0](https://github.com/pranjallk1995/Luna_Vita/releases/tag/v1.6.0) |
 
 ## Start everything
 
