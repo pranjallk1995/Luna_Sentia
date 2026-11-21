@@ -1,0 +1,13 @@
+# PyTorch comes first, from its CUDA 13 index (the Dockerfile); these then leave it in place.
+# diffusers: Qwen-Image 2.1 is on its main branch, not yet in a release.
+diffusers @ https://github.com/huggingface/diffusers/archive/e24786a5d347439a2847be74c4a61405426fbb42.zip
+transformers==5.23.0
+accelerate==1.16.0
+bitsandbytes==0.50.2
+torchao==0.18.0
+huggingface_hub==2.4.0
+safetensors==0.8.0
+pillow==13.0.0
+starlette==1.10.0
+uvicorn==0.54.0
+httpx==0.28.1

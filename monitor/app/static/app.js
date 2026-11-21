@@ -411,9 +411,10 @@ function callersOf(model, usage, calls) {
 const callersText = (callers, now) => callers.length
   ? callers.map(([app, u]) => `${appName(app)} (${num(u.calls)} call${u.calls === 1 ? "" : "s"}, last ${span(now - u.last)} ago)`).join(", ")
   : "";
-const COMFYUI_FOR = "Socia's pictures of Luna";
+const IMAGES_FOR = "Socia's pictures of Luna";
+const IMAGE_STAGE = { reading: "reading the prompt", drawing: "drawing" };
 
-/* Every model loaded now, Ollama's, ComfyUI's and the apps' own, in one table; every other model below,
+/* Every model loaded now, Ollama's, the image model's and the apps' own, in one table; every other model below,
    one line each, by where it runs. */
 function drawModels(container, list, byApp, models, apps, inventory, calls, totalVram, now) {
   inventory = inventory || {};
@@ -426,21 +427,24 @@ function drawModels(container, list, byApp, models, apps, inventory, calls, tota
       <td class="wrap">${callers ? `Called by ${esc(callers)}` : "<span class=\"sm-dim\">No call kept</span>"}</td>
       <td>${vramCell(m.vram_mb, totalVram)}</td><td class="wrap">${esc(state)}</td></tr>`;
   });
-  const comfy = inventory.comfyui;
-  const comfyLoaded = comfy && !comfy.problem && (comfy.drawing || comfy.held_mb > 512);
-  if (comfyLoaded) {
-    const fileLines = (comfy.files || []).map((f) => `${esc(f.kind)}: ${esc(f.name)}`).join("<br>");
-    rows.push(`<tr><td><strong>Qwen-Image</strong><br><span class="sm-dim">${fileLines}</span></td><td>ComfyUI</td>
-      <td class="wrap">${COMFYUI_FOR}</td><td>${vramCell(comfy.held_mb, totalVram)}</td>
-      <td class="wrap">${comfy.drawing ? "<b>drawing now</b>" : "loaded until Socia or the monitor frees it"}</td></tr>`);
+  // The image model is loaded only while a picture is made: its text encoder, then its diffusion model.
+  const images = inventory.images;
+  const imagesLoaded = images && !images.problem && images.drawing;
+  if (imagesLoaded) {
+    const part = images.stage === "reading" ? "text encoder" : "diffusion model";
+    const fileLines = (images.files || []).filter((f) => images.stage !== "reading" ? f.kind !== "text encoder" : f.kind === "text encoder")
+      .map((f) => `${esc(f.kind)}: ${esc(f.name)}`).join("<br>");
+    rows.push(`<tr><td><strong>Qwen-Image</strong><br><span class="sm-dim">${fileLines}</span></td><td>Sentia imagegen</td>
+      <td class="wrap">${IMAGES_FOR}</td><td>${vramCell(0, totalVram, `its ${part}, not reported`)}</td>
+      <td class="wrap"><b>${esc(IMAGE_STAGE[images.stage] || "working")} now</b> · gone when the picture is done</td></tr>`);
   }
   const loadedNames = new Set(models.map((m) => m.name));
   // Not loaded: a name and its size each; who uses them is in "Models by app".
   const chip = (name, note) => `<li>${esc(name)}${note ? ` <span class="sm-dim">${esc(note)}</span>` : ""}</li>`;
   const idleOllama = (inventory.ollama || []).filter((m) => !loadedNames.has(m.name)).map((m) => chip(m.name, gb(m.size_mb)));
-  const idleComfy = comfy && !comfyLoaded
-    ? comfy.problem ? [`<li class="sm-dim">${esc(comfy.problem)}</li>`]
-      : (comfy.files || []).map((f) => chip(f.name, [f.kind, f.size_mb ? gb(f.size_mb) : ""].filter(Boolean).join(" · ")))
+  const idleImages = images && !imagesLoaded
+    ? images.problem ? [`<li class="sm-dim">${esc(images.problem)}</li>`]
+      : (images.files || []).map((f) => chip(f.name, [f.kind, f.size_mb ? gb(f.size_mb) : ""].filter(Boolean).join(" · ")))
     : [];
   const idleApps = [];
   for (const app of apps || []) {
@@ -475,10 +479,10 @@ function drawModels(container, list, byApp, models, apps, inventory, calls, tota
   const group = (title, kind, items, empty) => `<h4 class="sm-sub">${title}</h4><ul class="sm-chips sm-chips-${kind}">${items.length ? items.join("") : `<li class="sm-dim">${empty}</li>`}</ul>`;
   list.innerHTML = [
     group("Ollama", "ollama", idleOllama, inventory.ollama ? "Every installed model is loaded." : "Waiting for Ollama's list."),
-    comfy ? group("ComfyUI", "comfyui", idleComfy, "Its models are loaded, above.") : "",
+    images ? group("Image model", "images", idleImages, "It is making a picture, above.") : "",
     group("Inside the apps", "apps", idleApps, apps ? "Every model the apps run themselves is loaded." : "Waiting for the apps' first report."),
   ].join("");
-  drawModelsByApp(byApp, apps, inventory, calls, loadedNames, comfyLoaded, now);
+  drawModelsByApp(byApp, apps, inventory, calls, loadedNames, imagesLoaded, now);
 }
 
 /* The Ollama models each app is set up to use, as in the README's Models table
@@ -494,12 +498,12 @@ const APP_OLLAMA_MODELS = {
 /* Which models each app uses: the Ollama models it is set up for, with its calls to them, its
    pictures' models, and the models it runs itself. A dot marks a model loaded now. Models an app
    called that it is not set up for (old ones, model checks) fold into one line. */
-function drawModelsByApp(container, apps, inventory, calls, loadedNames, comfyLoaded, now) {
+function drawModelsByApp(container, apps, inventory, calls, loadedNames, imagesLoaded, now) {
   const called = new Map(); // "app model" -> {calls, last}
   for (const u of inventory.usage || []) called.set(`${u.app} ${u.model}`, { calls: u.calls, last: u.last_call });
   for (const c of calls) if (!called.has(`${c.app} ${c.model}`)) called.set(`${c.app} ${c.model}`, { calls: 1, last: c.started_at });
   const own = new Map();
-  if (inventory.comfyui && !inventory.comfyui.problem) own.set("socia", [{ name: "Qwen-Image 2.1 Turbo (ComfyUI)", loaded: comfyLoaded }]);
+  if (inventory.images && !inventory.images.problem) own.set("socia", [{ name: "Qwen-Image 2.1 Turbo (Sentia imagegen)", loaded: imagesLoaded }]);
   for (const app of apps || []) for (const m of app.models || []) own.set(app.app, [...(own.get(app.app) || []), { name: m.name, loaded: m.loaded }]);
   const item = (m) => `<li${m.loaded ? ' class="sm-on" title="Loaded now"' : ""}>${esc(m.name)}${m.calls
     ? ` <span class="sm-dim">${num(m.calls)} call${m.calls === 1 ? "" : "s"}, last ${span(now - m.last)} ago</span>` : ""}</li>`;

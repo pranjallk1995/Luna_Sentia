@@ -42,52 +42,33 @@ services:
       ollama:
         condition: service_healthy
 
-  # The image model, Qwen-Image 2.1, in ComfyUI, for apps that make pictures (Luna Socia).
-  # It shares the GPU with Ollama by taking turns: the app unloads Ollama's models before
-  # an image and ComfyUI's after.
-  # Its own page has no sign-in, so it is bound to localhost for the owner's debugging.
-  comfyui:
-    build: ./comfyui
-    image: ghcr.io/pranjallk1995/luna-sentia-comfyui:${LUNA_IMAGE_TAG:-v1.9.2}
+  # Pictures, for apps that make them (Luna Socia): Qwen-Image 2.1 Turbo with diffusers (imagegen/).
+  # It takes the GPU in turns with Ollama: it unloads Ollama's models before each picture, reads
+  # the prompt in one process and draws in the next, each giving its memory back when it exits;
+  # the monitor waits for it to finish before loading the resident models again. The first start
+  # downloads and quantizes the weights (31 GB down, 13.4 GB kept) into the volume.
+  imagegen:
+    build: ./imagegen
+    image: ghcr.io/pranjallk1995/luna-sentia-imagegen:${LUNA_IMAGE_TAG:-v1.9.2}
     restart: unless-stopped
     gpus: all
-    # The model files (about 24 GB) are more than the GPU and WSL's RAM hold together.
-    # --fast-disk reads weights from the files as needed, as page cache the kernel can
-    # drop, instead of copying them into RAM, where they pushed everything else to swap.
-    # --disable-pinned-memory: WSL cannot pin that much memory ("Pin error").
-    command: ["python", "main.py", "--listen", "0.0.0.0", "--port", "8188", "--disable-auto-launch",
-              "--fast-disk", "--disable-pinned-memory"]
+    environment:
+      IMAGEGEN_OLLAMA_URL: http://luna-sentia-ollama-engine:11434
     volumes:
-      - comfyui_models:/opt/comfyui/models
-    # No host port: ComfyUI has no sign-in, so people reach its page only through the
-    # monitor's owner-only gate on 19002; Socia and the monitor call it here directly.
+      - imagegen_data:/data
+    # No host port: Socia and the monitor call it on the network.
     expose:
-      - "8188"
+      - "8000"
     networks:
       sentia_network:
         aliases:
-          - luna-sentia-comfyui
+          - luna-sentia-imagegen
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8188/system_stats', timeout=2)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
       interval: 10s
       timeout: 5s
-      start_period: 60s
-      retries: 12
-
-  # Downloads the image model's files once (about 24 GB); finished files are skipped,
-  # and an interrupted download resumes.
-  comfyui-pull:
-    image: curlimages/curl:8.17.0
-    # The volume belongs to root, as ComfyUI runs.
-    user: root
-    entrypoint: ["/bin/sh", "/pull-models.sh"]
-    volumes:
-      - comfyui_models:/models
-      - ./comfyui/pull-models.sh:/pull-models.sh:ro
-    networks:
-      sentia_network:
-        aliases:
-          - luna-sentia-comfyui-pull
+      start_period: 30s
+      retries: 6
 
   # Every app's model calls pass through the monitor on their way to Ollama: it answers
   # at luna-sentia-ollama:11434, times each call, samples the GPU every second, and
@@ -113,8 +94,7 @@ services:
       SENTIA_RESIDENT_CONTEXT: ${SENTIA_RESIDENT_CONTEXT:-8192,4096}
       SENTIA_GUEST_KEEP_ALIVE: ${SENTIA_GUEST_KEEP_ALIVE:-2m}
       SENTIA_RESIDENT_IDLE_SECONDS: ${SENTIA_RESIDENT_IDLE_SECONDS:-30}
-      SENTIA_COMFYUI_URL: http://luna-sentia-comfyui:8188
-      SENTIA_COMFYUI_PUBLIC_URL: ${SENTIA_COMFYUI_PUBLIC_URL:-http://localhost:19002}
+      SENTIA_IMAGEGEN_URL: http://luna-sentia-imagegen:8000
       MONITOR_SAMPLE_DAYS: ${MONITOR_SAMPLE_DAYS:-30}
       MONITOR_CALL_DAYS: ${MONITOR_CALL_DAYS:-365}
       # To ask Visia, Lexia, Vibia, and Socia about the models they run themselves, outside Ollama.
@@ -126,8 +106,6 @@ services:
       - "11434"
     ports:
       - "127.0.0.1:19003:8000"
-      # ComfyUI's page, for the owner only (monitor/app/comfyui_gate.py).
-      - "127.0.0.1:19002:8188"
       # The owner's MCP server (monitor/app/mcp_server.py).
       - "127.0.0.1:18003:8001"
     networks:
@@ -258,8 +236,8 @@ volumes:
     name: luna_sentia_ollama_data
   postgres_data:
     name: luna_sentia_postgres_data
-  comfyui_models:
-    name: luna_sentia_comfyui_models
+  imagegen_data:
+    name: luna_sentia_imagegen
 
 # The shared network every Luna app joins as an external network.
 networks:

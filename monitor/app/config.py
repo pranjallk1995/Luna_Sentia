@@ -16,12 +16,8 @@ class MonitorConfig:
     # The apps call Ollama here; the monitor passes each request on to the real server.
     PROXY_PORT: ClassVar[int] = 11434
     UI_PORT: ClassVar[int] = 8000
-    # ComfyUI's own page, behind the owner's sign-in (comfyui_gate.py).
-    COMFYUI_GATE_PORT: ClassVar[int] = 8188
     # The owner's MCP server: the GPU and the model calls, read only (mcp_server.py).
     MCP_PORT: ClassVar[int] = 8001
-    # Longest wait for one ComfyUI reply through the gate; pictures are polled, not waited on.
-    COMFYUI_GATE_TIMEOUT_SECONDS: ClassVar[float] = 300.0
     # Header the auth service reads a luna_sso token from, and the owner's fixed account id.
     SESSION_HEADER: ClassVar[str] = "X-Luna-Session"
     OWNER_ID: ClassVar[str] = "owner"
@@ -32,7 +28,7 @@ class MonitorConfig:
     MODELS_SECONDS: ClassVar[float] = 2.0
     # How often the apps are asked about the models they run themselves, outside Ollama.
     APP_MODELS_SECONDS: ClassVar[float] = 10.0
-    # Ollama's installed models, ComfyUI's model files, and which apps called which model.
+    # Ollama's installed models, the image model's files, and which apps called which model.
     INVENTORY_SECONDS: ClassVar[float] = 30.0
     # The apps with models of their own: Visia's SigLIP 2, Lexia's Docling, Vibia's CLAP,
     # and Socia's Whisper and Kokoro (on the CPU).
@@ -74,10 +70,8 @@ class MonitorConfig:
     guest_keep_alive: str = "2m"
     # Quiet seconds before the resident model is loaded back.
     resident_idle_seconds: float = 30.0
-    # ComfyUI, asked whether it is drawing before the resident model comes back.
-    comfyui_url: str = ""
-    # Where people open ComfyUI's page through the gate: SENTIA_COMFYUI_PUBLIC_URL.
-    comfyui_public_url: str = "http://localhost:19002"
+    # Sentia's image service, asked whether it is making a picture before the resident models come back.
+    imagegen_url: str = ""
     # Where MCP clients reach that server: SENTIA_MCP_PUBLIC_URL, with /mcp after it.
     mcp_public_url: str = "http://localhost:18003"
 
@@ -102,8 +96,7 @@ class MonitorConfig:
             resident_context=os.getenv("SENTIA_RESIDENT_CONTEXT", "").strip() or "8192",
             guest_keep_alive=os.getenv("SENTIA_GUEST_KEEP_ALIVE", "").strip() or "2m",
             resident_idle_seconds=float(os.getenv("SENTIA_RESIDENT_IDLE_SECONDS", "30") or 30),
-            comfyui_url=os.getenv("SENTIA_COMFYUI_URL", "").strip(),
-            comfyui_public_url=(os.getenv("SENTIA_COMFYUI_PUBLIC_URL", "").strip() or cls.comfyui_public_url).rstrip("/"),
+            imagegen_url=os.getenv("SENTIA_IMAGEGEN_URL", "").strip(),
             mcp_public_url=(os.getenv("SENTIA_MCP_PUBLIC_URL", "").strip() or cls.mcp_public_url).rstrip("/"),
             app_tokens=tuple(
                 (app, url, os.getenv(f"LUNA{app.upper()}_API_TOKEN", "").strip()) for app, url in cls.APP_BACKENDS

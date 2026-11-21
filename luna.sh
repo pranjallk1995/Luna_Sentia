@@ -145,9 +145,9 @@ refuse_public_defaults() {
 
 start_sentia() {
     refuse_public_defaults "$SENTIA_DIR" sentia || exit 1
-    log "Starting Luna Sentia (PostgreSQL, Ollama, ComfyUI, model monitor, sign-on, Adminer, luna_sentia_network)"
+    log "Starting Luna Sentia (PostgreSQL, Ollama, image model, model monitor, sign-on, Adminer, luna_sentia_network)"
     # Only Sentia's own images; Ollama and Adminer update when you pull them yourself.
-    images "$SENTIA_DIR" postgres auth monitor comfyui
+    images "$SENTIA_DIR" postgres auth monitor imagegen
     compose "$SENTIA_DIR" up -d --wait postgres ollama adminer
     # Every app's role and database must exist before any app starts.
     compose "$SENTIA_DIR" run --rm postgres-init
@@ -160,10 +160,10 @@ start_sentia() {
     fi
     # The apps reach Ollama through the monitor, so it must be up before any app.
     compose "$SENTIA_DIR" up -d --wait monitor
-    # The image model; its first start does not hold up the apps.
-    compose "$SENTIA_DIR" up -d comfyui
+    # The image model; its first start downloads and prepares its weights without holding up the apps.
+    compose "$SENTIA_DIR" up -d imagegen
     # The model pulls run in the background; apps start without waiting for them.
-    compose "$SENTIA_DIR" up -d ollama-pull comfyui-pull
+    compose "$SENTIA_DIR" up -d ollama-pull
     remove_old_images "$SENTIA_DIR"
 }
 

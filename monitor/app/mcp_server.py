@@ -47,7 +47,7 @@ INLINE_ICON_SIZES = (48, 96)
 ICON_HEADERS = {"Cache-Control": "public, max-age=86400"}
 
 INSTRUCTIONS = """Luna Sentia runs the home's shared models on one NVIDIA GPU: Ollama's models
-(through the model monitor), ComfyUI's image model, and the models Visia, Lexia, Vibia,
+(through the model monitor), the image model (Qwen-Image, in Sentia's imagegen), and the models Visia, Lexia, Vibia,
 and Socia run themselves. These tools read the monitor, for the owner only: get_gpu_status for now,
 get_gpu_history for utilisation, VRAM, power, and temperature over time, list_model_calls
 for individual model calls with their timings, and get_model_usage for totals per app and

@@ -5,11 +5,11 @@ the owner's photos) or the apps' working models, not both. The resident models
 (``SENTIA_RESIDENT_MODEL``, comma-separated, each at its ``SENTIA_RESIDENT_CONTEXT``) are
 asked to stay loaded for good; any other model gets a short stay (``SENTIA_GUEST_KEEP_ALIVE``), whatever the app asked, so a Visia batch's vision
 model leaves soon after the batch ends. Once nothing has used a model for a while, the
-GPU has room again, and ComfyUI is not drawing a picture, the missing resident models are
+GPU has room again, and Sentia's image service is not making a picture, the missing resident models are
 loaded back, so Luna answers at once instead of after a reload.
 
-Requests that ask for a model to leave (``keep_alive`` 0, as Socia sends before a
-picture) are passed on unchanged.
+Requests that ask for a model to leave (``keep_alive`` 0) are passed on unchanged.
+The image service unloads every model before a picture itself, straight from Ollama.
 """
 
 from __future__ import annotations
@@ -45,22 +45,20 @@ def residents(models: str, contexts: int | str) -> list[tuple[str, int]]:
 
 class Residency:
     def __init__(self, live: LiveState, upstream_url: str, resident: str, resident_context: int | str,
-                 guest_keep_alive: str, idle_seconds: float, comfyui_url: str = "",
+                 guest_keep_alive: str, idle_seconds: float, imagegen_url: str = "",
                  transport: httpx.AsyncBaseTransport | None = None, clock=time.monotonic) -> None:
         self.live = live
         self.resident = resident
         self.residents = residents(resident, resident_context)
         self.guest_keep_alive = guest_keep_alive
         self.idle_seconds = idle_seconds
-        self.comfyui_url = comfyui_url.rstrip("/")
+        self.imagegen_url = imagegen_url.rstrip("/")
         self.client = httpx.AsyncClient(base_url=upstream_url, transport=transport, timeout=httpx.Timeout(600.0, connect=10.0))
         self.clock = clock
         self.last_activity = clock()
         # Each resident model's VRAM when last loaded, to know whether it fits again.
         self.resident_mb: dict[str, float] = {}
         self.state = "idle"
-        # Set while ComfyUI draws, so its models are freed once it is done.
-        self.comfyui_drew = False
 
     @staticmethod
     def same_model(a: str | None, b: str | None) -> bool:
@@ -116,13 +114,13 @@ class Residency:
             return None
         return sample["vram_total_mb"] - sample["vram_used_mb"]
 
-    async def comfyui_busy(self) -> bool:
-        if not self.comfyui_url:
+    async def imagegen_busy(self) -> bool:
+        """Whether the image service is making a picture (or preparing its weights): it has the GPU then."""
+        if not self.imagegen_url:
             return False
         try:
             async with httpx.AsyncClient(timeout=3.0) as client:
-                queue = (await client.get(f"{self.comfyui_url}/queue")).json()
-            return bool(queue.get("queue_running") or queue.get("queue_pending"))
+                return bool((await client.get(f"{self.imagegen_url}/status")).json().get("busy"))
         except (httpx.HTTPError, ValueError):
             return False
 
@@ -142,22 +140,9 @@ class Residency:
         sizes = [self.resident_mb.get(name) for name, _ in absent]
         if all(sizes) and free is not None and free + visitors < sum(sizes) + MARGIN_MB:
             return "an app's own model still holds the GPU"
-        if await self.comfyui_busy():
-            self.comfyui_drew = True
-            return "ComfyUI is drawing"
-        if self.comfyui_drew:
-            # ComfyUI keeps its models after a picture (24 GB of RAM and the GPU's rest): let them go first.
-            await self.free_comfyui()
+        if await self.imagegen_busy():
+            return "a picture is being made"
         return None
-
-    async def free_comfyui(self) -> None:
-        self.comfyui_drew = False
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                await client.post(f"{self.comfyui_url}/free", json={"unload_models": True, "free_memory": True})
-            logger.info("ComfyUI let go of its models after a picture")
-        except httpx.HTTPError as error:
-            logger.warning("Could not free ComfyUI's models: %s", error)
 
     async def load(self) -> None:
         """The missing resident models, in the order they are listed (Socia's chat model first)."""

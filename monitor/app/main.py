@@ -13,7 +13,6 @@ from datetime import datetime
 import httpx
 import uvicorn
 
-from app.comfyui_gate import create_gate
 from app.config import MonitorConfig
 from app.gpu import GpuReader
 from app.live import LiveState
@@ -142,32 +141,17 @@ def installed_models(reply: dict) -> list[dict]:
     } for model in reply.get("models") or []]
 
 
-# ComfyUI's model folders, and what each holds for a picture.
-COMFYUI_FOLDERS = (("diffusion_models", "diffusion model"), ("text_encoders", "text encoder"), ("vae", "VAE"),
-                   ("loras", "LoRA"), ("checkpoints", "checkpoint"))
-
-
-async def comfyui_models(client: httpx.AsyncClient, url: str) -> dict:
-    """ComfyUI's model files, and whether it holds them on the GPU now (it keeps no list of loaded models,
-    so its share of the GPU tells: torch's reserved memory)."""
+async def imagegen_models(client: httpx.AsyncClient, url: str) -> dict:
+    """The image service's weights on disk, and whether it is making a picture now: each picture's two
+    processes hold the GPU only while they run, so it holds nothing between pictures."""
     try:
-        files = []
-        for folder, kind in COMFYUI_FOLDERS:
-            # The experiment route gives each file's size; older ComfyUIs have only the names.
-            reply = await client.get(f"{url}/experiment/models/{folder}")
-            if reply.status_code == 200:
-                files += [{"kind": kind, "name": item["name"], "size_mb": (item.get("size") or 0) / MB or None}
-                          for item in reply.json()]
-                continue
-            reply = await client.get(f"{url}/models/{folder}")
-            if reply.status_code == 200:
-                files += [{"kind": kind, "name": name, "size_mb": None} for name in reply.json()]
-        device = ((await client.get(f"{url}/system_stats")).json().get("devices") or [{}])[0]
-        queue = (await client.get(f"{url}/queue")).json()
+        status = (await client.get(f"{url}/status")).json()
     except (httpx.HTTPError, ValueError):
         return {"problem": "not running", "files": []}
-    return {"problem": None, "files": files, "held_mb": (device.get("torch_vram_total") or 0) / MB,
-            "drawing": bool(queue.get("queue_running") or queue.get("queue_pending"))}
+    problem = status.get("problem") or (None if status.get("ready") else "preparing its weights (first start)")
+    running = status.get("running") or {}
+    return {"problem": problem, "files": status.get("files") or [], "drawing": bool(running),
+            "stage": running.get("status"), "preparing": bool(status.get("preparing"))}
 
 
 async def watch_inventory(live: LiveState, config: MonitorConfig, store: MonitorStore) -> None:
@@ -181,8 +165,8 @@ async def watch_inventory(live: LiveState, config: MonitorConfig, store: Monitor
                 inventory["ollama"] = installed_models(reply.json())
             except (httpx.HTTPError, ValueError):
                 inventory["ollama"] = []
-            if config.comfyui_url:
-                inventory["comfyui"] = await comfyui_models(client, config.comfyui_url.rstrip("/"))
+            if config.imagegen_url:
+                inventory["images"] = await imagegen_models(client, config.imagegen_url.rstrip("/"))
             try:
                 inventory["usage"] = await asyncio.to_thread(store.model_usage)
             except Exception as error:  # noqa: BLE001 - the list goes without who called what
@@ -220,7 +204,7 @@ async def main() -> None:
     live = LiveState(config.parallel)
     store = MonitorStore(config.database_url)
     residency = Residency(live, config.upstream_url, config.resident_model, config.resident_context,
-                          config.guest_keep_alive, config.resident_idle_seconds, config.comfyui_url)
+                          config.guest_keep_alive, config.resident_idle_seconds, config.imagegen_url)
     proxy = OllamaProxy(live, config.upstream_url, residency=residency)
     page = create_app(config, live, store)
     servers = [
@@ -232,10 +216,6 @@ async def main() -> None:
     servers.append(uvicorn.Server(uvicorn.Config(
         create_mcp(config, live, store, residency).streamable_http_app(), host="0.0.0.0", port=MonitorConfig.MCP_PORT,
         proxy_headers=True, forwarded_allow_ips="*", log_level="warning")))
-    if config.comfyui_url:
-        servers.append(uvicorn.Server(uvicorn.Config(
-            create_gate(config), host="0.0.0.0", port=MonitorConfig.COMFYUI_GATE_PORT, proxy_headers=True,
-            forwarded_allow_ips="*", log_level="warning", access_log=False)))
     tasks = [asyncio.create_task(job) for job in (
         sample_gpu(live, GpuReader()), watch_models(live, config.upstream_url), watch_app_models(live, config),
         watch_inventory(live, config, store),

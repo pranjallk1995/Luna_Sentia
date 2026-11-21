@@ -53,7 +53,7 @@ Every Luna app but Luna Socia is a React UI plus a FastMCP service on Luna Senti
 server of its own. Each app's data lives in Sentia's PostgreSQL, people sign in through Sentia's
 `auth`, and model calls go through Sentia's model monitor, which times each one, samples
 the GPU and keeps Socia's chat model resident, to its Ollama. Socia's pictures come from
-Sentia's ComfyUI, which takes turns with Ollama on the GPU. Visia's SigLIP 2, Vibia's CLAP
+Sentia's image service (Qwen-Image 2.1 with diffusers), which takes turns with Ollama on the GPU. Visia's SigLIP 2, Vibia's CLAP
 and Lexia's Docling run inside those apps instead, each in a process that exits when idle.
 Orange lines are Visia image URLs that other apps use: food images for Vita, room images
 for Lumia, and cover art for Vibia. Grey dashed lines are planned: links into Fiora (tax
@@ -70,12 +70,11 @@ play music, dim the lights or find a photo from the chat.
 | Database setup | `postgres-init` (one-shot) | Creates each app's role and database and syncs role passwords, then exits |
 | Accounts and sign-on | Starlette (`luna-sentia-auth`) | One Google sign-in for every app, the list of people, and sign-in for MCP connectors; host port 19001 |
 | Model server | Ollama (`luna-sentia-ollama-engine`) | Serves local models to every Luna app; never published on a host port |
-| Model monitor | Starlette (`luna-sentia-ollama`, `luna-sentia-monitor`) | Passes every app's Ollama call through, timing it, samples the GPU, and stores both; the owner's page is on host port 19003, ComfyUI's page, behind the owner's sign-in, on 19002, and the owner's MCP server (GPU and model calls) on 18003 |
+| Model monitor | Starlette (`luna-sentia-ollama`, `luna-sentia-monitor`) | Passes every app's Ollama call through, timing it, samples the GPU, and stores both; the owner's page is on host port 19003, and the owner's MCP server (GPU and model calls) on 18003 |
 | Model pull | Ollama CLI (one-shot) | Pulls every model in `SENTIA_MODELS` at startup, then exits |
-| Image model | ComfyUI + Qwen-Image 2.1 (`luna-sentia-comfyui`) | Makes pictures for the apps (Luna Socia); takes turns with Ollama on the GPU; its page is on 19002, through the monitor's owner-only gate |
-| Image model pull | curl (one-shot) | Downloads Qwen-Image 2.1's files (about 24 GB) once, then exits |
+| Image model | diffusers + Qwen-Image 2.1 Turbo (`luna-sentia-imagegen`) | Makes pictures for the apps (Luna Socia), one at a time; takes the GPU from Ollama for each and gives it back; no host port |
 | Database UI | Adminer | Browses every app's database, on localhost port 19000 |
-| Storage | `luna_sentia_postgres_data`, `luna_sentia_ollama_data`, `luna_sentia_comfyui_models` volumes | Every app's data and the downloaded models, kept across restarts |
+| Storage | `luna_sentia_postgres_data`, `luna_sentia_ollama_data`, `luna_sentia_imagegen` volumes | Every app's data and the downloaded models, kept across restarts |
 | Network | `luna_sentia_network` | Shared private network every Luna app joins as an external network |
 
 ```text
@@ -223,17 +222,16 @@ not the sum.
 | Sentia | `luna-sentia-postgres` | 0.4 GB | PostgreSQL 17 with pgvector: every app's database; also runs `postgres-init` |
 | Sentia | `luna-sentia-auth` | 0.3 GB | Single sign-on for every app |
 | Sentia | `luna-sentia-monitor` | 0.3 GB | Model monitor: Ollama's queue, its page and the owner's MCP server |
-| Sentia | `luna-sentia-comfyui` | 11.6 GB | ComfyUI with PyTorch for CUDA: the image model's runtime |
+| Sentia | `luna-sentia-imagegen` | 9.3 GB | diffusers with PyTorch for CUDA: the image model's runtime |
 | Sentia | `ollama/ollama` | 8.5 GB | Every language model (chat, vision, embeddings); also runs `ollama-pull` |
 | Sentia | `adminer` | 0.2 GB | The database page |
-| Sentia | `curlimages/curl` | 0.03 GB | `comfyui-pull`, which downloads the image model |
 | Visia, Lexia, Vibia | `luna-<app>-mcp` | 12–13 GB each | MCP server and jobs, with PyTorch for CUDA (SigLIP, Docling, CLAP) |
 | Vita, Lumia, Fiora | `luna-<app>-mcp` | 0.3–0.5 GB each | MCP server and jobs |
 | Every app but Socia | `luna-<app>-ui` | 0.25–0.3 GB each | The app's page |
 | Socia | `luna-socia-ui` | 3.7 GB | Socia's page, with the runtime of her voice (Whisper, Kokoro) and face models, and CUDA 12 for them |
 
-The models themselves are not in any image: Ollama's models (about 16 GB) and ComfyUI's
-(about 24 GB) download into volumes the first time Sentia starts, and Socia's voice and face models
+The models themselves are not in any image: Ollama's models (about 16 GB) and the image
+model (31 GB downloaded, 13.4 GB kept once quantized) download into volumes the first time Sentia starts, and Socia's voice and face models
 the first time they are used. `--build` also downloads the base images `python:3.12-slim`
 and `node:22-slim`.
 
@@ -313,7 +311,7 @@ nvidia-smi
 | `huihui_ai/qwen3-vl-abliterated:8b-instruct` (Qwen3-VL 8B, uncensored) | Ollama, at 16k context for every app; in Socia's chat model's place while Luna looks at a photo | Lexia (`DOCUMENT_MODEL`), Visia (`VISION_MODEL`), Vibia (`CAPTION_MODEL`), Fiora (`OLLAMA_MODEL`), Socia's photo replies (`LUNASOCIA_VISION_MODEL`) | `model_checks/check_model.py`, then Lexia's, Visia's and Vibia's `model_evaluations/` and Socia's cat game |
 | `huihui_ai/qwen3-abliterated:8b` (Qwen3 8B, uncensored) | Ollama, resident at `SENTIA_RESIDENT_CONTEXT` | Socia's chat (`LUNASOCIA_CHAT_MODEL`) | `model_checks/check_model.py --context 8192`, then Socia's `model_evaluations/` |
 | `qwen3-embedding:0.6b` (Qwen3-Embedding 0.6B) | Ollama, resident beside Socia's chat model (1 GB, at 4k) | Lexia's semantic search (`EMBEDDING_MODEL`); what Socia remembers by herself, and the lines of her memory a message is about (`LUNASOCIA_EMBED_MODEL`) | Re-embed with Lexia's `reindex_semantic_search`; train Socia's neurons again (her notebook 03, Part B) |
-| Qwen-Image 2.1 Turbo | ComfyUI | Socia's pictures of Luna | A few pictures by hand |
+| Qwen-Image 2.1 Turbo (4-bit text encoder, int8 diffusion model) | Sentia's imagegen (diffusers), GPU, one picture at a time | Socia's pictures of Luna | A few pictures by hand |
 | SigLIP 2 (`google/siglip2-base-patch16-224`) | Visia itself, GPU only | Visia's meaning search | Pinned in Visia's image; `backfill_metadata` re-embeds |
 | CLAP (`laion/clap-htsat-unfused`) | Vibia itself, GPU or CPU | Vibia's listening and search | Pinned in Vibia's image; every track is heard again |
 | Docling (layout, tables, OCR) | Lexia itself, GPU or CPU | Lexia's page reading | Pinned in Lexia's image |
@@ -358,10 +356,10 @@ monitor, which every Ollama call passes through, decides who stays:
   without a context (an embedding call) is given its own, so Ollama never reloads it. Each
   missing one is loaded back on its own.
 - Every other model stays only `SENTIA_GUEST_KEEP_ALIVE` (2 minutes) after its last
-  request, whatever the app asked. A request that asks a model to leave (`keep_alive` 0,
-  as Socia sends before a picture) passes unchanged.
-- Once no model has been used for `SENTIA_RESIDENT_IDLE_SECONDS` (30), ComfyUI is not
-  drawing, and the GPU has room, the monitor loads the resident models back at
+  request, whatever the app asked. A request that asks a model to leave (`keep_alive` 0)
+  passes unchanged.
+- Once no model has been used for `SENTIA_RESIDENT_IDLE_SECONDS` (30), the image service is
+  not making a picture, and the GPU has room, the monitor loads the resident models back at
   `SENTIA_RESIDENT_CONTEXT` (8192, the context Socia asks for; any other would reload it).
 
 When Luna looks at a photo, Socia's vision model (`huihui_ai/qwen3-vl-abliterated:8b-instruct`,
@@ -624,30 +622,38 @@ tools, and Sentia's, as the owner, from the chat. See Socia's
 
 ## Image model
 
-ComfyUI serves Qwen-Image 2.1 Turbo (bf16, with the int8 Qwen3-VL 8B text encoder) to
-the apps that make pictures, today Luna Socia. `comfyui-pull` downloads its files (about
-24 GB) into `luna_sentia_comfyui_models` once. It has no sign-in of its own, so it has no
-host port: the apps call it on the private network. The GPU holds Ollama's models or ComfyUI's, not
-both: an app unloads Ollama's models before a picture and asks ComfyUI to free its own
-after (`POST /free`), so the next model call after a picture first reloads its model.
+`imagegen` makes pictures for the apps, today Luna Socia: Qwen-Image 2.1 Turbo with
+[diffusers](https://github.com/huggingface/diffusers), 8 steps, one picture at a time. It has
+no host port; Socia calls it on the private network:
 
-The files are more than the GPU and WSL's RAM hold together, so ComfyUI starts with
-`--fast-disk`: it reads weights from the files as it needs them, as page cache the kernel
-can drop, instead of copying them into RAM. Without it a picture filled the RAM, pushed
-everything else to swap and could stall for minutes. `--disable-pinned-memory` stops the
-"Pin error" warnings, since WSL cannot pin that much memory. A picture takes about 2
-minutes, nearly all of it reading the files again after the last one was freed.
+| Request | What it does |
+| --- | --- |
+| `POST /pictures` | Queues a picture: `{"prompt", "references": [base64], "resolution"?, "seed"?}`, up to 16 references; answers `202 {"id"}` |
+| `GET /pictures/{id}` | `queued`, `reading`, `drawing`, `done`, `failed` or `cancelled` |
+| `GET /pictures/{id}/image` | The PNG once done, given once |
+| `DELETE /pictures/{id}` | Takes it out of the queue, or stops it |
+| `GET /status` | Whether it is ready and busy, and its weights on disk, for the monitor |
 
-Its own page, the node editor, is for the owner only. The model monitor serves it on
-`127.0.0.1:19002` behind Luna's sign-on (`monitor/app/comfyui_gate.py`): like the monitor's
-page, it checks the `luna_sso` cookie, then passes every request and ComfyUI's websocket
-(live progress and previews) through, without the cookie. Requests from other sites are
-refused. With a tunnel, route a hostname under `SENTIA_AUTH_COOKIE_DOMAIN` to
-`http://localhost:19002` (for example `comfyui.lunaapps.fyi`) and set it as
-`SENTIA_COMFYUI_PUBLIC_URL`; Luna Unia's Sentia card links to it (`LUNASENTIA_COMFYUI_URL`
-in Unia's `.env`). A picture queued there by hand loads Qwen-Image like one from Socia and
-pushes the chat model out; press "Unload models" when done, so the monitor can bring the
-resident model back.
+The GPU (12 GB) cannot hold Luna's resident models and the image model together, nor the
+image model's two big parts at once, so each picture takes three turns:
+
+1. It unloads every model Ollama holds, Socia's resident ones too.
+2. **read**: one process loads the text encoder (Qwen3-VL 8B, 4-bit NF4, 6 GB), which reads
+   the prompt and the reference pictures into a small file (about 25 MB), then exits.
+3. **draw**: another process loads the diffusion model (int8, 6.7 GB) and the VAE, draws
+   from that file and the references' latents, decodes in tiles, and exits.
+
+Each pass gives its GPU memory and RAM back when its process exits, so nothing is left behind
+between pictures (ComfyUI, before it, kept about 15 GB of RAM). The monitor sees the picture
+in `/status` and waits until it is done to load the resident models back. Measured on the RTX
+5070: a picture with Luna's references in about 1.5–2 minutes, at most 8.3 GB of the GPU and 7.7 GB
+of RAM.
+
+The weights are not in the image. On its first start, `app/weights.py` downloads Qwen's
+release (31 GB, at a pinned revision) into `luna_sentia_imagegen`, quantizes the text encoder
+and the diffusion model, and deletes their bf16 files, keeping 13.4 GB; until then it refuses
+pictures with a 503 saying so. An 8-bit text encoder follows the scene a little better, but at
+13.4 GB it does not fit on a 12 GB card and spills into shared memory (2–4 minutes a picture).
 
 ## Model monitor
 
@@ -673,13 +679,13 @@ stored history:
   cannot split VRAM by process, so the total includes Visia's SigLIP, Lexia's Docling,
   Vibia's CLAP, and Windows.
 - **Requests in flight and waiting.**
-- **Every model**: those loaded now in one table, Ollama's, ComfyUI's (while it holds the
-  GPU) and the apps' own, with their VRAM, what they are for and when they unload. Then
+- **Every model**: those loaded now in one table, Ollama's, the image model's (while it makes
+  a picture) and the apps' own, with their VRAM, what they are for and when they unload. Then
   **Models by app**, one row each: the Ollama models it is set up for (the [Models](#models)
   table, which a test keeps the page in step with) with its calls to each from `model_calls`,
   and the models it runs itself, a dot marking those loaded now; models it called but is not
   set up for, such as old ones, fold into one line. Last, the models not loaded now, a name
-  and size each, colored as in the ecosystem diagram: Ollama's, ComfyUI's files, and the
+  and size each, colored as in the ecosystem diagram: Ollama's, the image model's files, and the
   apps' own. Visia, Lexia and Vibia report a model's VRAM only while it is loaded, so theirs
   show the size the monitor last saw, or none until they first load after a restart.
 - **Models outside Ollama**, which four apps run themselves: on the same GPU, Visia's
@@ -757,7 +763,6 @@ onwards, and the apps' pages 18500 onwards, each in alphabetical order.
 | --- | --- | --- |
 | 19000 | Sentia: Adminer | (localhost only) |
 | 19001 | Sentia: auth (sign-on) | `auth.example.com` |
-| 19002 | Sentia: ComfyUI page, through the monitor | `comfyui.example.com` |
 | 19003 | Sentia: model monitor page | `monitor.example.com` |
 | 18000 | Fiora MCP | `fiora-mcp.example.com` |
 | 18001 | Lexia MCP | `lexia-mcp.example.com` |

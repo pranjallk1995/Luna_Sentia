@@ -302,7 +302,7 @@ class AssetTests(unittest.TestCase):
 
 
 class ResidencyTests(unittest.TestCase):
-    def residency(self, models=(), samples=(), in_flight=False, comfy_queue=None, now=1000.0,
+    def residency(self, models=(), samples=(), in_flight=False, drawing=False, now=1000.0,
                   resident="qwen3:14b", context=8192):
         from app.residency import Residency
 
@@ -320,7 +320,7 @@ class ResidencyTests(unittest.TestCase):
         clock = Clock(now)
         residency = Residency(live, "http://engine", resident, context, "2m", 30.0,
                               transport=httpx.MockTransport(engine), clock=clock)
-        residency.comfyui_busy = lambda: asyncio.sleep(0, result=bool(comfy_queue))
+        residency.imagegen_busy = lambda: asyncio.sleep(0, result=drawing)
         return residency, clock, seen
 
     def test_the_resident_stays_for_good_and_visitors_briefly(self):
@@ -349,9 +349,9 @@ class ResidencyTests(unittest.TestCase):
         self.assertEqual(asyncio.run(loaded.why_not_now()), "loaded")
         busy, _, _ = self.residency(in_flight=True, now=quiet)
         self.assertEqual(asyncio.run(busy.why_not_now()), "a model is working")
-        drawing, clock, _ = self.residency(comfy_queue=True)
+        drawing, clock, _ = self.residency(drawing=True)
         clock.now = quiet
-        self.assertEqual(asyncio.run(drawing.why_not_now()), "ComfyUI is drawing")
+        self.assertEqual(asyncio.run(drawing.why_not_now()), "a picture is being made")
 
         # SigLIP still holds 2 GB: 9.6 GB would not fit in the 8.8 GB left, so wait.
         crowded, clock, _ = self.residency(samples=[{"vram_total_mb": 12227, "vram_used_mb": 3400}])
@@ -415,123 +415,20 @@ class ResidencyTests(unittest.TestCase):
         body = {"model": "qwen3-embedding:0.6b", "keep_alive": -1, "options": {"num_ctx": 4096}}
         self.assertEqual(seen, [("/api/generate", body), ("/api/embed", {**body, "input": []})])
 
-    def test_comfyui_is_freed_once_after_it_draws_before_the_residents_come_back(self):
-        residency, clock, _ = self.residency(comfy_queue=["job"])
-        clock.now = 1000.0 + 31
-        residency.last_activity = 1000.0
-        freed = []
-        residency.free_comfyui = lambda: asyncio.sleep(0, result=freed.append(1))
-        self.assertEqual(asyncio.run(residency.why_not_now()), "ComfyUI is drawing")
-        residency.comfyui_busy = lambda: asyncio.sleep(0, result=False)
-        self.assertIsNone(asyncio.run(residency.why_not_now()))
-        self.assertEqual(freed, [1])
+    def test_asks_the_image_service_whether_it_is_making_a_picture(self):
+        from app.residency import Residency
 
-class ComfyUIGateTests(unittest.TestCase):
-    """ComfyUI's page behind the owner's sign-in, passed through unchanged."""
+        def imagegen(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"busy": True})
 
-    def setUp(self):
-        self.seen: list[httpx.Request] = []
-
-    def comfyui(self, request: httpx.Request) -> httpx.Response:
-        self.seen.append(request)
-        body = json.dumps({"path": request.url.path}).encode()
-
-        async def stream():  # a streamed reply, as ComfyUI sends over the network
-            yield body
-
-        return httpx.Response(200, content=stream(), headers={"X-Comfy": "yes", "Content-Type": "application/json"})
-
-    def client(self, cookie: str | None = None, comfyui=None, comfyui_url: str = "http://comfyui:8188") -> TestClient:
-        from dataclasses import replace
-
-        from app.comfyui_gate import create_gate
-        auth = FakeAuth({"owner-token": {"user_id": "owner"}, "guest-token": {"user_id": "u-2"}})
-        gate = create_gate(replace(config(), comfyui_url=comfyui_url, comfyui_public_url="https://comfyui.example.com"),
-                           httpx.MockTransport(auth), httpx.MockTransport(comfyui or self.comfyui))
-        client = TestClient(gate, base_url="https://comfyui.example.com", follow_redirects=False)
-        if cookie:
-            client.cookies.set("luna_sso", cookie)
-        return client
-
-    def test_sends_people_who_are_signed_out_to_sign_in(self):
-        page = self.client().get("/", headers={"Accept": "text/html"})
-        self.assertEqual(page.status_code, 303)
-        self.assertTrue(page.headers["location"].startswith("https://auth.example.com/login?next=https%3A%2F%2Fcomfyui.example.com%2F"))
-        self.assertEqual(self.client().get("/api/queue").status_code, 401)
-        self.assertEqual(self.seen, [])
-
-    def test_only_the_owner_reaches_comfyui(self):
-        self.assertEqual(self.client("guest-token").get("/", headers={"Accept": "text/html"}).status_code, 403)
-        self.assertEqual(self.client("guest-token").get("/api/queue").status_code, 403)
-        self.assertEqual(self.seen, [])
-
-    def test_passes_the_owners_requests_through_without_the_sign_in_cookie(self):
-        reply = self.client("owner-token").post("/api/prompt?x=1", json={"prompt": {}},
-                                                headers={"Origin": "https://comfyui.example.com"})
-        self.assertEqual((reply.status_code, reply.json(), reply.headers["X-Comfy"]), (200, {"path": "/api/prompt"}, "yes"))
-        sent = self.seen[0]
-        self.assertEqual((sent.method, str(sent.url), json.loads(sent.content)), ("POST", "http://comfyui:8188/api/prompt?x=1", {"prompt": {}}))
-        self.assertNotIn("cookie", sent.headers)
-        self.assertEqual(sent.headers["origin"], "http://comfyui:8188")
-
-    def test_refuses_requests_from_other_sites(self):
-        reply = self.client("owner-token").post("/api/prompt", json={}, headers={"Origin": "https://evil.example.com"})
-        self.assertEqual(reply.status_code, 403)
-        self.assertEqual(self.seen, [])
-
-    def test_says_so_when_comfyui_is_down(self):
-        def down(request):
-            raise httpx.ConnectError("refused", request=request)
-        self.assertEqual(self.client("owner-token", comfyui=down).get("/api/queue").status_code, 502)
-
-    def test_closes_the_websocket_of_someone_signed_out(self):
-        from starlette.websockets import WebSocketDisconnect
-        with self.assertRaises(WebSocketDisconnect) as closed:
-            with self.client().websocket_connect("/ws?clientId=1"):
-                pass
-        self.assertEqual(closed.exception.code, 1008)
-
-    def test_relays_comfyuis_websocket_both_ways(self):
-        import threading
-
-        from websockets.asyncio.server import serve
-
-        ready, stop = threading.Event(), None
-        port = {}
-
-        async def echo(remote):
-            await remote.send(json.dumps({"type": "status", "path": remote.request.path}))
-            async for message in remote:
-                await remote.send(message)
-
-        def run():
-            nonlocal stop
-
-            async def main():
-                nonlocal stop
-                stop = asyncio.get_running_loop().create_future()
-                async with serve(echo, "127.0.0.1", 0) as server:
-                    port["n"] = server.sockets[0].getsockname()[1]
-                    ready.set()
-                    await stop
-
-            loop = asyncio.new_event_loop()
-            port["loop"] = loop
-            loop.run_until_complete(main())
-
-        thread = threading.Thread(target=run, daemon=True)
-        thread.start()
-        ready.wait(5)
+        residency = Residency(LiveState(), "http://engine", "qwen3:14b", "8192", "2m", 30.0, imagegen_url="http://imagegen")
+        original = httpx.AsyncClient
+        httpx.AsyncClient = lambda **kwargs: original(transport=httpx.MockTransport(imagegen), **kwargs)
         try:
-            client = self.client("owner-token", comfyui_url=f"http://127.0.0.1:{port['n']}")
-            headers = {"Origin": "https://comfyui.example.com", "Cookie": "luna_sso=owner-token"}
-            with client.websocket_connect("/ws?clientId=7", headers=headers) as socket:
-                self.assertEqual(json.loads(socket.receive_text()), {"type": "status", "path": "/ws?clientId=7"})
-                socket.send_bytes(b"\x00preview")
-                self.assertEqual(socket.receive_bytes(), b"\x00preview")
+            self.assertTrue(asyncio.run(residency.imagegen_busy()))
         finally:
-            port["loop"].call_soon_threadsafe(stop.set_result, None)
-            thread.join(5)
+            httpx.AsyncClient = original
+        self.assertFalse(asyncio.run(Residency(LiveState(), "http://engine", "qwen3:14b", "8192", "2m", 30.0).imagegen_busy()))
 
 
 class ModelsByAppTests(unittest.TestCase):
@@ -582,21 +479,21 @@ class ModelSizeTests(unittest.TestCase):
         self.assertNotIn("vram_mb", idle[1]["models"][0])  # never seen loaded: no size to show
         self.assertEqual(seen[("socia", "faces")], 313)
 
-    def test_comfyui_files_come_with_their_sizes(self):
-        from app.main import comfyui_models
+    def test_the_image_services_weights_and_whether_it_is_drawing(self):
+        from app.main import imagegen_models
+
+        files = [{"kind": "VAE", "name": "Qwen-Image 2.1 VAE", "size_mb": 242.0}]
 
         def reply(request: httpx.Request) -> httpx.Response:
-            path = request.url.path
-            if path == "/experiment/models/vae":
-                return httpx.Response(200, json=[{"name": "vae.safetensors", "size": 254 * 1024 * 1024}])
-            if path.startswith("/experiment/models/"):
-                return httpx.Response(200, json=[])
-            if path == "/system_stats":
-                return httpx.Response(200, json={"devices": [{"torch_vram_total": 0}]})
-            return httpx.Response(200, json={"queue_running": [], "queue_pending": []})
+            return httpx.Response(200, json={"ready": True, "busy": True, "files": files,
+                                             "running": {"id": "a", "status": "drawing"}})
 
-        async def run():
-            async with httpx.AsyncClient(transport=httpx.MockTransport(reply)) as client:
-                return await comfyui_models(client, "http://comfyui")
-        files = asyncio.run(run())["files"]
-        self.assertEqual(files, [{"kind": "VAE", "name": "vae.safetensors", "size_mb": 254.0}])
+        async def run(transport):
+            async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+                return await imagegen_models(client, "http://imagegen")
+        seen = asyncio.run(run(reply))
+        self.assertEqual((seen["files"], seen["drawing"], seen["stage"], seen["problem"]), (files, True, "drawing", None))
+
+        def down(request: httpx.Request) -> httpx.Response:
+            raise httpx.ConnectError("down")
+        self.assertEqual(asyncio.run(run(down))["problem"], "not running")
