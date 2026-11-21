@@ -49,7 +49,7 @@ services:
   # downloads and quantizes the weights (31 GB down, 13.4 GB kept) into the volume.
   imagegen:
     build: ./imagegen
-    image: ghcr.io/pranjallk1995/luna-sentia-imagegen:${LUNA_IMAGE_TAG:-v1.9.2}
+    image: ghcr.io/pranjallk1995/luna-sentia-imagegen:${LUNA_IMAGE_TAG:-v2.0.0}
     restart: unless-stopped
     gpus: all
     environment:
@@ -75,7 +75,7 @@ services:
   # stores both in its lunamonitor database. Its page, for the owner, is on 19003.
   monitor:
     build: ./monitor
-    image: ghcr.io/pranjallk1995/luna-sentia-monitor:${LUNA_IMAGE_TAG:-v1.9.2}
+    image: ghcr.io/pranjallk1995/luna-sentia-monitor:${LUNA_IMAGE_TAG:-v2.0.0}
     restart: unless-stopped
     # For the GPU's counters only; the monitor loads no model.
     gpus: all
@@ -130,7 +130,7 @@ services:
   # has its own role and database (lunavisia, lunavita, ...), created by postgres-init.
   postgres:
     build: ./postgres
-    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v1.9.2}
+    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v2.0.0}
     restart: unless-stopped
     environment:
       POSTGRES_USER: sentia
@@ -154,7 +154,7 @@ services:
   # LUNA<APP>_DB_PASSWORD values; safe to run on every start. The script is part of
   # the postgres image (postgres/init-databases.sh).
   postgres-init:
-    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v1.9.2}
+    image: ghcr.io/pranjallk1995/luna-sentia-postgres:${LUNA_IMAGE_TAG:-v2.0.0}
     entrypoint: ["/bin/sh", "/init-databases.sh"]
     environment:
       PGHOST: luna-sentia-db
@@ -185,7 +185,7 @@ services:
   # address is public.
   auth:
     build: ./auth
-    image: ghcr.io/pranjallk1995/luna-sentia-auth:${LUNA_IMAGE_TAG:-v1.9.2}
+    image: ghcr.io/pranjallk1995/luna-sentia-auth:${LUNA_IMAGE_TAG:-v2.0.0}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://lunaauth:${LUNAAUTH_DB_PASSWORD:-lunasentia-dev}@luna-sentia-db:5432/lunaauth
