@@ -123,24 +123,32 @@ class MonitorStore:
                 """SELECT model, app, count(*) AS calls, extract(epoch FROM max(started_at))::float AS last_call
                    FROM model_calls GROUP BY model, app ORDER BY model, count(*) DESC""").fetchall()
 
-    def history(self, start: float, end: float) -> dict[str, Any]:
+    def history(self, start: float, end: float, apps: list[str] | None = None,
+                models: list[str] | None = None) -> dict[str, Any]:
+        """The window's GPU samples, and its calls, groups and model loads for the chosen apps and
+        models (all when none is chosen). ``choices`` lists every app and model called in the window."""
         size = bucket_seconds(int(end - start))
         window = (start, end)
+        where, chosen = "", []
+        if apps:
+            where += " AND app = ANY(%s)"
+            chosen.append(list(apps))
+        if models:
+            where += " AND model = ANY(%s)"
+            chosen.append(list(models))
+        calls_where = f"started_at >= to_timestamp(%s) AND started_at < to_timestamp(%s){where}"
         with self.connect() as db:
             samples = db.execute(SAMPLES_QUERY, (size, *window)).fetchall()
             calls = db.execute(
                 f"""SELECT extract(epoch FROM started_at)::float AS started_at, extract(epoch FROM finished_at)::float AS finished_at,
                            {', '.join(CALL_COLUMNS)}
-                    FROM model_calls WHERE started_at >= to_timestamp(%s) AND started_at < to_timestamp(%s)
+                    FROM model_calls WHERE {calls_where}
                     ORDER BY started_at DESC LIMIT %s""",
-                (*window, CALL_ROWS_LIMIT),
+                (*window, *chosen, CALL_ROWS_LIMIT),
             ).fetchall()
-            total = db.execute(
-                "SELECT count(*) AS n FROM model_calls WHERE started_at >= to_timestamp(%s) AND started_at < to_timestamp(%s)",
-                window,
-            ).fetchone()["n"]
+            total = db.execute(f"SELECT count(*) AS n FROM model_calls WHERE {calls_where}", (*window, *chosen)).fetchone()["n"]
             groups = db.execute(
-                """SELECT app, model, count(*) AS calls,
+                f"""SELECT app, model, count(*) AS calls,
                           count(*) FILTER (WHERE outcome <> 'ok') AS problems,
                           avg(wall_ms) AS wall_avg,
                           percentile_cont(0.5) WITHIN GROUP (ORDER BY wall_ms) AS wall_p50,
@@ -149,18 +157,31 @@ class MonitorStore:
                           sum(prompt_ms) AS prompt_ms, sum(prompt_tokens) AS prompt_tokens,
                           sum(output_ms) AS output_ms, sum(output_tokens) AS output_tokens,
                           avg(images) AS images_avg, max(num_ctx) AS num_ctx_max
-                   FROM model_calls WHERE started_at >= to_timestamp(%s) AND started_at < to_timestamp(%s)
+                   FROM model_calls WHERE {calls_where}
                    GROUP BY app, model ORDER BY count(*) DESC""",
-                window,
+                (*window, *chosen),
             ).fetchall()
             intervals = db.execute(
-                """SELECT extract(epoch FROM started_at)::float AS started_at, extract(epoch FROM finished_at)::float AS finished_at, model
-                   FROM model_calls WHERE finished_at >= to_timestamp(%s) AND started_at < to_timestamp(%s)""",
-                window,
+                f"""SELECT extract(epoch FROM started_at)::float AS started_at, extract(epoch FROM finished_at)::float AS finished_at, model
+                   FROM model_calls WHERE finished_at >= to_timestamp(%s) AND started_at < to_timestamp(%s){where}""",
+                (*window, *chosen),
             ).fetchall()
             events = db.execute(EVENTS_QUERY, window).fetchall()
+            choices = db.execute(
+                """SELECT DISTINCT app, model FROM model_calls
+                   WHERE started_at >= to_timestamp(%s) AND started_at < to_timestamp(%s)""",
+                window,
+            ).fetchall()
+        if models:
+            events = [event for event in events if event["model"] in models]
+        elif apps:
+            # Loads and unloads have no app: keep those of the models the chosen apps called.
+            called = {row["model"] for row in choices if row["app"] in apps}
+            events = [event for event in events if event["model"] in called]
         return {"bucket_seconds": size, "samples": plain(samples), "calls": plain(calls), "calls_total": total,
-                "groups": plain(groups), "intervals": plain(intervals), "events": plain(events)}
+                "groups": plain(groups), "intervals": plain(intervals), "events": plain(events),
+                "choices": {"apps": sorted({row["app"] for row in choices}),
+                            "models": sorted({row["model"] for row in choices})}}
 
     def gpu_history(self, start: float, end: float) -> dict[str, Any]:
         """The GPU's samples and Ollama's model loads, without the calls."""

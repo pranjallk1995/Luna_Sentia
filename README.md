@@ -679,6 +679,10 @@ stored history:
   cannot split VRAM by process, so the total includes Visia's SigLIP, Lexia's Docling,
   Vibia's CLAP, and Windows.
 - **Requests in flight and waiting.**
+- **A filter by app and model**, above Live and History: pick apps, models, or both, and the
+  call timeline, recent calls, the verdict, the table by app and model, the model loads and
+  the Models card show only theirs (History asks the database for just those). The GPU charts
+  stay whole, as every app shares the card. The choice is kept in the browser.
 - **Every model**: those loaded now in one table, Ollama's, the image model's (while it makes
   a picture) and the apps' own, with their VRAM, what they are for and when they unload. Then
   **Models by app**, one row each: the Ollama models it is set up for (the [Models](#models)

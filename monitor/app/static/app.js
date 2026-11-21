@@ -418,7 +418,7 @@ const IMAGE_STAGE = { reading: "reading the prompt", drawing: "drawing" };
    one line each, by where it runs. */
 function drawModels(container, list, byApp, models, apps, inventory, calls, totalVram, now) {
   inventory = inventory || {};
-  const rows = models.map((m) => {
+  const rows = models.filter((m) => showsModel(m.name)).map((m) => {
     const left = m.expires_at ? m.expires_at - now : null;
     const state = left === null ? "loaded" : left > RESIDENT_AFTER ? "stays loaded (resident)" : left > 1 ? `unloads in ${span(left)} if idle` : "unloading";
     const callers = callersText(callersOf(m.name, inventory.usage, calls), now);
@@ -430,7 +430,8 @@ function drawModels(container, list, byApp, models, apps, inventory, calls, tota
   // The image model is loaded only while a picture is made: its text encoder, then its diffusion model.
   const images = inventory.images;
   const imagesLoaded = images && !images.problem && images.drawing;
-  if (imagesLoaded) {
+  const showsImages = showsApp("socia") && !filter.models.size;
+  if (imagesLoaded && showsImages) {
     const part = images.stage === "reading" ? "text encoder" : "diffusion model";
     const fileLines = (images.files || []).filter((f) => images.stage !== "reading" ? f.kind !== "text encoder" : f.kind === "text encoder")
       .map((f) => `${esc(f.kind)}: ${esc(f.name)}`).join("<br>");
@@ -441,13 +442,15 @@ function drawModels(container, list, byApp, models, apps, inventory, calls, tota
   const loadedNames = new Set(models.map((m) => m.name));
   // Not loaded: a name and its size each; who uses them is in "Models by app".
   const chip = (name, note) => `<li>${esc(name)}${note ? ` <span class="sm-dim">${esc(note)}</span>` : ""}</li>`;
-  const idleOllama = (inventory.ollama || []).filter((m) => !loadedNames.has(m.name)).map((m) => chip(m.name, gb(m.size_mb)));
-  const idleImages = images && !imagesLoaded
+  const idleOllama = (inventory.ollama || []).filter((m) => !loadedNames.has(m.name) && showsModel(m.name)).map((m) => chip(m.name, gb(m.size_mb)));
+  const idleImages = images && !imagesLoaded && showsImages
     ? images.problem ? [`<li class="sm-dim">${esc(images.problem)}</li>`]
       : (images.files || []).map((f) => chip(f.name, [f.kind, f.size_mb ? gb(f.size_mb) : ""].filter(Boolean).join(" · ")))
     : [];
   const idleApps = [];
   for (const app of apps || []) {
+    // The models the apps run themselves make no calls here: shown for a chosen app, unless models are chosen.
+    if (!showsApp(app.app) || filter.models.size) continue;
     if (app.problem) { idleApps.push(`<li><b>${esc(appName(app.app))}</b> <span class="sm-dim">${esc(app.problem)}</span></li>`); continue; }
     const held = app.gpu ? app.gpu.reserved_mb : null;
     const measured = app.gpu && app.gpu.measured;
@@ -475,6 +478,7 @@ function drawModels(container, list, byApp, models, apps, inventory, calls, tota
   container.innerHTML = rows.length
     ? `<table class="sm-table sm-models-table"><colgroup><col class="c-model"><col class="c-where"><col class="c-for"><col class="c-vram"><col class="c-state"></colgroup>
        <thead><tr><th>Model</th><th>Runs in</th><th>For</th><th>VRAM</th><th>State</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
+    : filtering() ? `<p class="sm-empty">None of the chosen apps' or models' models is loaded now.</p>`
     : `<p class="sm-empty">No model is loaded. Ollama loads one on the next call, which adds loading time to it.</p>`;
   const group = (title, kind, items, empty) => `<h4 class="sm-sub">${title}</h4><ul class="sm-chips sm-chips-${kind}">${items.length ? items.join("") : `<li class="sm-dim">${empty}</li>`}</ul>`;
   list.innerHTML = [
@@ -495,6 +499,71 @@ const APP_OLLAMA_MODELS = {
   fiora: ["huihui_ai/qwen3-vl-abliterated:8b-instruct"],
 };
 
+/* The filter: the apps and models whose calls to show. None picked shows everything; picking apps and
+   models shows the calls that match both. The GPU's charts stay whole: the card is shared. */
+const filter = (() => {
+  let saved = {};
+  try {
+    saved = JSON.parse(remembered("filter", "{}")) || {};
+  } catch {
+    /* an unreadable saved filter shows everything */
+  }
+  return { apps: new Set(saved.apps || []), models: new Set(saved.models || []) };
+})();
+const filtering = () => filter.apps.size > 0 || filter.models.size > 0;
+const showsCall = (call) => (!filter.apps.size || filter.apps.has(call.app)) && (!filter.models.size || filter.models.has(call.model));
+const showsApp = (app) => !filter.apps.size || filter.apps.has(app);
+function modelsOfChosenApps() {
+  const names = new Set();
+  for (const app of filter.apps) for (const name of APP_OLLAMA_MODELS[app] || []) names.add(name);
+  for (const u of (live.inventory || {}).usage || []) if (filter.apps.has(u.app)) names.add(u.model);
+  for (const c of live.calls) if (filter.apps.has(c.app)) names.add(c.model);
+  return names;
+}
+function showsModel(name) {
+  if (filter.models.size && !filter.models.has(name)) return false;
+  return !filter.apps.size || modelsOfChosenApps().has(name);
+}
+const filterQuery = () => new URLSearchParams({ apps: [...filter.apps].join(","), models: [...filter.models].join(",") }).toString();
+
+function filterChoices() {
+  const apps = new Set(filter.apps), models = new Set(filter.models);
+  const add = (app, model) => { if (app) apps.add(app); if (model) models.add(model); };
+  for (const c of [...live.inFlight, ...live.calls]) add(c.app, c.model);
+  for (const u of (live.inventory || {}).usage || []) add(u.app, u.model);
+  for (const app of (past.data || {}).choices?.apps || []) add(app, null);
+  for (const model of (past.data || {}).choices?.models || []) add(null, model);
+  const order = [...APP_KEYS];
+  const rank = (app) => (order.includes(app) ? order.indexOf(app) : order.length);
+  return { apps: [...apps].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b)), models: [...models].sort() };
+}
+
+let drawnChoices = "";
+function drawFilter(force = false) {
+  const choices = filterChoices();
+  const key = JSON.stringify([choices, [...filter.apps], [...filter.models]]);
+  if (!force && key === drawnChoices) return;
+  drawnChoices = key;
+  const chips = (names, chosen, kind, label) => names.length
+    ? names.map((name) => `<button type="button" data-filter="${kind}" data-name="${esc(name)}" aria-pressed="${chosen.has(name)}">${esc(label(name))}</button>`).join("")
+    : `<span class="sm-dim">None called yet</span>`;
+  document.getElementById("filter-apps").innerHTML = chips(choices.apps, filter.apps, "apps", appName);
+  document.getElementById("filter-models").innerHTML = chips(choices.models, filter.models, "models", (name) => name);
+  const parts = [filter.apps.size ? [...filter.apps].map(appName).join(", ") : "", filter.models.size ? [...filter.models].join(", ") : ""].filter(Boolean);
+  document.getElementById("filter-note").textContent = filtering()
+    ? `Showing calls of ${parts.join(" to ")}. The GPU charts show the whole card, which they share.`
+    : "Showing every app and model. Pick some to see only their calls.";
+  document.getElementById("filter-clear").hidden = !filtering();
+}
+
+function changeFilter() {
+  remember("filter", JSON.stringify({ apps: [...filter.apps], models: [...filter.models] }));
+  drawFilter(true);
+  connect();
+  if (current === "live") drawLive();
+  if (current === "history") loadHistory();
+}
+
 /* Which models each app uses: the Ollama models it is set up for, with its calls to them, its
    pictures' models, and the models it runs itself. A dot marks a model loaded now. Models an app
    called that it is not set up for (old ones, model checks) fold into one line. */
@@ -508,7 +577,7 @@ function drawModelsByApp(container, apps, inventory, calls, loadedNames, imagesL
   const item = (m) => `<li${m.loaded ? ' class="sm-on" title="Loaded now"' : ""}>${esc(m.name)}${m.calls
     ? ` <span class="sm-dim">${num(m.calls)} call${m.calls === 1 ? "" : "s"}, last ${span(now - m.last)} ago</span>` : ""}</li>`;
   const list = (items, extra = "") => items.length || extra ? `<ul class="sm-app-models">${items.map(item).join("")}${extra}</ul>` : `<span class="sm-dim">–</span>`;
-  const rows = [...APP_KEYS].map((app) => {
+  const rows = [...APP_KEYS].filter(showsApp).map((app) => {
     const setUp = APP_OLLAMA_MODELS[app] || [];
     const ollama = setUp.map((name) => ({ name, loaded: loadedNames.has(name), ...(called.get(`${app} ${name}`) || {}) }));
     const others = [...called.keys()].filter((key) => key.startsWith(`${app} `) && !setUp.includes(key.slice(app.length + 1)));
@@ -587,19 +656,24 @@ function drawLive() {
   const last = live.samples[live.samples.length - 1] || {};
   drawCharts(live.charts, points, { start, end: now, gap: 5, gpuName: live.gpu.name, parallel: live.parallel, powerLimit: last.power_limit_w });
   const running = live.inFlight.map((c) => ({ ...c, outcome: "running" }));
-  drawTimeline(document.getElementById("live-timeline"), [...running, ...live.calls], { start, end: now, now });
+  const shown = [...running, ...live.calls].filter(showsCall);
+  drawFilter();
+  drawTimeline(document.getElementById("live-timeline"), shown, { start, end: now, now });
   drawModels(document.getElementById("models"), document.getElementById("app-models"), document.getElementById("models-by-app"), live.models, live.appModels,
     live.inventory, [...running, ...live.calls], last.vram_total_mb, now);
-  callsTable(document.getElementById("live-calls"), [...running, ...live.calls]);
-  document.getElementById("live-calls-note").textContent = `The last ${Math.min(live.calls.length, TABLE_ROWS)} of ${live.calls.length} kept in memory`;
-  drawVerdict(document.getElementById("live-verdict"), live.signals, "Calls in the last few minutes, from memory");
+  callsTable(document.getElementById("live-calls"), shown);
+  const kept = live.calls.filter(showsCall).length;
+  document.getElementById("live-calls-note").textContent = filtering()
+    ? `The last ${Math.min(kept, TABLE_ROWS)} of ${kept} chosen calls, of ${live.calls.length} kept in memory`
+    : `The last ${Math.min(live.calls.length, TABLE_ROWS)} of ${live.calls.length} kept in memory`;
+  drawVerdict(document.getElementById("live-verdict"), live.signals, filtering() ? "The chosen calls in the last few minutes, from memory" : "Calls in the last few minutes, from memory");
   const problems = [live.gpu.problem, live.engineProblem].filter(Boolean);
   document.getElementById("live-note").textContent = problems.length ? problems.join(" · ") : "Every model call the Luna apps make passes through here.";
 }
 
 function connect() {
   live.source?.close();
-  const source = new EventSource("/api/live");
+  const source = new EventSource(`/api/live?${filterQuery()}`);
   live.source = source;
   source.addEventListener("snapshot", (event) => {
     setStatus("live", "Live");
@@ -621,7 +695,7 @@ const past = { range: Number(remembered("range", "3600")), charts: null, data: n
 async function loadHistory() {
   const error = document.getElementById("history-error");
   try {
-    const response = await fetch(`/api/history?seconds=${past.range}`);
+    const response = await fetch(`/api/history?seconds=${past.range}&${filterQuery()}`);
     if (response.status === 401 || response.status === 403) return location.reload();
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "The history could not be loaded.");
@@ -637,6 +711,7 @@ async function loadHistory() {
 function drawHistory() {
   const data = past.data;
   if (!data) return;
+  drawFilter();
   past.charts ??= chartSet(document.getElementById("history-charts"));
   const bucket = data.bucket_seconds;
   drawCharts(past.charts, data.samples, { start: data.start, end: data.end, gap: bucket * 1.5, dateAxis: true, gpuName: live.gpu.name, parallel: live.parallel });
@@ -647,7 +722,7 @@ function drawHistory() {
   eventsTable(document.getElementById("events"), data.events);
   const shown = data.calls.length < data.calls_total ? ` · verdict from the latest ${num(data.calls.length)} of ${num(data.calls_total)} calls` : "";
   document.getElementById("history-note").textContent = `Stored in the lunamonitor database, in ${ms(bucket * 1000)} steps${shown}.`;
-  drawVerdict(document.getElementById("history-verdict"), data.signals, "This range");
+  drawVerdict(document.getElementById("history-verdict"), data.signals, filtering() ? "The chosen calls in this range" : "This range");
 }
 
 /* Sections and controls */
@@ -664,6 +739,7 @@ function show(section) {
     else item.removeAttribute("aria-current");
   });
   for (const id of ["live", "history", "guide"]) document.getElementById(id).hidden = id !== current;
+  document.getElementById("filter").hidden = current === "guide";
   hideTip();
   clearInterval(historyTimer);
   if (current === "live") drawLive();
@@ -692,6 +768,19 @@ document.querySelectorAll("[data-range]").forEach((button) =>
     pressed("[data-range]", "range", past.range);
     loadHistory();
   }));
+document.getElementById("filter").addEventListener("click", (event) => {
+  const chip = event.target.closest("[data-filter]");
+  if (!chip) return;
+  const chosen = filter[chip.dataset.filter];
+  if (chosen.has(chip.dataset.name)) chosen.delete(chip.dataset.name);
+  else chosen.add(chip.dataset.name);
+  changeFilter();
+});
+document.getElementById("filter-clear").addEventListener("click", () => {
+  filter.apps.clear();
+  filter.models.clear();
+  changeFilter();
+});
 let resizeTimer = null;
 window.addEventListener("resize", () => {
   clearTimeout(resizeTimer);

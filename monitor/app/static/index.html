@@ -39,6 +39,13 @@
     </button>
   </nav>
 
+  <section class="sm-filter" id="filter" aria-label="Filter by app and model">
+    <div class="sm-filter-row"><span class="sm-filter-label">Apps</span><div class="sm-filter-chips" id="filter-apps" role="group" aria-label="Apps"></div></div>
+    <div class="sm-filter-row"><span class="sm-filter-label">Models</span><div class="sm-filter-chips" id="filter-models" role="group" aria-label="Models"></div></div>
+    <div class="sm-filter-foot"><span class="sm-note" id="filter-note">Showing every app and model. Pick some to see only their calls.</span>
+      <button type="button" class="sm-filter-clear" id="filter-clear" hidden>Show all</button></div>
+  </section>
+
   <section id="live" class="sm-section" aria-label="Live">
     <div class="sm-bar">
       <p class="sm-note" id="live-note">Every model call the Luna apps make passes through here.</p>

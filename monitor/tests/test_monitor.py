@@ -188,6 +188,33 @@ class PageTests(unittest.TestCase):
     def test_says_when_there_is_no_database(self):
         self.assertEqual(self.client("owner-token").get("/api/history").status_code, 503)
 
+    def test_history_is_filtered_by_the_chosen_apps_and_models(self):
+        asked = []
+
+        class Store:
+            def history(self, start, end, apps, models):
+                asked.append((apps, models))
+                return {"calls": [], "intervals": [], "samples": [], "events": [], "groups": [],
+                        "choices": {"apps": ["socia", "visia"], "models": ["m1"]}}
+
+        auth = FakeAuth({"owner-token": {"user_id": "owner"}})
+        client = TestClient(create_app(config(), LiveState(), Store(), httpx.MockTransport(auth)), base_url="https://monitor.example.com")
+        client.cookies.set("luna_sso", "owner-token")
+        reply = client.get("/api/history?seconds=3600&apps=socia,%20visia&models=")
+        self.assertEqual(reply.status_code, 200)
+        self.assertEqual(asked, [(["socia", "visia"], [])])
+        self.assertEqual(reply.json()["choices"]["apps"], ["socia", "visia"])
+
+    def test_the_live_verdict_counts_only_the_chosen_calls(self):
+        from app.web import live_signals
+
+        live = LiveState()
+        for app, model in (("socia", "chat"), ("visia", "vision"), ("visia", "vision")):
+            live.finish(live.begin(app, "/api/chat", {"model": model}), 200, "ok")
+        self.assertEqual(live_signals(live)["calls"], 3)
+        self.assertEqual(live_signals(live, ["visia"], [])["calls"], 2)
+        self.assertEqual(live_signals(live, ["socia"], ["vision"])["calls"], 0)
+
 
 class SignalTests(unittest.TestCase):
     def test_measures_busy_and_overlapping_time(self):

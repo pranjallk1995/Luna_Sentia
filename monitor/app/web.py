@@ -85,11 +85,23 @@ class Sessions:
         return user
 
 
-def live_signals(live: LiveState) -> dict[str, Any]:
+def chosen(request: Request) -> tuple[list[str], list[str]]:
+    """The apps and models the page filters by (?apps=a,b&models=x,y); empty lists mean all."""
+    def names(key: str) -> list[str]:
+        return [name.strip() for name in request.query_params.get(key, "").split(",") if name.strip()][:50]
+    return names("apps"), names("models")
+
+
+def matches(call: dict[str, Any], apps: list[str], models: list[str]) -> bool:
+    return (not apps or call.get("app") in apps) and (not models or call.get("model") in models)
+
+
+def live_signals(live: LiveState, apps: list[str] | None = None, models: list[str] | None = None) -> dict[str, Any]:
     snapshot = live.snapshot()
-    calls = snapshot["calls"]
+    calls = [c for c in snapshot["calls"] if matches(c, apps or [], models or [])]
+    in_flight = [c for c in snapshot["in_flight"] if matches(c, apps or [], models or [])]
     intervals = [{"started_at": c["started_at"], "finished_at": c["finished_at"]} for c in calls]
-    intervals += [{"started_at": c["started_at"], "finished_at": snapshot["now"]} for c in snapshot["in_flight"]]
+    intervals += [{"started_at": c["started_at"], "finished_at": snapshot["now"]} for c in in_flight]
     return signals(calls, intervals, snapshot["samples"], [])
 
 
@@ -121,15 +133,17 @@ def create_app(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
         if refused := await gate(request):
             return refused
 
+        apps, models = chosen(request)
+
         async def events():
             snapshot = live.snapshot()
-            snapshot["signals"] = live_signals(live)
+            snapshot["signals"] = live_signals(live, apps, models)
             yield f"event: snapshot\ndata: {json.dumps(snapshot)}\n\n"
             last_call, since = snapshot["last_call"], snapshot["samples"][-1]["at"] if snapshot["samples"] else 0.0
             while not await request.is_disconnected():
                 await asyncio.sleep(LIVE_TICK_SECONDS)
                 update = live.snapshot(after_call=last_call, since=since)
-                update["signals"] = live_signals(live)
+                update["signals"] = live_signals(live, apps, models)
                 last_call = update["last_call"] or last_call
                 if update["samples"]:
                     since = update["samples"][-1]["at"]
@@ -149,7 +163,7 @@ def create_app(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
         except ValueError:
             return JSONResponse({"error": "seconds and end must be numbers."}, 400)
         try:
-            data = await asyncio.to_thread(store.history, end - span, end)
+            data = await asyncio.to_thread(store.history, end - span, end, *chosen(request))
         except Exception as error:  # noqa: BLE001 - shown on the page
             return JSONResponse({"error": f"The monitor's database could not be read: {error}"}, 503)
         data["signals"] = signals(data["calls"], data.pop("intervals"), data["samples"], data["events"])
