@@ -436,7 +436,7 @@ function drawModels(container, list, byApp, models, apps, inventory, calls, tota
     const fileLines = (images.files || []).filter((f) => images.stage !== "reading" ? f.kind !== "text encoder" : f.kind === "text encoder")
       .map((f) => `${esc(f.kind)}: ${esc(f.name)}`).join("<br>");
     rows.push(`<tr><td><strong>Qwen-Image</strong><br><span class="sm-dim">${fileLines}</span></td><td>Sentia imagegen</td>
-      <td class="wrap">${IMAGES_FOR}</td><td>${vramCell(0, totalVram, `its ${part}, not reported`)}</td>
+      <td class="wrap">${IMAGES_FOR}</td><td>${vramCell(images.vram_mb, totalVram, images.vram_mb ? `its ${part}` : `its ${part}, loading`)}</td>
       <td class="wrap"><b>${esc(IMAGE_STAGE[images.stage] || "working")} now</b> · gone when the picture is done</td></tr>`);
   }
   const loadedNames = new Set(models.map((m) => m.name));

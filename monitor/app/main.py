@@ -151,7 +151,8 @@ async def imagegen_models(client: httpx.AsyncClient, url: str) -> dict:
     problem = status.get("problem") or (None if status.get("ready") else "preparing its weights (first start)")
     running = status.get("running") or {}
     return {"problem": problem, "files": status.get("files") or [], "drawing": bool(running),
-            "stage": running.get("status"), "preparing": bool(status.get("preparing"))}
+            "stage": running.get("status"), "vram_mb": running.get("vram_mb") or 0,
+            "preparing": bool(status.get("preparing"))}
 
 
 async def watch_inventory(live: LiveState, config: MonitorConfig, store: MonitorStore) -> None:

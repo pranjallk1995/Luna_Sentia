@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import resource
 import sys
+import threading
 import time
 
 import torch
@@ -35,6 +36,16 @@ def finished(stage: str, start: float) -> None:
            peak_ram_gib=round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20, 2))
 
 
+def watch_memory(stage: str) -> None:
+    """Say every second how much of the GPU this pass holds, for the monitor's list of models."""
+    def run() -> None:
+        while True:
+            report(stage=stage, vram_mb=round(torch.cuda.memory_reserved() / 2**20))
+            time.sleep(1)
+
+    threading.Thread(target=run, daemon=True).start()
+
+
 def references(pipe: QwenImage21Pipeline, job: dict) -> list[Image.Image]:
     """The references at about resolution x resolution pixels, keeping their shape, as the text encoder and
     the VAE both see them; the picture takes the first one's shape."""
@@ -50,6 +61,7 @@ def read(job: dict) -> None:
     from transformers import Qwen3VLForConditionalGeneration
 
     start = time.time()
+    watch_memory("read")
     encoder = Qwen3VLForConditionalGeneration.from_pretrained(TEXT_ENCODER, device_map="cuda")
     pipe = QwenImage21Pipeline.from_pretrained(PIPELINE, text_encoder=encoder, transformer=None, vae=None,
                                                dtype=torch.bfloat16)
@@ -64,6 +76,7 @@ def draw(job: dict) -> None:
     from diffusers import QwenImage21Transformer2DModel
 
     start = time.time()
+    watch_memory("draw")
     transformer = QwenImage21Transformer2DModel.from_pretrained(TRANSFORMER, dtype=torch.bfloat16,
                                                                 use_safetensors=False)
     pipe = QwenImage21Pipeline.from_pretrained(PIPELINE, text_encoder=None, transformer=transformer,

@@ -120,7 +120,8 @@ code { font-size: 0.95em; color: var(--lv-text); }
 /* Loaded models: one table, then the apps' idle models one line each. */
 .sm-table td.wrap { min-width: 12rem; white-space: normal; }
 /* The models table fits its card: fixed columns, long names wrap, no sideways scrolling. */
-.sm-models-table { table-layout: fixed; white-space: normal; }
+/* After .sm-table's nowrap, which would push long cells over their neighbours. */
+.sm-table.sm-models-table { table-layout: fixed; white-space: normal; }
 .sm-models-table th, .sm-models-table td { vertical-align: top; overflow-wrap: anywhere; }
 .sm-models-table td.wrap { min-width: 0; }
 .sm-models-table .c-model { width: 30%; }

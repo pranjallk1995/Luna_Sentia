@@ -55,11 +55,14 @@ class Picture:
     created: float = field(default_factory=time.time)
     started: float = 0.0
     finished: float = 0.0
+    # What the running pass holds on the GPU (PyTorch's share; the CUDA context adds about 0.5 GB).
+    vram_mb: int = 0
     process: asyncio.subprocess.Process | None = None
 
     def public(self) -> dict:
         seconds = (self.finished or time.time()) - self.started if self.started else 0.0
-        return {"id": self.id, "status": self.status, "error": self.error, "seconds": round(seconds, 1)}
+        return {"id": self.id, "status": self.status, "error": self.error, "seconds": round(seconds, 1),
+                "vram_mb": self.vram_mb}
 
 
 # Runs one pass (or the preparing) as its own process: (arguments, picture or None) -> exit code.
@@ -93,6 +96,14 @@ class Pictures:
             line = raw.decode(errors="replace").rstrip()
             tail = (tail + [line])[-8:]
             if line.startswith("{"):
+                try:
+                    fields = json.loads(line)
+                except ValueError:
+                    fields = {}
+                if "vram_mb" in fields:
+                    if picture:
+                        picture.vram_mb = int(fields["vram_mb"])
+                    continue
                 logger.info("%s %s", picture.id[:8] if picture else "weights", line)
         code = await process.wait()
         if code and not (picture and picture.status == "cancelled"):
@@ -178,7 +189,7 @@ class Pictures:
         for stage, status in (("read", "reading"), ("draw", "drawing")):
             if picture.status == "cancelled":
                 return
-            picture.status = status
+            picture.status, picture.vram_mb = status, 0
             code = await self.runner(["app.passes", stage, str(job)], picture)
             if picture.status == "cancelled":
                 return
