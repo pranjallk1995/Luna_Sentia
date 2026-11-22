@@ -671,13 +671,19 @@ function drawLive() {
   document.getElementById("live-note").textContent = problems.length ? problems.join(" · ") : "Every model call the Luna apps make passes through here.";
 }
 
+/* The version this page's script came with, from its own URL (app.js?v=...). */
+const PAGE_ASSETS = new URL(document.querySelector('script[src*="app.js"]').src).searchParams.get("v");
+
 function connect() {
   live.source?.close();
   const source = new EventSource(`/api/live?${filterQuery()}`);
   live.source = source;
   source.addEventListener("snapshot", (event) => {
+    const data = JSON.parse(event.data);
+    /* The server was upgraded while this page stayed open: its old script would misread the new data. */
+    if (data.assets && data.assets !== PAGE_ASSETS) return location.reload();
     setStatus("live", "Live");
-    applyLive(JSON.parse(event.data), true);
+    applyLive(data, true);
   });
   source.addEventListener("update", (event) => applyLive(JSON.parse(event.data), false));
   source.onerror = async () => {

@@ -124,7 +124,8 @@ def create_app(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
             return JSONResponse({"error": "owner only"}, 403)
         return None
 
-    page = (STATIC / "index.html").read_text().replace("__ASSETS__", asset_version()).replace("__BRAND__", MonitorConfig.BRAND)
+    assets = asset_version()
+    page = (STATIC / "index.html").read_text().replace("__ASSETS__", assets).replace("__BRAND__", MonitorConfig.BRAND)
 
     async def index(request: Request) -> Response:
         return await gate(request) or HTMLResponse(page, headers={"Cache-Control": "no-store"})
@@ -138,6 +139,8 @@ def create_app(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
         async def events():
             snapshot = live.snapshot()
             snapshot["signals"] = live_signals(live, apps, models)
+            # A page left open across an upgrade sees a new version and reloads itself.
+            snapshot["assets"] = assets
             yield f"event: snapshot\ndata: {json.dumps(snapshot)}\n\n"
             last_call, since = snapshot["last_call"], snapshot["samples"][-1]["at"] if snapshot["samples"] else 0.0
             while not await request.is_disconnected():
