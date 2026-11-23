@@ -25,3 +25,9 @@ SQL
     psql -v ON_ERROR_STOP=1 -d "$name" -c "CREATE EXTENSION IF NOT EXISTS vector"
     echo "Ready: $name"
 done
+
+# The model monitor sizes every app's database for the owner (its get_storage tool): the read-only statistics
+# role lets it, without reading any of them.
+if psql -At -c "SELECT 1 FROM pg_roles WHERE rolname = 'lunamonitor'" | grep -q 1; then
+    psql -v ON_ERROR_STOP=1 -c "GRANT pg_read_all_stats TO lunamonitor"
+fi

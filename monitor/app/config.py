@@ -74,6 +74,8 @@ class MonitorConfig:
     imagegen_url: str = ""
     # Where MCP clients reach that server: SENTIA_MCP_PUBLIC_URL, with /mcp after it.
     mcp_public_url: str = "http://localhost:18003"
+    # The host's Docker volumes, mounted read-only, to measure each app's disk; blank: databases only.
+    volumes_dir: str = ""
 
     @classmethod
     def from_env(cls) -> MonitorConfig:
@@ -98,6 +100,7 @@ class MonitorConfig:
             resident_idle_seconds=float(os.getenv("SENTIA_RESIDENT_IDLE_SECONDS", "30") or 30),
             imagegen_url=os.getenv("SENTIA_IMAGEGEN_URL", "").strip(),
             mcp_public_url=(os.getenv("SENTIA_MCP_PUBLIC_URL", "").strip() or cls.mcp_public_url).rstrip("/"),
+            volumes_dir=os.getenv("MONITOR_VOLUMES_DIR", "").strip(),
             app_tokens=tuple(
                 (app, url, os.getenv(f"LUNA{app.upper()}_API_TOKEN", "").strip()) for app, url in cls.APP_BACKENDS
             ),

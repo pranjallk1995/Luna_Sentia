@@ -738,6 +738,7 @@ prompt or a reply. Times are UTC.
 | `get_gpu_history` | The stored samples over `hours` (up to 31 days) ending at `until`: a summary and about 360 points, with Ollama's model loads and unloads |
 | `list_model_calls` | Model calls, newest first, with their waiting, loading, reading, and writing times and token counts; filter by `app`, `model`, or `problems_only` |
 | `get_model_usage` | Totals per app and model (calls, p50 and p95 times, busy, waiting, and loading time, tokens per second) and the vLLM signals and verdict |
+| `get_storage` | The disk each app takes, largest first: its database (records, captions, tags, embeddings) and its Docker volumes (the images, documents, tracks and models themselves), with totals. Databases are measured when asked, volumes every 10 minutes from the host's volumes folder, mounted read-only (only sizes are read) |
 | `get_ui_link` | The monitor page's address |
 
 With a tunnel, route a hostname under `SENTIA_AUTH_COOKIE_DOMAIN` (such as

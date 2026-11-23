@@ -86,6 +86,17 @@ class MonitorStore:
     def connect(self) -> psycopg.Connection:
         return psycopg.connect(self.database_url, row_factory=dict_row, connect_timeout=5)
 
+    def database_sizes(self) -> list[dict[str, Any]]:
+        """Every database on the shared server and its size; None for one the monitor may not size (its role is
+        given pg_read_all_stats by postgres/init-databases.sh)."""
+        with self.connect() as db:
+            return db.execute(
+                """SELECT datname AS name,
+                          CASE WHEN has_database_privilege(datname, 'CONNECT')
+                                    OR pg_has_role(current_user, 'pg_read_all_stats', 'MEMBER')
+                               THEN pg_database_size(datname) END AS bytes
+                   FROM pg_database WHERE NOT datistemplate ORDER BY datname""").fetchall()
+
     def initialize(self) -> None:
         with self.connect() as db:
             db.execute(SCHEMA)

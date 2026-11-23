@@ -102,6 +102,12 @@ services:
       LUNALEXIA_API_TOKEN: ${LUNALEXIA_API_TOKEN:-lunalexia-dev-token-for-localhost-only}
       LUNAVIBIA_API_TOKEN: ${LUNAVIBIA_API_TOKEN:-lunavibia-dev-token-for-localhost-only}
       LUNASOCIA_API_TOKEN: ${LUNASOCIA_API_TOKEN:-lunasocia-dev-token-for-localhost-only}
+      # The host's Docker volumes, read-only, so get_storage can say how much disk each app's files take.
+      # Only sizes are read. Docker Desktop keeps them inside its VM: there this stays empty and only the
+      # databases are measured.
+      MONITOR_VOLUMES_DIR: /docker-volumes
+    volumes:
+      - ${DOCKER_VOLUMES_DIR:-/var/lib/docker/volumes}:/docker-volumes:ro
     expose:
       - "11434"
     ports:

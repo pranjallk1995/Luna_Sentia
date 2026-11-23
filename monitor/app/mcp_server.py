@@ -31,6 +31,7 @@ from starlette.responses import FileResponse, Response
 from app.config import MonitorConfig
 from app.insights import signals
 from app.live import LiveState
+from app.storage import Storage
 from app.store import MAX_HISTORY_SECONDS, MonitorStore
 
 TOKEN_RECHECK_SECONDS = 30
@@ -51,7 +52,8 @@ INSTRUCTIONS = """Luna Sentia runs the home's shared models on one NVIDIA GPU: O
 and Socia run themselves. These tools read the monitor, for the owner only: get_gpu_status for now,
 get_gpu_history for utilisation, VRAM, power, and temperature over time, list_model_calls
 for individual model calls with their timings, and get_model_usage for totals per app and
-model with signals on whether a batching server such as vLLM would help. Times are UTC.
+model with signals on whether a batching server such as vLLM would help, and get_storage for the disk each
+app takes (its database and its volumes). Times are UTC.
 Under WSL the driver cannot split VRAM by process, so vram_used_mb counts everything on
 the card; ollama_vram_mb is Ollama's own share."""
 
@@ -133,11 +135,13 @@ class OwnerTokenVerifier:
 class MonitorTools:
     """What the tools answer, apart from MCP, so tests can call it directly."""
 
-    def __init__(self, config: MonitorConfig, live: LiveState, store: MonitorStore | None, residency: Any = None) -> None:
+    def __init__(self, config: MonitorConfig, live: LiveState, store: MonitorStore | None, residency: Any = None,
+                 storage: Storage | None = None) -> None:
         self.config = config
         self.live = live
         self.store = store
         self.residency = residency
+        self.storage = storage or Storage(store, config.volumes_dir)
 
     async def read(self, method: str, *args: Any) -> Any:
         if self.store is None:
@@ -225,6 +229,16 @@ class MonitorTools:
             "prompt_tokens", "output_tokens", "images", "num_ctx", "ahead", "error")} for r in rows]
         return {"start": iso(start), "end": iso(end), "shown": len(calls), "limit": limit, "calls": calls}
 
+    async def storage_report(self) -> dict[str, Any]:
+        databases, problem = None, None
+        try:
+            databases = await self.read("database_sizes")
+        except ValueError as error:
+            problem = str(error)
+        report = self.storage.report(databases, problem)
+        report["volumes_measured_at"] = iso(report["volumes_measured_at"])
+        return report
+
     async def model_usage(self, hours: float, until: str | None) -> dict[str, Any]:
         start, end = window(hours, until)
         data = await self.read("history", start, end)
@@ -264,7 +278,7 @@ def server_icons(public_url: str) -> list[Icon]:
 
 
 def create_mcp(config: MonitorConfig, live: LiveState, store: MonitorStore | None, residency: Any = None,
-               auth_transport: httpx.AsyncBaseTransport | None = None) -> FastMCP:
+               auth_transport: httpx.AsyncBaseTransport | None = None, storage: Storage | None = None) -> FastMCP:
     resource = f"{config.mcp_public_url}/mcp"
     mcp = FastMCP(
         "LunaSentia",
@@ -288,7 +302,7 @@ def create_mcp(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
         if name not in {icon_name(size) for size in ICON_SIZES}:
             return Response("Not found", 404)
         return FileResponse(ASSETS / name, media_type="image/png", headers=ICON_HEADERS)
-    tools = MonitorTools(config, live, store, residency)
+    tools = MonitorTools(config, live, store, residency, storage)
 
     @mcp.tool()
     def get_gpu_status() -> dict[str, Any]:
@@ -325,6 +339,15 @@ def create_mcp(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
         waiting, and loading, tokens and tokens per second; with the monitor's signals (overlap, queueing,
         VRAM headroom, model loads) and its verdict on whether a batching server such as vLLM would help."""
         return await tools.model_usage(hours, until)
+
+    @mcp.tool()
+    async def get_storage() -> dict[str, Any]:
+        """The disk each Luna app takes, largest first: its database on the shared PostgreSQL server (records,
+        captions, tags and embeddings) and its Docker volumes (the images, documents, tracks, models and other
+        files themselves), with a total per app and for all volumes. Databases are measured now; volumes every
+        ten minutes (volumes_measured_at). Sentia's own entry has the shared server, sign-on and monitor
+        databases, Ollama's models and the image model's weights."""
+        return await tools.storage_report()
 
     @mcp.tool()
     def get_ui_link() -> dict[str, str]:

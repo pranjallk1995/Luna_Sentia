@@ -19,6 +19,7 @@ from app.live import LiveState
 from app.mcp_server import create_mcp
 from app.proxy import OllamaProxy
 from app.residency import Residency
+from app.storage import Storage
 from app.store import MonitorStore
 from app.web import create_app
 
@@ -207,6 +208,7 @@ async def main() -> None:
     residency = Residency(live, config.upstream_url, config.resident_model, config.resident_context,
                           config.guest_keep_alive, config.resident_idle_seconds, config.imagegen_url)
     proxy = OllamaProxy(live, config.upstream_url, residency=residency)
+    storage = Storage(store, config.volumes_dir)
     page = create_app(config, live, store)
     servers = [
         uvicorn.Server(uvicorn.Config(proxy, host="0.0.0.0", port=MonitorConfig.PROXY_PORT, timeout_keep_alive=75,
@@ -215,11 +217,11 @@ async def main() -> None:
                                       forwarded_allow_ips="*", log_level="info")),
     ]
     servers.append(uvicorn.Server(uvicorn.Config(
-        create_mcp(config, live, store, residency).streamable_http_app(), host="0.0.0.0", port=MonitorConfig.MCP_PORT,
+        create_mcp(config, live, store, residency, storage=storage).streamable_http_app(), host="0.0.0.0", port=MonitorConfig.MCP_PORT,
         proxy_headers=True, forwarded_allow_ips="*", log_level="warning")))
     tasks = [asyncio.create_task(job) for job in (
         sample_gpu(live, GpuReader()), watch_models(live, config.upstream_url), watch_app_models(live, config),
-        watch_inventory(live, config, store),
+        watch_inventory(live, config, store), storage.watch(),
         flush(live, store, config), residency.run())]
     try:
         await asyncio.gather(*(server.serve() for server in servers))

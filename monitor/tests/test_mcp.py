@@ -52,6 +52,12 @@ class FakeStore:
                             "wait_sum": 0.0, "load_sum": 1500.0, "output_ms": 4000.0, "output_tokens": 160, "prompt_ms": 0, "prompt_tokens": 0}]}
 
 
+class SizedStore(FakeStore):
+    def database_sizes(self):
+        return [{"name": "lunamonitor", "bytes": 40 * 2**20}, {"name": "lunavisia", "bytes": 30 * 2**20},
+                {"name": "lunasocia", "bytes": None}, {"name": "sentia", "bytes": 7 * 2**20}]
+
+
 class BrokenStore:
     def gpu_history(self, start, end):
         raise OSError("connection refused")
@@ -151,7 +157,7 @@ class ServerTests(unittest.TestCase):
         with self.client() as client:
             listed = self.call(client, "owner-token", "tools/list").json()["result"]["tools"]
             self.assertEqual({tool["name"] for tool in listed},
-                             {"get_gpu_status", "get_gpu_history", "list_model_calls", "get_model_usage", "get_ui_link"})
+                             {"get_gpu_status", "get_gpu_history", "list_model_calls", "get_model_usage", "get_storage", "get_ui_link"})
             reply = self.call(client, "owner-token", "tools/call", {"name": "get_gpu_status", "arguments": {}}).json()
             self.assertEqual(reply["result"]["structuredContent"]["now"]["gpu_util"], 40.0)
 
@@ -173,3 +179,46 @@ class ServerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class StorageTests(unittest.TestCase):
+    def test_each_app_gets_its_database_and_volumes(self):
+        import os
+        import tempfile
+        from pathlib import Path
+
+        from app.storage import Storage, directory_bytes
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for volume, size in (("luna_visia_image_data", 300_000), ("luna_socia_data", 100_000),
+                                 ("luna_sentia_postgres_data", 50_000), ("vscode", 1_000)):
+                (root / volume / "_data").mkdir(parents=True)
+                (root / volume / "_data" / "file").write_bytes(b"x" * size)
+            # A hard link is counted once, a symlink not followed.
+            os.link(root / "luna_visia_image_data/_data/file", root / "luna_visia_image_data/_data/again")
+            os.symlink(root / "luna_socia_data/_data/file", root / "luna_visia_image_data/_data/link")
+            storage = Storage(None, folder)
+            storage.measure_volumes()
+            self.assertEqual(storage.volumes["luna_visia_image_data"], directory_bytes(root / "luna_visia_image_data/_data"))
+            self.assertLess(storage.volumes["luna_visia_image_data"], 400_000)
+            tools = MonitorTools(config(), live_state(), SizedStore(), storage=storage)
+            report = asyncio.run(tools.storage_report())
+        apps = {item["app"]: item for item in report["apps"]}
+        self.assertEqual([item["app"] for item in report["apps"]][0], "sentia")
+        self.assertEqual(apps["visia"]["total_bytes"], 30 * 2**20 + storage.volumes["luna_visia_image_data"])
+        self.assertEqual(apps["socia"]["databases"][0]["bytes"], None)
+        self.assertEqual(apps["other"]["volumes"][0]["name"], "vscode")
+        # The databases' volume is listed but not counted again.
+        sentia = apps["sentia"]
+        self.assertEqual({d["name"] for d in sentia["databases"]}, {"lunamonitor", "sentia"})
+        self.assertEqual(sentia["total_bytes"], 47 * 2**20)
+        self.assertIn("note", sentia["volumes"][0])
+        self.assertIsNotNone(report["volumes_measured_at"])
+        self.assertEqual(report["notes"], [])
+
+    def test_says_what_it_could_not_measure(self):
+        from app.storage import Storage
+        tools = MonitorTools(config(), live_state(), BrokenStore(), storage=Storage(None, ""))
+        report = asyncio.run(tools.storage_report())
+        self.assertEqual(report["apps"], [])
+        self.assertEqual(len(report["notes"]), 2)
