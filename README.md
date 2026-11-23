@@ -130,11 +130,11 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 
 | App | Latest release |
 | --- | --- |
-| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v2.0.1](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v2.0.1) |
+| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v2.0.2](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v2.0.2) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Early access: no releases yet, `latest` images from `main` |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v2.0.0) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v2.0.1](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v2.0.1) |
-| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v2.0.4](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v2.0.4) |
+| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v2.0.5](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v2.0.5) |
 | [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v2.0.0) |
 | [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v2.0.1](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v2.0.1) |
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v2.0.0) |
@@ -646,8 +646,14 @@ image model's two big parts at once, so each picture takes three turns:
 Each pass gives its GPU memory and RAM back when its process exits, so nothing is left behind
 between pictures (ComfyUI, before it, kept about 15 GB of RAM). The monitor sees the picture
 in `/status` and waits until it is done to load the resident models back. Measured on the RTX
-5070: a picture with Luna's references in about 1.5–2 minutes, at most 8.3 GB of the GPU and 7.7 GB
+5070: a picture with Luna's references in about 1.5–4 minutes, at most 9.8 GB of the GPU and 7.7 GB
 of RAM.
+
+All the references of one picture share two pictures' worth of pixels (2 × 1024 × 1024): each
+becomes tokens for the text encoder and latents beside the picture's, so five at full size read
+in 12 GB and spilled out of the card (more than 10 minutes a picture), while five sharing them
+draw in 80 s. The picture's own size stays as asked. While a picture is made, `/status` and the
+monitor's Models card show how much of the GPU the running pass holds.
 
 The weights are not in the image. On its first start, `app/weights.py` downloads Qwen's
 release (31 GB, at a pinned revision) into `luna_sentia_imagegen`, quantizes the text encoder
