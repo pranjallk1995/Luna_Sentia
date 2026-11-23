@@ -526,13 +526,19 @@ function showsModel(name) {
 }
 const filterQuery = () => new URLSearchParams({ apps: [...filter.apps].join(","), models: [...filter.models].join(",") }).toString();
 
+/* What there is to pick: the models Ollama has now (the ones in use) and the Luna apps that use models, plus
+   anything calling now and anything already picked, so it can be unpicked. Old callers and models that only the
+   history remembers are left out. */
 function filterChoices() {
   const apps = new Set(filter.apps), models = new Set(filter.models);
-  const add = (app, model) => { if (app) apps.add(app); if (model) models.add(model); };
-  for (const c of [...live.inFlight, ...live.calls]) add(c.app, c.model);
-  for (const u of (live.inventory || {}).usage || []) add(u.app, u.model);
-  for (const app of (past.data || {}).choices?.apps || []) add(app, null);
-  for (const model of (past.data || {}).choices?.models || []) add(null, model);
+  const installed = new Set(((live.inventory || {}).ollama || []).map((m) => m.name));
+  for (const app of Object.keys(APP_OLLAMA_MODELS)) apps.add(app);
+  for (const c of live.inFlight) { if (c.app) apps.add(c.app); if (c.model) models.add(c.model); }
+  for (const name of installed) models.add(name);
+  if (!installed.size) {
+    // Ollama's list not in yet: the models the apps were set up with.
+    for (const names of Object.values(APP_OLLAMA_MODELS)) names.forEach((name) => models.add(name));
+  }
   const order = [...APP_KEYS];
   const rank = (app) => (order.includes(app) ? order.indexOf(app) : order.length);
   return { apps: [...apps].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b)), models: [...models].sort() };
