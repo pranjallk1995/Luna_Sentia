@@ -19,6 +19,7 @@ import time
 
 import torch
 from diffusers import QwenImage21Pipeline
+from diffusers.pipelines.qwenimage21 import pipeline_qwenimage21 as pipeline_module
 from diffusers.pipelines.qwenimage21.pipeline_qwenimage21 import calculate_dimensions
 from PIL import Image
 
@@ -46,15 +47,29 @@ def watch_memory(stage: str) -> None:
     threading.Thread(target=run, daemon=True).start()
 
 
+# All the references together get at most this many pictures' worth of pixels (resolution x resolution each).
+# Each becomes tokens for the text encoder and latents beside the picture's: two at 1024 pixels read in 6 GB and
+# drew in 8.3 GB, while five (Socia's selfies from 22 November) took 12 GB, spilled out of the 12 GB card, and
+# drew for more than 10 minutes. Five now come at about 650 pixels each.
+REFERENCE_PICTURES = 2
+
+
 def references(pipe: QwenImage21Pipeline, job: dict) -> list[Image.Image]:
-    """The references at about resolution x resolution pixels, keeping their shape, as the text encoder and
-    the VAE both see them; the picture takes the first one's shape."""
+    """The references, sharing REFERENCE_PICTURES pictures' worth of pixels and keeping their shape, as the text
+    encoder and the VAE both see them; the picture takes the last one's shape, as the pipeline does."""
     images = []
-    for path in job["refs"]:
-        image = Image.open(path).convert("RGBA")
-        width, height, _ = calculate_dimensions(job["resolution"] ** 2, image.size[0] / image.size[1])
+    for image in originals(job):
+        width, height, _ = calculate_dimensions(reference_area(job), image.size[0] / image.size[1])
         images.append(pipe.image_processor.resize(image, width=width, height=height))
     return images
+
+
+def originals(job: dict) -> list[Image.Image]:
+    return [Image.open(path).convert("RGBA") for path in job["refs"]]
+
+
+def reference_area(job: dict) -> float:
+    return job["resolution"] ** 2 * min(1.0, REFERENCE_PICTURES / max(len(job["refs"]), 1))
 
 
 def read(job: dict) -> None:
@@ -91,7 +106,14 @@ def draw(job: dict) -> None:
     # The pipeline takes the prompt's embeddings back but not which of them are the references' tokens:
     # hand it the read pass's three outputs as they were.
     pipe.encode_prompt = lambda **kwargs: (embeds, mask, pad)
-    images = references(pipe, job)
+    images = originals(job)
+    # The pipeline sizes each reference to the picture's own area, for the VAE as for the text encoder: make it
+    # use the read pass's smaller area, and give the picture its size (the last reference's shape) itself.
+    if images:
+        width, height, _ = calculate_dimensions(job["resolution"] ** 2, images[-1].size[0] / images[-1].size[1])
+        pipeline_module.calculate_dimensions = lambda area, ratio: calculate_dimensions(reference_area(job), ratio)
+    else:
+        width = height = job["resolution"]
     report(stage="loaded", seconds=round(time.time() - start, 1))
 
     def step(pipeline, index, timestep, kwargs):
@@ -99,7 +121,7 @@ def draw(job: dict) -> None:
         return kwargs
 
     image = pipe(prompt_embeds=embeds, prompt_embeds_mask=mask, image=images or None,
-                 output_resolution=job["resolution"], generator=torch.Generator("cpu").manual_seed(job["seed"]),
+                 output_resolution=job["resolution"], width=width, height=height, generator=torch.Generator("cpu").manual_seed(job["seed"]),
                  use_kv_cache=False, callback_on_step_end=step).images[0]
     image.save(job["out"])
     finished("draw", start)

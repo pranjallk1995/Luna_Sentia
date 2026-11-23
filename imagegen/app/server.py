@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import random
+import shutil
 import sys
 import time
 import uuid
@@ -81,6 +82,8 @@ class Pictures:
         self.pictures: dict[str, Picture] = {}
         self.queue: asyncio.Queue[Picture] = asyncio.Queue()
         self.running: Picture | None = None
+        # Pictures cut short by a restart are no one's now.
+        shutil.rmtree(data / "pictures", ignore_errors=True)
         (data / "pictures").mkdir(parents=True, exist_ok=True)
 
     # The process each pass runs in.
