@@ -130,13 +130,13 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 
 | App | Latest release |
 | --- | --- |
-| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v2.0.0) |
+| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v2.0.1](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v2.0.1) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Early access: no releases yet, `latest` images from `main` |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v2.0.0) |
-| [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v2.0.0) |
-| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v2.0.2](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v2.0.2) |
+| [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v2.0.1](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v2.0.1) |
+| [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v2.0.3](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v2.0.3) |
 | [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v2.0.0) |
-| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v2.0.0) |
+| [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v2.0.1](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v2.0.1) |
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v2.0.0) |
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | [v2.0.0](https://github.com/pranjallk1995/Luna_Vita/releases/tag/v2.0.0) |
 
