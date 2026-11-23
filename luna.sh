@@ -178,6 +178,17 @@ start_vibia_speaker_helper() {
     systemctl --user is-active --quiet "$unit"
 }
 
+# Rows in `docker ps` for what an app uses outside Docker (Vibia's speaker helper, Lumia's PC lights): containers
+# in its "host" profile that only check those services. Started without waiting, so a PC that is off shows
+# unhealthy instead of failing the start; one whose address is blank exits at once.
+start_host_watchers() {
+    local dir="$1" app="$2"
+    grep -q 'profiles: \["host"\]' "$dir/docker-compose.yaml" 2>/dev/null || return 0
+    compose "$dir" --profile host up -d --no-deps $(compose "$dir" --profile host config --services \
+        | grep -vxF -f <(compose "$dir" config --services)) >/dev/null 2>&1 \
+        || log "Luna ${app^}'s host watchers did not start"
+}
+
 start() {
     local watch=false names=() app
     while (($#)); do
@@ -206,7 +217,9 @@ start() {
                && compose "$(app_dir "$app")" up -d --wait && remove_old_images "$(app_dir "$app")"; }; then
             log "Luna ${app^} did not start; see '$0 status ${app}' and its containers' logs"
             failed+=("$app")
+            continue
         fi
+        start_host_watchers "$(app_dir "$app")" "$app"
     done
 
     if ((${#failed[@]})); then
@@ -249,7 +262,7 @@ stop() {
     resolve_apps "$@"
     for ((i = ${#APPS[@]} - 1; i >= 0; i--)); do
         log "Stopping Luna ${APPS[i]^}"
-        compose "$(app_dir "${APPS[i]}")" down
+        compose "$(app_dir "${APPS[i]}")" --profile host down
     done
     if $stop_sentia; then
         log "Stopping Luna Sentia"
@@ -262,7 +275,7 @@ status() {
     resolve_apps "$@"
     for app in sentia "${APPS[@]}"; do
         log "Luna ${app^}"
-        compose "$(app_dir "$app")" ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}'
+        compose "$(app_dir "$app")" --profile host ps --format 'table {{.Service}}\t{{.Status}}\t{{.Ports}}'
     done
 }
 
