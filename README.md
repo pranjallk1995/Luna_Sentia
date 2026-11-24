@@ -132,7 +132,7 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 | --- | --- |
 | [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v2.0.4](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v2.0.4) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Early access: no releases yet, `latest` images from `main` |
-| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v2.0.1](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v2.0.1) |
+| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v2.1.0](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v2.1.0) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v2.0.1](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v2.0.1) |
 | [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v2.1.1](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v2.1.1) |
 | [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v2.0.0) |
@@ -247,12 +247,14 @@ them into each app, and commit each app. The image workflow warns when a copy di
 With `--watch`, the script stays in the foreground and runs one
 `docker compose watch` per app, prefixing each line with the app's name (for
 example `[vita] Syncing service "ui"`). Press Ctrl+C to stop watching; the
-containers keep running. Sentia itself has no source to watch.
+containers keep running. Sentia itself has no source to watch. If an app does not
+start, it is named and the apps that did start are still watched.
 
 `stop` runs `docker compose down`, which removes containers but keeps every
 volume and its data. Set `LUNA_APPS` to start a fixed list instead of every app found, for
 example `LUNA_APPS="visia vita" ../luna.sh start`. The script expects each app
-in a folder named `Luna_<App>` beside it and beside `Luna_Sentia`.
+in a folder named `Luna_<App>` beside it and beside `Luna_Sentia`; a folder such as
+`Luna_Socia-dev`, a second copy or worktree, is not started.
 
 ## Start Sentia only
 
