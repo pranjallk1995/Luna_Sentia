@@ -116,10 +116,12 @@ progress. Then open Unia at <http://localhost:42069>, or an app at its port in
 | Start those builds again without rebuilding | `LUNA_IMAGE_TAG=dev ./Luna_Sentia/luna.sh start --no-pull` |
 | Update to newer releases | `git pull` in each folder, then `start` again |
 | See or stop the containers | `./Luna_Sentia/luna.sh status`, `./Luna_Sentia/luna.sh stop` |
+| See or stop one app | `./Luna_Sentia/luna.sh status lumia`, `./Luna_Sentia/luna.sh stop lumia` |
+| Sync source changes into the running apps | `./Luna_Sentia/luna.sh start --watch` |
 
 Before reaching Luna through a tunnel, give each stack its own secrets in its `.env` (see
 each `.env.example`). `start` refuses a public address that still uses a localhost default.
-[Start everything](#start-everything) has the details.
+[Start everything](#start-everything) has the details and a short video of each command.
 
 ## Releases
 
@@ -141,6 +143,13 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | [v2.0.0](https://github.com/pranjallk1995/Luna_Vita/releases/tag/v2.0.0) |
 
 ## Start everything
+
+<p align="center">
+  <a href="assets/luna-sh-demo.mp4"><img src="assets/luna-sh-demo.webp" alt="A terminal running luna.sh: starting Sentia and every app, showing one app's containers, stopping and starting Lumia alone, listing every app's containers, then watching Lumia while a saved file syncs and restarts its UI" width="900"></a>
+</p>
+
+<p align="center"><em>Start everything, check one app, stop and start it alone, list every app, then
+develop with <code>--watch</code>. Select it for the sharper video.</em></p>
 
 `luna.sh` starts Sentia first and waits until PostgreSQL and Ollama are healthy
 and Adminer is up, runs `postgres-init` so every app's database exists, starts
@@ -173,7 +182,8 @@ repository's `.env.example` to `.env` and set your own values (see
 ./luna.sh start --build            # build images from the local source instead
 ./luna.sh start --no-pull          # use the images already on this machine
 ./luna.sh start --watch            # then run Compose Watch for every app
-./luna.sh status                   # containers of each stack
+./luna.sh status                   # containers of Sentia and every app
+./luna.sh status lumia             # Sentia's containers, then only Lumia's
 ./luna.sh stop                     # stop every app, then Sentia
 ./luna.sh stop vita                # stop one app; Sentia keeps running
 ```
@@ -245,14 +255,18 @@ tag, and push the commit and tag together (`git push --atomic origin main v1.2.3
 them into each app, and commit each app. The image workflow warns when a copy differs.
 
 With `--watch`, the script stays in the foreground and runs one
-`docker compose watch` per app, prefixing each line with the app's name (for
-example `[vita] Syncing service "ui"`). Press Ctrl+C to stop watching; the
-containers keep running. Sentia itself has no source to watch.
+`docker compose watch` per app, prefixing each line with the time and the app's
+name (for example `2026-11-24 19:40:47 UTC [vita] Syncing service "ui"`). Times
+follow the machine's time zone; start with `TZ=Asia/Kolkata ./luna.sh start --watch`
+to see another. Press Ctrl+C to stop watching; the
+containers keep running. Sentia itself has no source to watch. If an app does not
+start, it is named and the apps that did start are still watched.
 
 `stop` runs `docker compose down`, which removes containers but keeps every
 volume and its data. Set `LUNA_APPS` to start a fixed list instead of every app found, for
 example `LUNA_APPS="visia vita" ../luna.sh start`. The script expects each app
-in a folder named `Luna_<App>` beside it and beside `Luna_Sentia`.
+in a folder named `Luna_<App>` beside it and beside `Luna_Sentia`; a folder such as
+`Luna_Socia-dev`, a second copy or worktree, is not started.
 
 ## Start Sentia only
 
