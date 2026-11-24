@@ -59,6 +59,8 @@ class MonitorConfig:
     parallel: int = 1
     sample_days: int = 30
     call_days: int = 365
+    # The most the monitor's database may take on disk; past it the oldest rows go. 0: no limit.
+    max_gb: float = 10.0
     # Each app's private API token (LUNA<APP>_API_TOKEN), to ask it about its own models.
     app_tokens: tuple[tuple[str, str, str], ...] = ()
     # The models that live on the GPU (comma-separated), each at the context its app asks for
@@ -94,6 +96,7 @@ class MonitorConfig:
             parallel=max(int(os.getenv("OLLAMA_NUM_PARALLEL", "1") or 1), 1),
             sample_days=int(os.getenv("MONITOR_SAMPLE_DAYS", "30")),
             call_days=int(os.getenv("MONITOR_CALL_DAYS", "365")),
+            max_gb=float(os.getenv("MONITOR_MAX_GB", "10") or 0),
             resident_model=os.getenv("SENTIA_RESIDENT_MODEL", "").strip(),
             resident_context=os.getenv("SENTIA_RESIDENT_CONTEXT", "").strip() or "8192",
             guest_keep_alive=os.getenv("SENTIA_GUEST_KEEP_ALIVE", "").strip() or "2m",

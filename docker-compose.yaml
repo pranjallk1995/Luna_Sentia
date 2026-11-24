@@ -97,6 +97,7 @@ services:
       SENTIA_IMAGEGEN_URL: http://luna-sentia-imagegen:8000
       MONITOR_SAMPLE_DAYS: ${MONITOR_SAMPLE_DAYS:-30}
       MONITOR_CALL_DAYS: ${MONITOR_CALL_DAYS:-365}
+      MONITOR_MAX_GB: ${MONITOR_MAX_GB:-10}
       # To ask Visia, Lexia, Vibia, and Socia about the models they run themselves, outside Ollama.
       LUNAVISIA_API_TOKEN: ${LUNAVISIA_API_TOKEN:-lunavisia-dev-token-for-localhost-only}
       LUNALEXIA_API_TOKEN: ${LUNALEXIA_API_TOKEN:-lunalexia-dev-token-for-localhost-only}

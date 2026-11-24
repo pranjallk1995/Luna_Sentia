@@ -714,7 +714,10 @@ stored history:
 
 The data goes into its own `lunamonitor` database: `gpu_samples` (five-second
 averages and peaks, kept `MONITOR_SAMPLE_DAYS`, 30 by default), `model_calls` (kept
-`MONITOR_CALL_DAYS`, 365), and `model_events` (model loads and unloads).
+`MONITOR_CALL_DAYS`, 365), and `model_events` (model loads and unloads). It takes at most
+`MONITOR_MAX_GB` on disk, 10 by default: checked every hour, and past it the oldest rows of
+each table go until it is back under 8 GB, the space then given back to the disk (`0` turns
+the limit off). A year of normal use takes well under 1 GB.
 
 The page is for the owner only and signs in through Sentia, so like the apps it must
 be reached at an address under `SENTIA_AUTH_COOKIE_DOMAIN`. Route

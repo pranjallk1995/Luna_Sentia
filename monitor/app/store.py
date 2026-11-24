@@ -3,6 +3,8 @@
 - ``gpu_samples``: one row per five seconds, with averages and peaks.
 - ``model_calls``: one row per model call, with its timings and size; never its content.
 - ``model_events``: when Ollama loaded or unloaded a model.
+
+Rows are kept for their days (MONITOR_SAMPLE_DAYS, MONITOR_CALL_DAYS); past MONITOR_MAX_GB, the oldest go first.
 """
 
 from __future__ import annotations
@@ -53,6 +55,10 @@ CALL_COLUMNS = (
 # How a history range is bucketed: about 360 points whatever its length.
 BUCKETS = ((3600, 10), (6 * 3600, 60), (24 * 3600, 240), (7 * 86400, 1800), (31 * 86400, 7200))
 CALL_ROWS_LIMIT = 5000
+# Past its size limit, the database keeps the newest rows that fit in this share of it, so it is not
+# trimmed again at once.
+SHRINK_TO = 0.8
+TIMED_TABLES = (("gpu_samples", "at"), ("model_calls", "started_at"), ("model_events", "at"))
 # The longest range the page and the MCP tools read.
 MAX_HISTORY_SECONDS = 31 * 86400
 SAMPLES_QUERY = """SELECT extract(epoch FROM date_bin(make_interval(secs => %s), at, timestamptz 'epoch'))::float AS at,
@@ -121,11 +127,42 @@ class MonitorStore:
                     [(e["at"], e["model"], e["event"], e.get("vram_mb"), e.get("context")) for e in events],
                 )
 
-    def purge(self, sample_days: int, call_days: int) -> None:
+    def purge(self, sample_days: int, call_days: int, max_bytes: int = 0) -> int:
+        """Delete what is past its days, then, while the database is over ``max_bytes``, its oldest rows.
+
+        Returns how many rows the size limit removed."""
         with self.connect() as db:
             db.execute("DELETE FROM gpu_samples WHERE at < now() - make_interval(days => %s)", (sample_days,))
             db.execute("DELETE FROM model_calls WHERE started_at < now() - make_interval(days => %s)", (call_days,))
             db.execute("DELETE FROM model_events WHERE at < now() - make_interval(days => %s)", (call_days,))
+        return self.shrink(max_bytes) if max_bytes > 0 else 0
+
+    def size(self) -> int:
+        with self.connect() as db:
+            return int(db.execute("SELECT pg_database_size(current_database()) AS bytes").fetchone()["bytes"])
+
+    def shrink(self, max_bytes: int) -> int:
+        """Past ``max_bytes``, keep only the newest rows of each table that fit in SHRINK_TO of it, then give the
+        freed space back to the disk (VACUUM FULL: the tables are locked for a moment, and writes wait)."""
+        size = self.size()
+        if size <= max_bytes:
+            return 0
+        keep = SHRINK_TO * max_bytes / size
+        removed = 0
+        with self.connect() as db:
+            for table, column in TIMED_TABLES:
+                rows = db.execute(f"SELECT count(*) AS n FROM {table}").fetchone()["n"]
+                kept = int(rows * keep)
+                if rows == 0 or kept >= rows:
+                    continue
+                removed += db.execute(
+                    f"""DELETE FROM {table} WHERE {column} < (
+                            SELECT {column} FROM {table} ORDER BY {column} DESC OFFSET %s LIMIT 1)""",
+                    (max(kept - 1, 0),)).rowcount
+        with psycopg.connect(self.database_url, autocommit=True, connect_timeout=5) as db:
+            for table, _ in TIMED_TABLES:
+                db.execute(f"VACUUM FULL {table}")
+        return removed
 
     def model_usage(self) -> list[dict[str, Any]]:
         """Which app called which model, how often and when last, over the calls kept."""

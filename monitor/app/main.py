@@ -191,7 +191,11 @@ async def flush(live: LiveState, store: MonitorStore, config: MonitorConfig) -> 
                 ready = True
             await asyncio.to_thread(store.write, calls, samples, events)
             if loop.time() - last_purge > MonitorConfig.PURGE_SECONDS:
-                await asyncio.to_thread(store.purge, config.sample_days, config.call_days)
+                trimmed = await asyncio.to_thread(store.purge, config.sample_days, config.call_days,
+                                                  int(config.max_gb * 1024 ** 3))
+                if trimmed:
+                    logger.info("The monitor's database was over %s GB: its %s oldest rows were removed.",
+                                config.max_gb, trimmed)
                 last_purge = loop.time()
         except Exception as error:  # noqa: BLE001 - keep the rows and try again
             logger.warning("Could not store monitor rows, will retry: %s", error)
