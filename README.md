@@ -247,14 +247,12 @@ them into each app, and commit each app. The image workflow warns when a copy di
 With `--watch`, the script stays in the foreground and runs one
 `docker compose watch` per app, prefixing each line with the app's name (for
 example `[vita] Syncing service "ui"`). Press Ctrl+C to stop watching; the
-containers keep running. Sentia itself has no source to watch. If an app does not
-start, it is named and the apps that did start are still watched.
+containers keep running. Sentia itself has no source to watch.
 
 `stop` runs `docker compose down`, which removes containers but keeps every
 volume and its data. Set `LUNA_APPS` to start a fixed list instead of every app found, for
 example `LUNA_APPS="visia vita" ../luna.sh start`. The script expects each app
-in a folder named `Luna_<App>` beside it and beside `Luna_Sentia`; a folder such as
-`Luna_Socia-dev`, a second copy or worktree, is not started.
+in a folder named `Luna_<App>` beside it and beside `Luna_Sentia`.
 
 ## Start Sentia only
 
