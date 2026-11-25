@@ -139,7 +139,7 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 | [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v2.1.1](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v2.1.1) |
 | [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v2.0.0) |
 | [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v2.0.2](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v2.0.2) |
-| [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v2.0.0) |
+| [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v2.0.1](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v2.0.1) |
 | [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | [v2.0.0](https://github.com/pranjallk1995/Luna_Vita/releases/tag/v2.0.0) |
 
 ## Start everything
