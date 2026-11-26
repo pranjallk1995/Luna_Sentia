@@ -56,7 +56,8 @@ the GPU and keeps Socia's chat model resident, to its Ollama. Socia's pictures c
 Sentia's image service (Qwen-Image 2.1 with diffusers), which takes turns with Ollama on the GPU. Visia's SigLIP 2, Vibia's CLAP
 and Lexia's Docling run inside those apps instead, each in a process that exits when idle.
 Orange lines are Visia image URLs that other apps use: food images for Vita, room images
-for Lumia, and cover art for Vibia. Grey dashed lines are planned: links into Fiora (tax
+for Lumia, and cover art for Vibia. The rose line is lab reports: Vita reads the health reports Lexia stores,
+with their results and PDFs, for its Health reports page. Grey dashed lines are planned: links into Fiora (tax
 details from Lexia, transaction image and icon URLs from Visia). Luna Unia is the one home
 for the other apps, on port 42069: it checks which Luna stacks are running and opens each
 one with the shared sign-in. The purple line is the mood and beats of the track Vibia
@@ -134,13 +135,13 @@ Sentia first when an app's release notes ask for a newer one. The latest release
 | --- | --- |
 | [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v2.0.5](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v2.0.5) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Early access: no releases yet, `latest` images from `main` |
-| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v2.2.0](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v2.2.0) |
+| [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v2.3.0](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v2.3.0) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v2.0.1](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v2.0.1) |
 | [Luna Socia](https://github.com/pranjallk1995/Luna_Socia) | [v2.1.1](https://github.com/pranjallk1995/Luna_Socia/releases/tag/v2.1.1) |
 | [Luna Unia](https://github.com/pranjallk1995/Luna_Unia) | [v2.0.0](https://github.com/pranjallk1995/Luna_Unia/releases/tag/v2.0.0) |
 | [Luna Vibia](https://github.com/pranjallk1995/Luna_Vibia) | [v2.0.2](https://github.com/pranjallk1995/Luna_Vibia/releases/tag/v2.0.2) |
 | [Luna Visia](https://github.com/pranjallk1995/Luna_Visia) | [v2.0.1](https://github.com/pranjallk1995/Luna_Visia/releases/tag/v2.0.1) |
-| [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | [v2.0.0](https://github.com/pranjallk1995/Luna_Vita/releases/tag/v2.0.0) |
+| [Luna Vita](https://github.com/pranjallk1995/Luna_Vita) | [v2.1.0](https://github.com/pranjallk1995/Luna_Vita/releases/tag/v2.1.0) |
 
 ## Start everything
 
