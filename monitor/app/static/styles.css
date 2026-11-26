@@ -99,7 +99,7 @@ code { font-size: 0.95em; color: var(--lv-text); }
 .sm-seg button:hover { background: var(--lv-control-hover); }
 .sm-seg button[aria-pressed="true"] { border-color: var(--lv-strong); background: var(--lv-soft); color: var(--lv-text); }
 /* The filter: apps and models to show calls for; none picked shows all. */
-.sm-filter { display: grid; gap: 0.45rem; padding: 0.7rem 1rem; border: 1px solid var(--lv-border); border-radius: 12px; background: var(--lv-surface); }
+.sm-filter { display: grid; gap: 0.45rem; margin-bottom: 1rem; padding: 0.7rem 1rem; border: 1px solid var(--lv-border); border-radius: 12px; background: var(--lv-surface); }
 .sm-filter[hidden] { display: none; }
 .sm-filter-row { display: flex; gap: 0.6rem; align-items: baseline; min-width: 0; }
 .sm-filter-label { flex: 0 0 4rem; color: var(--lv-muted); font-size: var(--luna-text-small); }
@@ -113,7 +113,8 @@ code { font-size: 0.95em; color: var(--lv-text); }
 .sm-filter-clear { min-height: 1.9rem; padding: 0 0.7rem; border: 1px solid var(--lv-border); border-radius: 0.45rem; background: transparent;
   color: var(--lv-text); font-size: var(--luna-text-small); cursor: pointer; }
 .sm-filter-clear:hover { background: var(--lv-control-hover); }
-@media (max-width: 560px) { .sm-filter-row { flex-direction: column; gap: 0.3rem; } }
+/* Stacked on phones: the label's 4rem width must not become a 4rem height. */
+@media (max-width: 560px) { .sm-filter-row { flex-direction: column; gap: 0.3rem; } .sm-filter-label { flex: none; } }
 .sm-card { min-width: 0; padding: 0.9rem 1rem; border: 1px solid var(--lv-border); border-radius: 12px; background: var(--lv-surface); }
 .sm-card h2 { margin: 0; font-size: 0.92rem; font-weight: 650; }
 .sm-card-head { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; align-items: baseline; justify-content: space-between; margin-bottom: 0.6rem; }
