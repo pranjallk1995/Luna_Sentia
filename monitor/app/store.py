@@ -55,6 +55,8 @@ CALL_COLUMNS = (
 # How a history range is bucketed: about 360 points whatever its length.
 BUCKETS = ((3600, 10), (6 * 3600, 60), (24 * 3600, 240), (7 * 86400, 1800), (31 * 86400, 7200))
 CALL_ROWS_LIMIT = 5000
+# The history page's "when the GPU was busy" chart: this many bars across any range.
+BUSY_BARS = 24
 # Past its size limit, the database keeps the newest rows that fit in this share of it, so it is not
 # trimmed again at once.
 SHRINK_TO = 0.8
@@ -194,7 +196,21 @@ class MonitorStore:
                     ORDER BY started_at DESC LIMIT %s""",
                 (*window, *chosen, CALL_ROWS_LIMIT),
             ).fetchall()
-            total = db.execute(f"SELECT count(*) AS n FROM model_calls WHERE {calls_where}", (*window, *chosen)).fetchone()["n"]
+            summary = db.execute(
+                f"""SELECT count(*) AS n, count(*) FILTER (WHERE outcome <> 'ok') AS problems,
+                          percentile_cont(0.5) WITHIN GROUP (ORDER BY wall_ms) AS wall_p50,
+                          percentile_cont(0.95) WITHIN GROUP (ORDER BY wall_ms) AS wall_p95
+                   FROM model_calls WHERE {calls_where}""",
+                (*window, *chosen),
+            ).fetchone()
+            total = summary["n"]
+            bar = (end - start) / BUSY_BARS
+            busy = db.execute(
+                f"""SELECT extract(epoch FROM date_bin(make_interval(secs => %s), started_at, to_timestamp(%s)))::float AS at,
+                          app, sum(wall_ms) / 1000.0 AS busy_seconds, count(*) AS calls
+                   FROM model_calls WHERE {calls_where} GROUP BY 1, 2 ORDER BY 1, 2""",
+                (bar, start, *window, *chosen),
+            ).fetchall()
             groups = db.execute(
                 f"""SELECT app, model, count(*) AS calls,
                           count(*) FILTER (WHERE outcome <> 'ok') AS problems,
@@ -227,6 +243,7 @@ class MonitorStore:
             called = {row["model"] for row in choices if row["app"] in apps}
             events = [event for event in events if event["model"] in called]
         return {"bucket_seconds": size, "samples": plain(samples), "calls": plain(calls), "calls_total": total,
+                "summary": plain([summary])[0], "busy": plain(busy), "busy_bar_seconds": bar,
                 "groups": plain(groups), "intervals": plain(intervals), "events": plain(events),
                 "choices": {"apps": sorted({row["app"] for row in choices}),
                             "models": sorted({row["model"] for row in choices})}}

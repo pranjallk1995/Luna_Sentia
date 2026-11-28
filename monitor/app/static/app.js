@@ -1,6 +1,6 @@
 "use strict";
 
-/* Luna Sentia's model monitor: live charts from /api/live, stored history from /api/history. */
+/* Luna Sentia's model monitor: the live GPU and calls from /api/live, the stored history from /api/history. */
 
 const SVG = "http://www.w3.org/2000/svg";
 const PHASES = [
@@ -9,8 +9,8 @@ const PHASES = [
   ["read", "Reading input"],
   ["write", "Writing output"],
 ];
-const LEANINGS = { vllm: "Points to vLLM", ollama: "Points to Ollama", neutral: "Neutral" };
-const TABLE_ROWS = 25;
+const LEANINGS = { vllm: "vLLM", ollama: "Ollama", neutral: "Neutral" };
+const CALL_ROWS = 25;
 
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -26,7 +26,16 @@ const ms = (value) => {
 };
 const clock = (at, withDate = false) =>
   new Date(at * 1000).toLocaleString(undefined, withDate ? { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" } : { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const hourMinute = (at) => new Date(at * 1000).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 const tokensPerSecond = (tokens, time) => (tokens && time ? tokens / (time / 1000) : null);
+const plural = (n, word) => `${num(n)} ${word}${n === 1 ? "" : "s"}`;
+/* "4 min", "2 h 5 min", "2 d 11 h": how long ago, or how long until. */
+const span = (seconds) => {
+  if (seconds < 60) return `${Math.round(seconds)} s`;
+  if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ${Math.round((seconds % 3600) / 60)} min`;
+  return `${Math.floor(seconds / 86400)} d ${Math.round((seconds % 86400) / 3600)} h`;
+};
 
 function remember(key, value) {
   try {
@@ -50,6 +59,14 @@ function svg(tag, attributes = {}, parent) {
   return node;
 }
 
+/* Replaces an element's markup only when it changed, so a button keeps its focus between the live updates. */
+const drawn = new WeakMap();
+function put(element, html) {
+  if (drawn.get(element) === html) return;
+  drawn.set(element, html);
+  element.innerHTML = html;
+}
+
 /* Tooltip */
 
 const tip = document.getElementById("tip");
@@ -67,165 +84,226 @@ function showTip(event, title, rows) {
 }
 const hideTip = () => (tip.hidden = true);
 
-/* A resource chart: one or two series over time, a crosshair, and a tooltip. */
+/* The apps, their names and their colours: one colour per app wherever it appears. */
 
-class Chart {
-  constructor(container, { title, series, format }) {
-    this.series = series;
-    this.format = format;
-    this.card = document.createElement("section");
-    this.card.className = "sm-card";
-    this.card.setAttribute("aria-label", title);
-    this.card.innerHTML = `
-      <div class="sm-chart-top"><h2>${esc(title)}</h2><div class="sm-big"></div></div>
-      <div class="sm-plot"></div>
-      <div class="sm-axis"><span></span><span></span></div>
-      <div class="sm-stats"></div>
-      ${series.length > 1 ? `<div class="sm-legend">${series.map((s) => `<span><i class="sm-swatch ${s.dashed ? "dash" : "line"}"></i>${esc(s.label)}</span>`).join("")}</div>` : ""}`;
-    container.appendChild(this.card);
-    this.big = this.card.querySelector(".sm-big");
-    this.axis = this.card.querySelectorAll(".sm-axis span");
-    this.stats = this.card.querySelector(".sm-stats");
-    this.width = 600;
-    this.height = 144;
-    this.plot = svg("svg", { viewBox: `0 0 ${this.width} ${this.height}`, preserveAspectRatio: "none", role: "img", "aria-label": title }, this.card.querySelector(".sm-plot"));
-    for (const at of [0, 0.5, 1]) svg("line", { class: "sm-grid-line", x1: 0, x2: this.width, y1: at * this.height, y2: at * this.height }, this.plot);
-    this.ceiling = svg("line", { class: "sm-line ceiling", x1: 0, x2: this.width, visibility: "hidden" }, this.plot);
-    this.paths = series.map((s) => ({
-      area: s.area ? svg("path", { class: "sm-area" }, this.plot) : null,
-      line: svg("path", { class: `sm-line${s.dashed ? " dashed" : ""}` }, this.plot),
-    }));
-    this.cross = svg("line", { class: "sm-cross", y1: 0, y2: this.height, visibility: "hidden" }, this.plot);
-    this.topLabel = document.createElement("span");
-    Object.assign(this.topLabel.style, { position: "absolute", top: "-0.1rem", left: "0.2rem", fontSize: "0.66rem", color: "var(--lv-muted)" });
-    this.card.querySelector(".sm-plot").appendChild(this.topLabel);
-    this.plot.addEventListener("pointermove", (event) => this.hover(event));
-    this.plot.addEventListener("pointerleave", () => this.leave());
-    this.data = null;
-  }
+const APP_NAMES = {
+  visia: "Luna Visia", lexia: "Luna Lexia", vibia: "Luna Vibia", socia: "Luna Socia", fiora: "Luna Fiora", vita: "Luna Vita",
+  lumia: "Luna Lumia", unia: "Luna Unia", sentia: "the monitor, reloading it", "model-check": "model checks",
+};
+const appName = (app) => APP_NAMES[app] || app;
+const SHORT_NAMES = { sentia: "Sentia", "model-check": "Checks" };
+const shortName = (app) => SHORT_NAMES[app] || (APP_NAMES[app] ? APP_NAMES[app].replace("Luna ", "") : app);
+const APP_COLORS = {
+  socia: "#f472b6", lexia: "#38bdf8", visia: "#a78bfa", vibia: "#fbbf24", vita: "#4ade80",
+  lumia: "#fb923c", fiora: "#2dd4bf", unia: "#e879f9",
+};
+const appColor = (app) => APP_COLORS[app] || "#a3a3a3";
+// The Luna apps, in the order the page lists them; the monitor and model checks are not apps.
+const APP_KEYS = ["socia", "visia", "lexia", "vibia", "vita", "fiora", "lumia", "unia"];
+const appRank = (app) => (APP_KEYS.includes(app) ? APP_KEYS.indexOf(app) : APP_KEYS.length);
+const byApp = (a, b) => appRank(a) - appRank(b) || a.localeCompare(b);
+const RESIDENT_AFTER = 30 * 86400; // Ollama's "keep loaded for good" expires centuries from now.
+const IMAGES_FOR = "Socia's pictures of Luna";
+const IMAGE_STAGE = { reading: "reading the prompt", drawing: "drawing" };
+// Blocks on the GPU that are not an app's: Ollama's models, the image model, and the rest.
+const OLLAMA_COLORS = ["#c4b5fd", "#b394f0", "#9f7aea", "#8b5cf6"];
+const IMAGE_COLOR = "#fdba74";
+const OTHER_COLOR = "#4b4b4b";
 
-  update({ points, start, end, max, big, stats, gap, dateAxis, ceiling }) {
-    this.data = { points, start, end, max: max || 1 };
-    const x = (t) => ((t - start) / (end - start)) * this.width;
-    const y = (v) => this.height - (Math.min(v, max) / (max || 1)) * this.height;
-    this.series.forEach((s, index) => {
-      let line = "";
-      let area = "";
-      let run = [];
-      const flush = () => {
-        if (!run.length) return;
-        const stepped = s.stepped;
-        let d = `M${run[0][0]},${run[0][1]}`;
-        for (let i = 1; i < run.length; i++) d += stepped ? `H${run[i][0]}V${run[i][1]}` : `L${run[i][0]},${run[i][1]}`;
-        line += d;
-        area += `${d}V${this.height}H${run[0][0]}Z`;
-        run = [];
-      };
-      let previous = null;
-      for (const point of points) {
-        const value = point[s.key];
-        if (value === null || value === undefined || (previous !== null && point.at - previous > gap)) flush();
-        if (value !== null && value !== undefined) run.push([x(point.at).toFixed(1), y(value).toFixed(1)]);
-        previous = point.at;
-      }
-      flush();
-      this.paths[index].line.setAttribute("d", line);
-      if (this.paths[index].area) this.paths[index].area.setAttribute("d", area);
-    });
-    this.ceiling.setAttribute("visibility", ceiling ? "visible" : "hidden");
-    if (ceiling) {
-      this.ceiling.setAttribute("y1", y(ceiling) + 1);
-      this.ceiling.setAttribute("y2", y(ceiling) + 1);
-    }
-    this.topLabel.textContent = this.format(max);
-    this.big.innerHTML = big;
-    this.stats.innerHTML = stats;
-    this.axis[0].textContent = dateAxis ? clock(start, true) : `${Math.round(end - start)} s ago`;
-    this.axis[1].textContent = dateAxis ? clock(end, true) : "now";
-    if (this.pointer) this.hover(this.pointer);
-  }
-
-  hover(event) {
-    this.pointer = event;
-    if (!this.data || !this.data.points.length) return;
-    const box = this.plot.getBoundingClientRect();
-    const { start, end, points } = this.data;
-    const at = start + ((event.clientX - box.left) / box.width) * (end - start);
-    let nearest = points[0];
-    for (const point of points) if (Math.abs(point.at - at) < Math.abs(nearest.at - at)) nearest = point;
-    const px = ((nearest.at - start) / (end - start)) * this.width;
-    this.cross.setAttribute("x1", px);
-    this.cross.setAttribute("x2", px);
-    this.cross.setAttribute("visibility", "visible");
-    showTip(event, clock(nearest.at, end - start > 86400), this.series.map((s) => [s.label, this.format(nearest[s.key])]));
-  }
-
-  leave() {
-    this.pointer = null;
-    this.cross.setAttribute("visibility", "hidden");
-    hideTip();
-  }
-}
-
-function chartSet(container) {
-  container.innerHTML = "";
-  return {
-    gpu: new Chart(container, { title: "GPU utilisation", format: (v) => (v === null || v === undefined ? "–" : `${Math.round(v)}%`),
-      series: [{ key: "gpu_util", label: "Utilisation", area: true }] }),
-    vram: new Chart(container, { title: "VRAM", format: (v) => gb(v),
-      series: [{ key: "vram_used_mb", label: "All of the GPU", area: true }, { key: "ollama_vram_mb", label: "Ollama's models", dashed: true }] }),
-    requests: new Chart(container, { title: "Requests", format: (v) => num(v, 0),
-      series: [{ key: "in_flight", label: "In flight", area: true, stepped: true }, { key: "waiting", label: "Waiting", dashed: true, stepped: true }] }),
-    power: new Chart(container, { title: "Power", format: (v) => (v === null || v === undefined ? "–" : `${Math.round(v)} W`),
-      series: [{ key: "power_w", label: "Power", area: true }] }),
-  };
-}
-
-const niceCeiling = (value) => {
-  if (!value || value <= 0) return 1;
-  const step = 10 ** Math.floor(Math.log10(value));
-  return Math.ceil(value / step) * step;
+/* The Ollama models each app is set up to use, as in the README's Models table
+   (tests/test_monitor.py keeps the two the same). */
+const APP_OLLAMA_MODELS = {
+  socia: ["huihui_ai/qwen3-abliterated:8b", "huihui_ai/qwen3-vl-abliterated:8b-instruct", "qwen3-embedding:0.6b"],
+  visia: ["huihui_ai/qwen3-vl-abliterated:8b-instruct"],
+  lexia: ["huihui_ai/qwen3-vl-abliterated:8b-instruct", "qwen3-embedding:0.6b"],
+  vibia: ["huihui_ai/qwen3-vl-abliterated:8b-instruct"],
+  fiora: ["huihui_ai/qwen3-vl-abliterated:8b-instruct"],
 };
 
-function drawCharts(charts, points, { start, end, gap, dateAxis, gpuName, parallel, powerLimit }) {
-  const last = [...points].reverse().find((p) => p.gpu_util !== null && p.gpu_util !== undefined) || {};
-  const total = Math.max(...points.map((p) => p.vram_total_mb || 0), 1);
-  const peakFlight = Math.max(...points.map((p) => p.in_flight || 0), 0);
-  const peakPower = Math.max(...points.map((p) => p.power_w || 0), 0);
-  const average = (key) => {
-    const values = points.map((p) => p[key]).filter((v) => v !== null && v !== undefined);
-    return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
-  };
-  const show = dateAxis ? (key) => average(key) : (key) => last[key];
-  const label = dateAxis ? "average" : "now";
-  charts.gpu.update({
-    points, start, end, gap, dateAxis, max: 100,
-    big: `${num(show("gpu_util"))}<small>% ${label}</small>`,
-    stats: `<span>Memory bandwidth <b>${num(show("mem_util"))}%</b></span><span>SM clock <b>${num(show("sm_clock_mhz"))} MHz</b></span>${gpuName ? `<span>${esc(gpuName)}</span>` : ""}`,
-  });
-  const used = dateAxis ? Math.max(...points.map((p) => p.vram_used_mb || 0)) : last.vram_used_mb;
-  charts.vram.update({
-    points, start, end, gap, dateAxis, max: total, ceiling: total,
-    big: `${gb(used)}<small>of ${gb(total)}${dateAxis ? " at peak" : ""}</small>`,
-    stats: `<span>Free <b>${gb(total - (used || 0))}</b></span><span>Ollama's models <b>${gb(dateAxis ? Math.max(...points.map((p) => p.ollama_vram_mb || 0)) : last.ollama_vram_mb)}</b></span>`,
-  });
-  const lastFlight = points.length ? points[points.length - 1] : {};
-  charts.requests.update({
-    points, start, end, gap, dateAxis, max: Math.max(2, peakFlight + 1),
-    big: dateAxis ? `${num(peakFlight)}<small>at most in flight</small>` : `${num(lastFlight.in_flight || 0)}<small>in flight</small>`,
-    stats: dateAxis
-      ? `<span>Busy <b>${num(average("busy_pct"))}%</b> of the time</span><span>Most waiting <b>${num(Math.max(...points.map((p) => p.waiting || 0)))}</b></span>`
-      : `<span>Running <b>${num(lastFlight.running || 0)}</b></span><span>Waiting <b>${num(lastFlight.waiting || 0)}</b></span><span>Ollama runs <b>${num(parallel)}</b> per model at once</span>`,
-  });
-  const limit = powerLimit || niceCeiling(peakPower * 1.2);
-  charts.power.update({
-    points, start, end, gap, dateAxis, max: limit,
-    big: `${num(show("power_w"))}<small>W ${label}</small>`,
-    stats: `<span>Temperature <b>${num(dateAxis ? Math.max(...points.map((p) => p.temp_c || 0)) : last.temp_c)} °C</b>${dateAxis ? " peak" : ""}</span>${dateAxis ? "" : `<span>Fan <b>${num(last.fan_pct)}%</b></span>`}<span>Limit <b>${powerLimit ? `${num(powerLimit)} W` : "–"}</b></span>`,
-  });
+/* The filter: the apps whose calls to show. None picked shows everything. The GPU stays whole: the card is shared. */
+const filter = (() => {
+  let saved = {};
+  try {
+    saved = JSON.parse(remembered("filter", "{}")) || {};
+  } catch {
+    /* an unreadable saved filter shows everything */
+  }
+  return { apps: new Set(saved.apps || []) };
+})();
+const filtering = () => filter.apps.size > 0;
+const showsCall = (call) => !filter.apps.size || filter.apps.has(call.app);
+const filterQuery = () => new URLSearchParams({ apps: [...filter.apps].join(",") }).toString();
+
+/* The apps to pick from: those set up with Ollama models, those calling now or kept in memory, and any picked. */
+function appChoices(counted) {
+  const apps = new Set([...filter.apps, ...Object.keys(APP_OLLAMA_MODELS), ...counted.keys()]);
+  return [...apps].sort(byApp);
 }
 
-/* The call timeline: one row per app, each call split into its phases. */
+function drawApps(counted, total) {
+  const chip = (app, label, count, on, color) => `<button type="button" data-app="${esc(app)}" aria-pressed="${on}" style="--app:${color}">
+    ${app ? '<i aria-hidden="true"></i>' : ""}${esc(label)}${count !== null ? ` <span>${num(count)}</span>` : ""}</button>`;
+  const html = chip("", "All", total, !filtering(), "var(--lv-strong)") +
+    appChoices(counted).map((app) => chip(app, shortName(app), counted.get(app) || 0, filter.apps.has(app), appColor(app))).join("");
+  document.querySelectorAll("[data-apps]").forEach((element) => put(element, html));
+}
+
+function changeFilter() {
+  remember("filter", JSON.stringify({ apps: [...filter.apps] }));
+  connect();
+  if (current === "live") drawLive();
+  if (current === "history") loadHistory();
+}
+
+/* The four numbers of the Now row, each with a sparkline of the window. */
+
+function sparkline(points, key, max, start, end) {
+  const x = (t) => (((t - start) / (end - start || 1)) * 200).toFixed(1);
+  const y = (v) => (34 - (Math.min(v, max) / (max || 1)) * 30).toFixed(1);
+  const kept = points.filter((p) => p[key] !== null && p[key] !== undefined);
+  if (kept.length < 2) return { line: "", area: "" };
+  const line = `M${kept.map((p) => `${x(p.at)} ${y(p[key])}`).join(" L")}`;
+  return { line, area: `${line} L${x(kept[kept.length - 1].at)} 36 L${x(kept[0].at)} 36 Z` };
+}
+
+function drawNow(container, points, { start, end, windowLabel }) {
+  const last = [...points].reverse().find((p) => p.gpu_util !== null && p.gpu_util !== undefined) || points[points.length - 1] || {};
+  const latest = points[points.length - 1] || {};
+  const total = last.vram_total_mb || Math.max(...points.map((p) => p.vram_total_mb || 0), 0) || null;
+  const peakFlight = Math.max(0, ...points.map((p) => p.in_flight || 0));
+  const peakPower = Math.max(0, ...points.map((p) => p.power_w || 0));
+  const powerMax = last.power_limit_w || Math.max(peakPower * 1.2, 1);
+  const tile = (label, side, value, note, key, max) => {
+    const { line, area } = sparkline(points, key, max, start, end);
+    return `<div class="sm-tile"><span class="sm-tile-top"><span>${esc(label)}</span><span>${esc(side)}</span></span>
+      <strong>${value}</strong>
+      <svg viewBox="0 0 200 36" preserveAspectRatio="none" role="img" aria-label="${esc(label)} over the last ${esc(windowLabel)}"><path class="sm-area" d="${line ? area : ""}"></path><path class="sm-line" d="${line}"></path></svg>
+      <span class="sm-tile-note">${note}</span></div>`;
+  };
+  put(container, [
+    tile("GPU", live.gpu.name || "utilisation", `${num(last.gpu_util)}%`,
+      `Memory bandwidth ${num(last.mem_util)}% · SM clock ${num(last.sm_clock_mhz)} MHz`, "gpu_util", 100),
+    tile("VRAM", total ? `of ${gb(total)}` : "in use", gb(last.vram_used_mb),
+      `Ollama's models ${gb(last.ollama_vram_mb)} of it`, "vram_used_mb", total || 1),
+    tile("Requests", "in flight · waiting", `${num(latest.in_flight || 0)} · ${num(latest.waiting || 0)}`,
+      `Most at once: ${num(peakFlight)} · Ollama runs ${num(live.parallel)} per model`, "in_flight", Math.max(2, peakFlight + 1)),
+    tile("Power", last.temp_c !== undefined && last.temp_c !== null ? `${num(last.temp_c)} °C` : "", `${num(last.power_w)} W`,
+      `Fan ${num(last.fan_pct)}% · limit ${last.power_limit_w ? `${num(last.power_limit_w)} W` : "–"}`, "power_w", powerMax),
+  ].join(""));
+}
+
+/* What is on the GPU: every block of VRAM, whose it is, and what is not loaded. */
+
+/* Who called each Ollama model: the calls kept in the database, and those in memory since. */
+function callersOf(model, usage, calls) {
+  const callers = new Map();
+  for (const u of usage || []) if (u.model === model) callers.set(u.app, u.calls);
+  for (const c of calls) if (c.model === model && !callers.has(c.app)) callers.set(c.app, 1);
+  return [...callers.entries()].sort((x, y) => y[1] - x[1]).map(([app]) => app);
+}
+
+function gpuBlocks(now, calls) {
+  const inventory = live.inventory || {};
+  const blocks = [];
+  const idle = [];
+  live.models.forEach((m, index) => {
+    const left = m.expires_at ? m.expires_at - now : null;
+    const state = left === null ? "loaded" : left > RESIDENT_AFTER ? "stays loaded" : left > 1 ? `loaded · unloads in ${span(left)} if idle` : "unloading";
+    const callers = callersOf(m.name, inventory.usage, calls);
+    const what = [callers.length ? callers.map(shortName).join(", ") : "", m.context ? `${num(m.context)} context` : ""].filter(Boolean).join(" · ");
+    blocks.push({ key: `ollama ${m.name}`, name: m.name, where: `Ollama${what ? ` · ${what}` : ""}`, mb: m.vram_mb || 0,
+      color: OLLAMA_COLORS[index % OLLAMA_COLORS.length], state, label: m.name.split("/").pop() });
+  });
+  const loadedNames = new Set(live.models.map((m) => m.name));
+  for (const m of inventory.ollama || []) if (!loadedNames.has(m.name)) idle.push({ group: "Ollama", color: OLLAMA_COLORS[1], name: m.name.split("/").pop(), full: m.name, size: gb(m.size_mb) });
+  // The image model is loaded only while a picture is made: its text encoder, then its diffusion model.
+  const images = inventory.images;
+  if (images && !images.problem && images.drawing) {
+    const part = images.stage === "reading" ? "text encoder" : "diffusion model";
+    blocks.push({ key: "images", name: "Qwen-Image", where: `Sentia imagegen · ${IMAGES_FOR} · its ${part}`, mb: images.vram_mb || 0,
+      color: IMAGE_COLOR, state: `${IMAGE_STAGE[images.stage] || "working"} now`, busy: true, label: "Qwen-Image" });
+  } else if (images && images.problem) {
+    idle.push({ group: "Image model", color: IMAGE_COLOR, name: "Qwen-Image", size: "", note: images.problem });
+  } else if (images) {
+    const size = (images.files || []).reduce((n, f) => n + (f.size_mb || 0), 0);
+    idle.push({ group: "Image model", color: IMAGE_COLOR, name: "Qwen-Image", size: size ? gb(size) : "", note: "loads for each picture" });
+  }
+  for (const app of live.appModels || []) {
+    if (app.problem) {
+      idle.push({ group: shortName(app.app), color: appColor(app.app), name: "its models", size: "", note: app.problem });
+      continue;
+    }
+    const held = app.gpu ? app.gpu.reserved_mb : null;
+    const measured = app.gpu && app.gpu.measured;
+    const loaded = app.models.filter((m) => m.loaded);
+    for (const m of app.models) {
+      if (!m.loaded) idle.push({ group: shortName(app.app), color: appColor(app.app), name: m.name, size: m.vram_mb ? gb(m.vram_mb) : "", note: m.vram_mb ? "" : "size shown once loaded" });
+    }
+    if (!loaded.length) continue;
+    const stateOf = (models) => (models.some((m) => m.active) ? "working now" : "loaded");
+    if (measured) {
+      // Measured per model (Socia): one block each, and the CUDA runtime they share.
+      for (const m of loaded) {
+        blocks.push({ key: `${app.app} ${m.name}`, name: m.name, where: `${shortName(app.app)} · ${m.purpose}`, mb: m.vram_mb && !m.vram_last_seen ? m.vram_mb : 0,
+          color: appColor(app.app), state: stateOf([m]), busy: m.active, label: m.name, device: m.device });
+      }
+      if (app.gpu.context_mb > 0) {
+        blocks.push({ key: `${app.app} cuda`, name: `CUDA runtime`, where: `${shortName(app.app)} · shared by its models`, mb: app.gpu.context_mb,
+          color: appColor(app.app), state: "loaded", label: "CUDA", faded: true });
+      }
+    } else {
+      // Otherwise the app's whole process is one block, holding all its loaded models.
+      const onGpu = loaded.filter((m) => !/CPU/.test(m.device || ""));
+      const onCpu = loaded.filter((m) => /CPU/.test(m.device || ""));
+      if (onGpu.length) {
+        blocks.push({ key: `${app.app} process`, name: onGpu.map((m) => m.name).join(", "), where: `${shortName(app.app)} · ${onGpu.map((m) => m.purpose).filter(Boolean).join("; ")}`,
+          mb: held || 0, color: appColor(app.app), state: stateOf(onGpu), busy: onGpu.some((m) => m.active), label: shortName(app.app) });
+      }
+      for (const m of onCpu) {
+        blocks.push({ key: `${app.app} ${m.name}`, name: m.name, where: `${shortName(app.app)} · ${m.purpose} · on the CPU`, mb: 0,
+          color: appColor(app.app), state: stateOf([m]), busy: m.active, label: m.name });
+      }
+    }
+  }
+  const last = live.samples[live.samples.length - 1] || {};
+  const total = last.vram_total_mb || null;
+  const used = last.vram_used_mb ?? null;
+  const counted = blocks.reduce((n, b) => n + b.mb, 0);
+  if (used !== null && used - counted > 64) {
+    blocks.push({ key: "other", name: "Everything else", where: "CUDA contexts, Windows and other processes", mb: used - counted,
+      color: OTHER_COLOR, state: "always", label: "other" });
+  }
+  return { blocks, idle, total, used };
+}
+
+function drawGpu(now, calls) {
+  const { blocks, idle, total, used } = gpuBlocks(now, calls);
+  const picked = blocks.some((b) => b.key === live.block) ? live.block : null;
+  document.getElementById("gpu-summary").innerHTML = total
+    ? `${esc(live.gpu.name || "GPU")} · <b>${gb(used)}</b> of ${gb(total)} · ${gb(Math.max(total - used, 0))} free`
+    : esc(live.gpu.problem || "Waiting for the GPU's first sample.");
+  const bar = document.getElementById("gpu-bar");
+  bar.setAttribute("aria-label", `VRAM: ${blocks.filter((b) => b.mb).map((b) => `${b.name} ${gb(b.mb)}`).join(", ") || "nothing reported yet"}`);
+  const dim = (b) => (picked && picked !== b.key ? " sm-dimmed" : "");
+  put(bar, total ? blocks.filter((b) => b.mb > 0).map((b) => `<button type="button" class="sm-vram-block${dim(b)}${b.faded ? " sm-faded" : ""}" data-block="${esc(b.key)}"
+      style="width:${Math.min((b.mb / total) * 100, 100).toFixed(2)}%;--fill:${b.color}" title="${esc(`${b.name} · ${gb(b.mb)}`)}" aria-label="${esc(`${b.name}, ${gb(b.mb)}`)}">
+      <span>${esc(b.label)}</span></button>`).join("") : "");
+  put(document.getElementById("gpu-blocks"), blocks.length ? blocks.map((b) => `<button type="button" class="sm-block${dim(b)}" data-block="${esc(b.key)}" aria-pressed="${picked === b.key}">
+      <i style="--fill:${b.color}" class="${b.faded ? "sm-faded" : ""}" aria-hidden="true"></i>
+      <span class="sm-block-name"><strong>${esc(b.name)}</strong><span>${esc(b.where)}</span></span>
+      <span class="sm-block-size"><strong>${b.mb ? gb(b.mb) : b.device && /CPU/.test(b.device) ? "CPU" : "–"}</strong><span class="${b.busy ? "sm-busy" : ""}">${esc(b.state)}</span></span>
+    </button>`).join("") : `<p class="sm-empty">No model is loaded. Ollama loads one on the next call, which adds loading time to it.</p>`);
+  // Not loaded now: one row per place a model runs, its models as chips with their size.
+  const groups = new Map();
+  for (const item of idle) groups.set(item.group, [...(groups.get(item.group) || []), item]);
+  put(document.getElementById("gpu-idle"), groups.size ? `<h3 class="sm-idle-title">Not loaded now <span class="sm-dim">${plural(idle.length, "model")}</span></h3>
+    <dl class="sm-idle">${[...groups.entries()].map(([group, items]) => `<div class="sm-idle-row">
+      <dt><i style="background:${items[0].color}" aria-hidden="true"></i>${esc(group)}</dt>
+      <dd><ul>${items.map((m) => `<li title="${esc([m.full || m.name, m.note].filter(Boolean).join(" · "))}"><span>${esc(m.name)}</span>${m.size ? `<b>${esc(m.size)}</b>` : ""}${m.note && !m.size ? `<span class="sm-dim">${esc(m.note)}</span>` : ""}</li>`).join("")}</ul></dd>
+    </div>`).join("")}</dl>` : "");
+}
+
+/* The call lanes: one row per app, each call split into its phases. */
 
 function phases(call) {
   const wall = call.wall_ms || 0;
@@ -237,8 +315,8 @@ function phases(call) {
 
 function callRows(call) {
   const rows = [
-    ["App", call.app], ["Model", call.model], ["Endpoint", call.endpoint], ["Started", clock(call.started_at)],
-    ["Outcome", call.outcome], ["Wall time", ms(call.wall_ms ?? (Date.now() / 1000 - call.started_at) * 1000)],
+    ["App", appName(call.app)], ["Model", call.model], ["Endpoint", call.endpoint], ["Started", clock(call.started_at)],
+    ["Outcome", call.outcome], ["Wall time", ms(call.wall_ms ?? (Date.now() / 1000 + live.offset - call.started_at) * 1000)],
   ];
   if (call.outcome !== "running") {
     rows.push(["Waiting", ms(call.wait_ms)], ["Loading", ms(call.load_ms)],
@@ -257,12 +335,12 @@ function drawTimeline(container, calls, { start, end, now }) {
     return;
   }
   const width = Math.max(container.clientWidth, 280);
-  const labelWidth = 64;
+  const labelWidth = 72;
   const plotWidth = width - labelWidth;
-  const laneHeight = 16;
+  const laneHeight = 22;
   const x = (t) => labelWidth + ((Math.min(Math.max(t, start), end) - start) / (end - start)) * plotWidth;
   // Calls of one app that overlap go in separate lanes of its row.
-  const apps = [...new Set(visible.map((c) => c.app))].sort();
+  const apps = [...new Set(visible.map((c) => c.app))].sort(byApp);
   const lanes = new Map(apps.map((app) => [app, []]));
   const placed = visible
     .slice()
@@ -277,341 +355,134 @@ function drawTimeline(container, calls, { start, end, now }) {
     });
   let top = 0;
   const rowTop = new Map();
+  const gap = 6;
   for (const app of apps) {
     rowTop.set(app, top);
-    top += Math.max(lanes.get(app).length, 1) * laneHeight + 8;
+    top += Math.max(lanes.get(app).length, 1) * laneHeight + 8 + gap;
   }
-  const height = top + 18;
+  const height = top + 14;
   container.innerHTML = "";
   container.classList.add("sm-timeline");
-  const plot = svg("svg", { viewBox: `0 0 ${width} ${height}`, height, role: "img", "aria-label": `Timeline of ${visible.length} model calls` }, container);
-  // Enough room for each time label: two on a phone, four on a wider screen.
+  const plot = svg("svg", { viewBox: `0 0 ${width} ${height}`, height, role: "img", "aria-label": `Lanes of ${visible.length} model calls by app` }, container);
+  for (const app of apps) {
+    const rowHeight = Math.max(lanes.get(app).length, 1) * laneHeight + 8;
+    svg("rect", { class: "sm-lane", x: labelWidth, y: rowTop.get(app), width: plotWidth, height: rowHeight, rx: 6 }, plot);
+    const label = svg("text", { class: "sm-row-label", x: 0, y: rowTop.get(app) + rowHeight / 2 + 4, fill: appColor(app) }, plot);
+    label.textContent = shortName(app);
+  }
   const ticks = plotWidth < 460 ? 2 : 4;
   for (let i = 0; i <= ticks; i++) {
-    const t = start + ((end - start) * i) / ticks;
     const px = labelWidth + (plotWidth * i) / ticks;
-    svg("line", { class: "sm-grid-line", x1: px, x2: px, y1: 0, y2: top }, plot);
-    const text = svg("text", { class: "sm-grid-label", x: px, y: height - 4, "text-anchor": i === 0 ? "start" : i === ticks ? "end" : "middle" }, plot);
-    text.textContent = end - start > 86400 ? clock(t, true) : clock(t);
-  }
-  for (const app of apps) {
-    const label = svg("text", { class: "sm-row-label", x: 0, y: rowTop.get(app) + 12 }, plot);
-    label.textContent = app;
+    const text = svg("text", { class: "sm-grid-label", x: px, y: height - 2, "text-anchor": i === 0 ? "start" : i === ticks ? "end" : "middle" }, plot);
+    const ago = ((end - start) * (ticks - i)) / ticks;
+    text.textContent = i === ticks ? "now" : `−${ago >= 60 ? `${num(ago / 60, ago % 60 ? 1 : 0)} min` : `${Math.round(ago)} s`}`;
   }
   const pxPerSecond = plotWidth / (end - start);
   for (const { call, lane } of placed) {
-    const y = rowTop.get(call.app) + lane * laneHeight + 2;
+    const y = rowTop.get(call.app) + 4 + lane * laneHeight + 2;
+    const h = laneHeight - 6;
     const x0 = x(call.started_at);
-    const x1 = Math.max(x(call.finished_at ?? now), x0 + 2);
+    const x1 = Math.max(x(call.finished_at ?? now), x0 + 3);
     const group = svg("g", { class: "sm-call" }, plot);
     const split = phases(call);
     if (call.outcome === "running") {
-      svg("rect", { class: "sm-seg-run", x: x0, y, width: x1 - x0, height: 11, rx: 2 }, group);
+      svg("rect", { class: "sm-seg-run", x: x0, y, width: x1 - x0, height: h, rx: 3 }, group);
     } else if (!split) {
-      svg("rect", { class: call.outcome === "ok" ? "sm-seg-wait" : "sm-seg-fail", x: x0, y, width: x1 - x0, height: 11, rx: 2 }, group);
+      svg("rect", { class: call.outcome === "ok" ? "sm-seg-wait" : "sm-seg-fail", x: x0, y, width: x1 - x0, height: h, rx: 3 }, group);
     } else {
-      // Phases laid out back from the end: waiting, loading, reading, writing.
+      // Phases in order from the start: waiting, loading, reading, writing.
       let cursor = x(call.started_at) - (call.started_at < start ? (start - call.started_at) * pxPerSecond : 0);
       for (const [key] of PHASES) {
         const w = (split[key] / 1000) * pxPerSecond;
         const from = Math.max(cursor, labelWidth);
         const to = Math.min(cursor + w, labelWidth + plotWidth);
-        if (to - from >= 1) {
-          const gapped = to - from > 4 ? 1 : 0;
-          svg("rect", { class: `sm-seg-${key}`, x: from + gapped, y, width: Math.max(to - from - 2 * gapped, 1), height: 11, rx: 2 }, group);
-        }
+        if (to - from >= 1) svg("rect", { class: `sm-seg-${key}`, x: from, y, width: Math.max(to - from, 1), height: h }, group);
         cursor += w;
       }
+      svg("rect", { class: "sm-seg-ring", x: x0, y, width: x1 - x0, height: h, rx: 3 }, group);
     }
-    const hit = svg("rect", { class: "sm-hit", x: x0 - 3, y: y - 3, width: x1 - x0 + 6, height: laneHeight }, group);
-    hit.addEventListener("pointermove", (event) => showTip(event, `${call.app} · ${call.model}`, callRows(call)));
+    const hit = svg("rect", { class: "sm-hit", x: x0 - 3, y: y - 2, width: x1 - x0 + 6, height: h + 4 }, group);
+    hit.addEventListener("pointermove", (event) => showTip(event, `${appName(call.app)} · ${call.model}`, callRows(call)));
     hit.addEventListener("pointerleave", hideTip);
+    hit.addEventListener("click", () => {
+      live.openCall = callKey(call);
+      drawLive();
+      document.querySelector(`[data-call="${CSS.escape(live.openCall)}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
   }
 }
 
-/* Tables */
+/* Recent calls: one line each with its phases; click one for its numbers. */
 
-function callsTable(container, calls) {
+const callKey = (call) => `${call.app} ${call.started_at}`;
+function phaseBar(call) {
+  const split = phases(call);
+  if (!split) {
+    const kind = call.outcome === "running" ? "run" : call.outcome === "ok" ? "wait" : "fail";
+    return `<span class="sm-phasebar" aria-hidden="true"><i class="sm-seg-${kind}-bar" style="width:100%"></i></span>`;
+  }
+  const whole = Object.values(split).reduce((a, b) => a + b, 0) || 1;
+  return `<span class="sm-phasebar" aria-hidden="true">${PHASES.map(([key]) => `<i class="sm-${key}" style="width:${((split[key] / whole) * 100).toFixed(1)}%"></i>`).join("")}</span>`;
+}
+const OUTCOME_CLASS = { ok: "good", running: "run", cancelled: "warn" };
+
+function drawCalls(container, calls) {
   if (!calls.length) {
-    container.innerHTML = `<p class="sm-empty">No model calls yet. They appear here as the apps make them.</p>`;
+    put(container, `<p class="sm-empty">${filtering() ? "No calls from the chosen apps yet." : "No model calls yet. They appear here as the apps make them."}</p>`);
     return;
   }
-  const rows = calls.slice(0, TABLE_ROWS).map((c) => `<tr>
-      <td>${esc(clock(c.started_at))}</td><td>${esc(c.app)}</td><td>${esc(c.model)}</td><td>${esc(c.endpoint.replace("/api/", ""))}</td>
-      <td><span class="sm-outcome ${esc(c.outcome)}">${esc(c.outcome)}</span></td>
-      <td class="num">${ms(c.wall_ms)}</td><td class="num">${ms(c.wait_ms)}</td><td class="num">${ms(c.load_ms)}</td>
-      <td class="num">${num(c.prompt_tokens)}</td><td class="num">${num(tokensPerSecond(c.prompt_tokens, c.prompt_ms))}</td>
-      <td class="num">${num(c.output_tokens)}</td><td class="num">${num(tokensPerSecond(c.output_tokens, c.output_ms), 1)}</td>
-      <td class="num">${num(c.images)}</td><td class="num">${c.num_ctx ? num(c.num_ctx) : "–"}</td><td class="num">${num(c.ahead)}</td></tr>`);
-  container.innerHTML = `<table class="sm-table"><thead><tr>
-      <th>Started</th><th>App</th><th>Model</th><th>Call</th><th>Outcome</th><th class="num">Wall</th><th class="num">Waiting</th><th class="num">Loading</th>
-      <th class="num">Input tok</th><th class="num">Input tok/s</th><th class="num">Output tok</th><th class="num">Output tok/s</th>
-      <th class="num">Images</th><th class="num">Context</th><th class="num">Ahead</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
+  put(container, calls.slice(0, CALL_ROWS).map((c) => {
+    const key = callKey(c);
+    const open = live.openCall === key;
+    const what = [c.endpoint.replace("/api/", ""), c.model, c.images ? plural(c.images, "image") : ""].filter(Boolean).join(" · ");
+    return `<div class="sm-call-row${open ? " sm-open" : ""}">
+      <button type="button" data-call="${esc(key)}" aria-expanded="${open}">
+        <span class="sm-call-at">${esc(clock(c.started_at))}</span>
+        <span class="sm-call-app" style="color:${appColor(c.app)}">${esc(shortName(c.app))}</span>
+        <span class="sm-call-what">${esc(what)}</span>
+        ${phaseBar(c)}
+        <span class="sm-call-wall">${c.outcome === "running" ? "running" : ms(c.wall_ms)}</span>
+        <span class="sm-outcome ${OUTCOME_CLASS[c.outcome] || "bad"}">${esc(c.outcome)}</span>
+      </button>
+      ${open ? `<dl class="sm-call-facts">${callRows(c).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>` : ""}
+    </div>`;
+  }).join(""));
 }
 
-function groupsTable(container, groups) {
-  if (!groups.length) {
-    container.innerHTML = `<p class="sm-empty">No calls in this range.</p>`;
-    return;
-  }
-  container.innerHTML = `<table class="sm-table"><thead><tr>
-      <th>App</th><th>Model</th><th class="num">Calls</th><th class="num">Problems</th><th class="num">Typical wall</th><th class="num">Slowest 5%</th>
-      <th class="num">Waiting share</th><th class="num">Loading</th><th class="num">Input tok/s</th><th class="num">Output tok/s</th><th class="num">Images per call</th><th class="num">Largest context</th>
-      </tr></thead><tbody>${groups.map((g) => `<tr><td>${esc(g.app)}</td><td>${esc(g.model)}</td><td class="num">${num(g.calls)}</td><td class="num">${num(g.problems)}</td>
-      <td class="num">${ms(g.wall_p50)}</td><td class="num">${ms(g.wall_p95)}</td><td class="num">${pct(g.wall_sum ? g.wait_sum / g.wall_sum : null)}</td>
-      <td class="num">${ms(g.load_sum)}</td><td class="num">${num(tokensPerSecond(g.prompt_tokens, g.prompt_ms))}</td>
-      <td class="num">${num(tokensPerSecond(g.output_tokens, g.output_ms), 1)}</td><td class="num">${num(g.images_avg, 1)}</td><td class="num">${g.num_ctx_max ? num(g.num_ctx_max) : "–"}</td></tr>`).join("")}</tbody></table>`;
-}
-
-function eventsTable(container, events) {
-  if (!events.length) {
-    container.innerHTML = `<p class="sm-empty">Ollama did not load or unload a model in this range.</p>`;
-    return;
-  }
-  container.innerHTML = `<table class="sm-table"><thead><tr><th>When</th><th>Model</th><th>Event</th><th class="num">VRAM</th><th class="num">Context</th></tr></thead>
-    <tbody>${events.slice().reverse().map((e) => `<tr><td>${esc(clock(e.at, true))}</td><td>${esc(e.model)}</td><td>${esc(e.event)}</td>
-    <td class="num">${gb(e.vram_mb)}</td><td class="num">${e.context ? num(e.context) : "–"}</td></tr>`).join("")}</tbody></table>`;
-}
-
-const APP_NAMES = {
-  visia: "Luna Visia", lexia: "Luna Lexia", vibia: "Luna Vibia", socia: "Luna Socia", fiora: "Luna Fiora", vita: "Luna Vita",
-  lumia: "Luna Lumia", unia: "Luna Unia", sentia: "the monitor, reloading it", "model-check": "model checks",
-};
-const appName = (app) => APP_NAMES[app] || app;
-// The Luna apps, in the order "Models by app" lists them; the monitor and model checks are not apps.
-const APP_KEYS = new Set(["socia", "visia", "lexia", "vibia", "vita", "fiora", "lumia", "unia"]);
-/* "4 min", "2 h 5 min", "2 d 11 h": how long ago, or how long until. */
-const span = (seconds) => {
-  if (seconds < 60) return `${Math.round(seconds)} s`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)} min`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} h ${Math.round((seconds % 3600) / 60)} min`;
-  return `${Math.floor(seconds / 86400)} d ${Math.round((seconds % 86400) / 3600)} h`;
-};
-const RESIDENT_AFTER = 30 * 86400; // Ollama's "keep loaded for good" expires centuries from now.
-
-function vramCell(mb, totalVram, note = "") {
-  if (!mb) return `<span class="sm-dim">${note || "–"}</span>`;
-  const share = totalVram ? Math.min((mb / totalVram) * 100, 100) : 0;
-  return `<div class="sm-cell-meter"><div class="sm-meter" role="img" aria-label="${esc(gb(mb))} of VRAM"><i style="width:${share.toFixed(1)}%"></i></div>${gb(mb)}${note ? ` <span class="sm-dim">${note}</span>` : ""}</div>`;
-}
-
-const usage = (m, now) => [
-  m.calls ? `${num(m.calls)} call${m.calls === 1 ? "" : "s"}, ${ms(m.busy_seconds * 1000)} busy` : "",
-  m.failures ? `${num(m.failures)} failed` : "",
-  m.last_used ? `last used ${span(now - m.last_used)} ago` : "not used since the app started",
-].filter(Boolean).join(" · ");
-
-/* Who called each Ollama model: the calls kept in the database, and those in memory since. */
-function callersOf(model, usage, calls) {
-  const byApp = new Map();
-  for (const u of usage || []) if (u.model === model) byApp.set(u.app, { calls: u.calls, last: u.last_call });
-  for (const c of calls) if (c.model === model && !byApp.has(c.app)) byApp.set(c.app, { calls: 1, last: c.started_at });
-  return [...byApp.entries()].sort((x, y) => y[1].calls - x[1].calls);
-}
-const callersText = (callers, now) => callers.length
-  ? callers.map(([app, u]) => `${appName(app)} (${num(u.calls)} call${u.calls === 1 ? "" : "s"}, last ${span(now - u.last)} ago)`).join(", ")
-  : "";
-const IMAGES_FOR = "Socia's pictures of Luna";
-const IMAGE_STAGE = { reading: "reading the prompt", drawing: "drawing" };
-
-/* Every model loaded now, Ollama's, the image model's and the apps' own, in one table; every other model below,
-   one line each, by where it runs. */
-function drawModels(container, list, byApp, models, apps, inventory, calls, totalVram, now) {
-  inventory = inventory || {};
-  const rows = models.filter((m) => showsModel(m.name)).map((m) => {
-    const left = m.expires_at ? m.expires_at - now : null;
-    const state = left === null ? "loaded" : left > RESIDENT_AFTER ? "stays loaded (resident)" : left > 1 ? `unloads in ${span(left)} if idle` : "unloading";
-    const callers = callersText(callersOf(m.name, inventory.usage, calls), now);
-    const what = [[m.parameters, m.quantization].filter(Boolean).join(" · "), m.context ? `${num(m.context)} context` : ""].filter(Boolean).join(" · ");
-    return `<tr><td><strong>${esc(m.name)}</strong><br><span class="sm-dim">${esc(what)}</span></td><td>Ollama</td>
-      <td class="wrap">${callers ? `Called by ${esc(callers)}` : "<span class=\"sm-dim\">No call kept</span>"}</td>
-      <td>${vramCell(m.vram_mb, totalVram)}</td><td class="wrap">${esc(state)}</td></tr>`;
-  });
-  // The image model is loaded only while a picture is made: its text encoder, then its diffusion model.
-  const images = inventory.images;
-  const imagesLoaded = images && !images.problem && images.drawing;
-  const showsImages = showsApp("socia") && !filter.models.size;
-  if (imagesLoaded && showsImages) {
-    const part = images.stage === "reading" ? "text encoder" : "diffusion model";
-    const fileLines = (images.files || []).filter((f) => images.stage !== "reading" ? f.kind !== "text encoder" : f.kind === "text encoder")
-      .map((f) => `${esc(f.kind)}: ${esc(f.name)}`).join("<br>");
-    rows.push(`<tr><td><strong>Qwen-Image</strong><br><span class="sm-dim">${fileLines}</span></td><td>Sentia imagegen</td>
-      <td class="wrap">${IMAGES_FOR}</td><td>${vramCell(images.vram_mb, totalVram, images.vram_mb ? `its ${part}` : `its ${part}, loading`)}</td>
-      <td class="wrap"><b>${esc(IMAGE_STAGE[images.stage] || "working")} now</b> · gone when the picture is done</td></tr>`);
-  }
-  const loadedNames = new Set(models.map((m) => m.name));
-  // Not loaded: a name and its size each; who uses them is in "Models by app".
-  const chip = (name, note) => `<li>${esc(name)}${note ? ` <span class="sm-dim">${esc(note)}</span>` : ""}</li>`;
-  const idleOllama = (inventory.ollama || []).filter((m) => !loadedNames.has(m.name) && showsModel(m.name)).map((m) => chip(m.name, gb(m.size_mb)));
-  const idleImages = images && !imagesLoaded && showsImages
-    ? images.problem ? [`<li class="sm-dim">${esc(images.problem)}</li>`]
-      : (images.files || []).map((f) => chip(f.name, [f.kind, f.size_mb ? gb(f.size_mb) : ""].filter(Boolean).join(" · ")))
-    : [];
-  const idleApps = [];
-  for (const app of apps || []) {
-    // The models the apps run themselves make no calls here: shown for a chosen app, unless models are chosen.
-    if (!showsApp(app.app) || filter.models.size) continue;
-    if (app.problem) { idleApps.push(`<li><b>${esc(appName(app.app))}</b> <span class="sm-dim">${esc(app.problem)}</span></li>`); continue; }
-    const held = app.gpu ? app.gpu.reserved_mb : null;
-    const measured = app.gpu && app.gpu.measured;
-    let first = true;
-    for (const m of app.models) {
-      if (!m.loaded) {
-        const size = m.vram_mb ? gb(m.vram_mb) : "size shown once loaded";
-        idleApps.push(chip(m.name, `${appName(app.app)} · ${size}`));
-        continue;
-      }
-      // Measured per model where the app can (Socia); otherwise its whole process's share, on its first model.
-      const memory = m.vram_mb && !m.vram_last_seen ? vramCell(m.vram_mb, totalVram, "measured at load")
-        : held && !measured ? vramCell(first ? held : 0, totalVram, first ? "the app's process" : "in the same process")
-        : vramCell(0, totalVram, /CPU/.test(m.device) ? "CPU, no VRAM" : "not reported");
-      first = false;
-      rows.push(`<tr><td><strong>${esc(m.name)}</strong><br><span class="sm-dim">${esc(m.device)}</span></td><td>${esc(appName(app.app))}</td>
-        <td class="wrap">${esc(m.purpose)}</td><td>${memory}</td>
-        <td class="wrap">${m.active ? "<b>working now</b> · " : ""}${esc(usage(m, now))}</td></tr>`);
-    }
-    if (measured && app.gpu.context_mb > 0) {
-      rows.push(`<tr><td><strong>CUDA runtime</strong><br><span class="sm-dim">shared by its models</span></td><td>${esc(appName(app.app))}</td>
-        <td class="wrap"><span class="sm-dim">The GPU context every model in the app uses</span></td><td>${vramCell(app.gpu.context_mb, totalVram)}</td><td>loaded</td></tr>`);
-    }
-  }
-  container.innerHTML = rows.length
-    ? `<table class="sm-table sm-models-table"><colgroup><col class="c-model"><col class="c-where"><col class="c-for"><col class="c-vram"><col class="c-state"></colgroup>
-       <thead><tr><th>Model</th><th>Runs in</th><th>For</th><th>VRAM</th><th>State</th></tr></thead><tbody>${rows.join("")}</tbody></table>`
-    : filtering() ? `<p class="sm-empty">None of the chosen apps' or models' models is loaded now.</p>`
-    : `<p class="sm-empty">No model is loaded. Ollama loads one on the next call, which adds loading time to it.</p>`;
-  const group = (title, kind, items, empty) => `<h4 class="sm-sub">${title}</h4><ul class="sm-chips sm-chips-${kind}">${items.length ? items.join("") : `<li class="sm-dim">${empty}</li>`}</ul>`;
-  list.innerHTML = [
-    group("Ollama", "ollama", idleOllama, inventory.ollama ? "Every installed model is loaded." : "Waiting for Ollama's list."),
-    images ? group("Image model", "images", idleImages, "It is making a picture, above.") : "",
-    group("Inside the apps", "apps", idleApps, apps ? "Every model the apps run themselves is loaded." : "Waiting for the apps' first report."),
-  ].join("");
-  drawModelsByApp(byApp, apps, inventory, calls, loadedNames, imagesLoaded, now);
-}
-
-/* The Ollama models each app is set up to use, as in the README's Models table
-   (tests/test_monitor.py keeps the two the same). */
-const APP_OLLAMA_MODELS = {
-  socia: ["huihui_ai/qwen3-abliterated:8b", "huihui_ai/qwen3-vl-abliterated:8b-instruct", "qwen3-embedding:0.6b"],
-  visia: ["huihui_ai/qwen3-vl-abliterated:8b-instruct"],
-  lexia: ["huihui_ai/qwen3-vl-abliterated:8b-instruct", "qwen3-embedding:0.6b"],
-  vibia: ["huihui_ai/qwen3-vl-abliterated:8b-instruct"],
-  fiora: ["huihui_ai/qwen3-vl-abliterated:8b-instruct"],
-};
-
-/* The filter: the apps and models whose calls to show. None picked shows everything; picking apps and
-   models shows the calls that match both. The GPU's charts stay whole: the card is shared. */
-const filter = (() => {
-  let saved = {};
-  try {
-    saved = JSON.parse(remembered("filter", "{}")) || {};
-  } catch {
-    /* an unreadable saved filter shows everything */
-  }
-  return { apps: new Set(saved.apps || []), models: new Set(saved.models || []) };
-})();
-const filtering = () => filter.apps.size > 0 || filter.models.size > 0;
-const showsCall = (call) => (!filter.apps.size || filter.apps.has(call.app)) && (!filter.models.size || filter.models.has(call.model));
-const showsApp = (app) => !filter.apps.size || filter.apps.has(app);
-function modelsOfChosenApps() {
-  const names = new Set();
-  for (const app of filter.apps) for (const name of APP_OLLAMA_MODELS[app] || []) names.add(name);
-  for (const u of (live.inventory || {}).usage || []) if (filter.apps.has(u.app)) names.add(u.model);
-  for (const c of live.calls) if (filter.apps.has(c.app)) names.add(c.model);
-  return names;
-}
-function showsModel(name) {
-  if (filter.models.size && !filter.models.has(name)) return false;
-  return !filter.apps.size || modelsOfChosenApps().has(name);
-}
-const filterQuery = () => new URLSearchParams({ apps: [...filter.apps].join(","), models: [...filter.models].join(",") }).toString();
-
-/* What there is to pick: the models Ollama has now (the ones in use) and the Luna apps that use models, plus
-   anything calling now and anything already picked, so it can be unpicked. Old callers and models that only the
-   history remembers are left out. */
-function filterChoices() {
-  const apps = new Set(filter.apps), models = new Set(filter.models);
-  const installed = new Set(((live.inventory || {}).ollama || []).map((m) => m.name));
-  for (const app of Object.keys(APP_OLLAMA_MODELS)) apps.add(app);
-  for (const c of live.inFlight) { if (c.app) apps.add(c.app); if (c.model) models.add(c.model); }
-  for (const name of installed) models.add(name);
-  if (!installed.size) {
-    // Ollama's list not in yet: the models the apps were set up with.
-    for (const names of Object.values(APP_OLLAMA_MODELS)) names.forEach((name) => models.add(name));
-  }
-  const order = [...APP_KEYS];
-  const rank = (app) => (order.includes(app) ? order.indexOf(app) : order.length);
-  return { apps: [...apps].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b)), models: [...models].sort() };
-}
-
-let drawnChoices = "";
-function drawFilter(force = false) {
-  const choices = filterChoices();
-  const key = JSON.stringify([choices, [...filter.apps], [...filter.models]]);
-  if (!force && key === drawnChoices) return;
-  drawnChoices = key;
-  const chips = (names, chosen, kind, label) => names.length
-    ? names.map((name) => `<button type="button" data-filter="${kind}" data-name="${esc(name)}" aria-pressed="${chosen.has(name)}">${esc(label(name))}</button>`).join("")
-    : `<span class="sm-dim">None called yet</span>`;
-  document.getElementById("filter-apps").innerHTML = chips(choices.apps, filter.apps, "apps", appName);
-  document.getElementById("filter-models").innerHTML = chips(choices.models, filter.models, "models", (name) => name);
-  const parts = [filter.apps.size ? [...filter.apps].map(appName).join(", ") : "", filter.models.size ? [...filter.models].join(", ") : ""].filter(Boolean);
-  document.getElementById("filter-note").textContent = filtering()
-    ? `Showing calls of ${parts.join(" to ")}. The GPU charts show the whole card, which they share.`
-    : "Showing every app and model. Pick some to see only their calls.";
-  document.getElementById("filter-clear").hidden = !filtering();
-}
-
-function changeFilter() {
-  remember("filter", JSON.stringify({ apps: [...filter.apps], models: [...filter.models] }));
-  drawFilter(true);
-  connect();
-  if (current === "live") drawLive();
-  if (current === "history") loadHistory();
-}
-
-/* Which models each app uses: the Ollama models it is set up for, with its calls to them, its
-   pictures' models, and the models it runs itself. A dot marks a model loaded now. Models an app
-   called that it is not set up for (old ones, model checks) fold into one line. */
-function drawModelsByApp(container, apps, inventory, calls, loadedNames, imagesLoaded, now) {
-  const called = new Map(); // "app model" -> {calls, last}
-  for (const u of inventory.usage || []) called.set(`${u.app} ${u.model}`, { calls: u.calls, last: u.last_call });
-  for (const c of calls) if (!called.has(`${c.app} ${c.model}`)) called.set(`${c.app} ${c.model}`, { calls: 1, last: c.started_at });
-  const own = new Map();
-  if (inventory.images && !inventory.images.problem) own.set("socia", [{ name: "Qwen-Image 2.1 Turbo (Sentia imagegen)", loaded: imagesLoaded }]);
-  for (const app of apps || []) for (const m of app.models || []) own.set(app.app, [...(own.get(app.app) || []), { name: m.name, loaded: m.loaded }]);
-  const item = (m) => `<li${m.loaded ? ' class="sm-on" title="Loaded now"' : ""}>${esc(m.name)}${m.calls
-    ? ` <span class="sm-dim">${num(m.calls)} call${m.calls === 1 ? "" : "s"}, last ${span(now - m.last)} ago</span>` : ""}</li>`;
-  const list = (items, extra = "") => items.length || extra ? `<ul class="sm-app-models">${items.map(item).join("")}${extra}</ul>` : `<span class="sm-dim">–</span>`;
-  const rows = [...APP_KEYS].filter(showsApp).map((app) => {
-    const setUp = APP_OLLAMA_MODELS[app] || [];
-    const ollama = setUp.map((name) => ({ name, loaded: loadedNames.has(name), ...(called.get(`${app} ${name}`) || {}) }));
-    const others = [...called.keys()].filter((key) => key.startsWith(`${app} `) && !setUp.includes(key.slice(app.length + 1)));
-    const tried = others.length
-      ? `<li class="sm-older" title="${esc(others.map((key) => key.slice(app.length + 1)).join(", "))}">+${others.length} other${others.length === 1 ? "" : "s"} called before</li>` : "";
-    if (!ollama.length && !tried && !own.has(app)) return "";
-    return `<tr><td><strong>${esc(appName(app))}</strong></td><td>${list(ollama, tried)}</td><td>${list(own.get(app) || [])}</td></tr>`;
-  }).filter(Boolean);
-  container.innerHTML = `<table class="sm-table sm-by-app"><thead><tr><th>App</th><th>Ollama</th><th>Runs itself</th></tr></thead><tbody>${rows.join("")}</tbody></table>`;
-}
-
-/* The verdict: the rules of thumb and the numbers behind them. */
+/* The verdict: a meter leaning to Ollama or vLLM, and the findings behind it. */
 
 function drawVerdict(container, signals, scope) {
   if (!signals) {
-    container.innerHTML = `<p class="sm-empty">Measuring…</p>`;
+    put(container, `<p class="sm-empty">Measuring…</p>`);
     return;
   }
   const value = (f) => (f.key === "headroom" ? gb(f.value) : pct(f.value));
-  container.innerHTML = `
-    <div class="sm-verdict-head"><strong>${esc(signals.verdict)}</strong><span class="sm-note">${esc(scope)} · rules of thumb, see the Guide</span></div>
-    ${signals.findings.length ? `<div class="sm-findings">${signals.findings.map((f) => `<div class="sm-finding">
+  const toVllm = signals.findings.filter((f) => f.leaning === "vllm").length;
+  const toOllama = signals.findings.filter((f) => f.leaning === "ollama").length;
+  const lean = Math.min(Math.max(50 + (50 * (toVllm - toOllama)) / Math.max(signals.findings.length, 1), 4), 96);
+  const cut = signals.verdict.search(/[:.] /);
+  const headline = cut > 0 ? signals.verdict.slice(0, cut) : signals.verdict;
+  const reason = cut > 0 ? signals.verdict.slice(cut + 2) : "";
+  put(container, `
+    <div class="sm-verdict-head"><span class="sm-note">Should you switch to vLLM?</span><strong>${esc(headline)}</strong>${reason ? `<span class="sm-note">${esc(reason)}</span>` : ""}</div>
+    ${signals.findings.length ? `<div class="sm-meter-lean" role="img" aria-label="${esc(`${plural(toVllm, "finding")} point to vLLM, ${toOllama} to Ollama`)}">
+      <div class="sm-meter-track"><i style="left:${lean.toFixed(1)}%"></i></div><div class="sm-meter-ends"><span>Ollama</span><span>vLLM</span></div></div>` : ""}
+    ${signals.findings.map((f) => `<div class="sm-finding">
       <div class="sm-finding-top"><span>${esc(f.label)}</span><span class="sm-lean ${esc(f.leaning)}">${esc(LEANINGS[f.leaning] || f.leaning)}</span></div>
-      <b>${value(f)}</b><p>${esc(f.note)}</p></div>`).join("")}</div>` : ""}
-    <p class="sm-facts"><span>Calls <b>${num(signals.calls)}</b></span><span>Problems <b>${num(signals.problems)}</b></span>
-      <span>Busy <b>${ms(signals.busy_seconds * 1000)}</b></span><span>Overlapping <b>${ms(signals.overlap_seconds * 1000)}</b></span>
-      <span>Most at once <b>${num(signals.peak_in_flight)}</b></span><span>Output <b>${num(signals.output_rate, 1)} tok/s</b></span>
-      <span>Input <b>${num(signals.prompt_rate)} tok/s</b></span><span>GPU while busy <b>${signals.gpu_util_busy === null ? "–" : `${num(signals.gpu_util_busy)}%`}</b></span></p>`;
+      <b>${value(f)}</b><p>${esc(f.note)}</p></div>`).join("")}
+    <p class="sm-note">${esc(scope)} · <button type="button" class="sm-link" data-section="guide">how these rules of thumb work</button></p>`);
+}
+
+function drawTotals(container, signals, title) {
+  if (!signals) return put(container, "");
+  const facts = [
+    ["Calls", num(signals.calls)], ["Problems", num(signals.problems)], ["Busy", ms(signals.busy_seconds * 1000)],
+    ["Overlapping", ms(signals.overlap_seconds * 1000)], ["Output", `${num(signals.output_rate, 1)} tok/s`],
+    ["Input", `${num(signals.prompt_rate)} tok/s`], ["GPU while busy", signals.gpu_util_busy === null ? "–" : `${num(signals.gpu_util_busy)}%`],
+    ["Most at once", num(signals.peak_in_flight)],
+  ];
+  put(container, `<div class="sm-card-head"><h2>${esc(title)}</h2></div>
+    <dl class="sm-facts-grid">${facts.map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>`);
 }
 
 function phaseLegends() {
@@ -624,8 +495,9 @@ function phaseLegends() {
 
 const live = {
   samples: [], calls: [], inFlight: [], models: [], signals: null, parallel: 1, gpu: {}, offset: 0,
-  window: Number(remembered("window", "60")), charts: null, source: null, engineProblem: null,
+  window: Number(remembered("window", "300")), source: null, engineProblem: null, block: null, openCall: null,
 };
+const WINDOW_LABELS = { 60: "minute", 300: "5 minutes", 600: "10 minutes" };
 const status = document.getElementById("status");
 function setStatus(kind, text) {
   status.className = `sm-status ${kind}`;
@@ -657,24 +529,25 @@ function applyLive(data, full) {
 function drawLive() {
   const now = Date.now() / 1000 + live.offset;
   const start = now - live.window;
-  live.charts ??= chartSet(document.getElementById("live-charts"));
-  const points = live.samples.filter((s) => s.at >= start - 2);
-  const last = live.samples[live.samples.length - 1] || {};
-  drawCharts(live.charts, points, { start, end: now, gap: 5, gpuName: live.gpu.name, parallel: live.parallel, powerLimit: last.power_limit_w });
+  const windowLabel = WINDOW_LABELS[live.window] || `${live.window} s`;
+  drawNow(document.getElementById("live-now"), live.samples.filter((s) => s.at >= start - 2), { start, end: now, windowLabel });
   const running = live.inFlight.map((c) => ({ ...c, outcome: "running" }));
-  const shown = [...running, ...live.calls].filter(showsCall);
-  drawFilter();
+  const all = [...running, ...live.calls];
+  drawGpu(now, all);
+  const counted = new Map();
+  for (const c of all) counted.set(c.app, (counted.get(c.app) || 0) + 1);
+  drawApps(counted, all.length);
+  const shown = all.filter(showsCall);
   drawTimeline(document.getElementById("live-timeline"), shown, { start, end: now, now });
-  drawModels(document.getElementById("models"), document.getElementById("app-models"), document.getElementById("models-by-app"), live.models, live.appModels,
-    live.inventory, [...running, ...live.calls], last.vram_total_mb, now);
-  callsTable(document.getElementById("live-calls"), shown);
-  const kept = live.calls.filter(showsCall).length;
-  document.getElementById("live-calls-note").textContent = filtering()
-    ? `The last ${Math.min(kept, TABLE_ROWS)} of ${kept} chosen calls, of ${live.calls.length} kept in memory`
-    : `The last ${Math.min(live.calls.length, TABLE_ROWS)} of ${live.calls.length} kept in memory`;
-  drawVerdict(document.getElementById("live-verdict"), live.signals, filtering() ? "The chosen calls in the last few minutes, from memory" : "Calls in the last few minutes, from memory");
+  drawCalls(document.getElementById("live-calls"), shown);
+  document.getElementById("live-calls-note").textContent = `The last ${Math.min(shown.length, CALL_ROWS)} of ${num(shown.length)}${filtering() ? " chosen" : ""} kept in memory · click one for its numbers`;
+  const scope = filtering() ? "The chosen apps' calls in the last few minutes, from memory" : "Calls in the last few minutes, from memory";
+  drawVerdict(document.getElementById("live-verdict"), live.signals, scope);
+  drawTotals(document.getElementById("live-totals"), live.signals, "In the last few minutes");
   const problems = [live.gpu.problem, live.engineProblem].filter(Boolean);
-  document.getElementById("live-note").textContent = problems.length ? problems.join(" · ") : "Every model call the Luna apps make passes through here.";
+  const alert = document.getElementById("live-problem");
+  alert.textContent = problems.join(" · ");
+  alert.hidden = !problems.length;
 }
 
 /* The version this page's script came with, from its own URL (app.js?v=...). */
@@ -702,7 +575,8 @@ function connect() {
 
 /* History */
 
-const past = { range: Number(remembered("range", "3600")), charts: null, data: null };
+const past = { range: Number(remembered("range", "86400")), data: null, disk: null, diskAt: 0 };
+const RANGE_LABELS = { 3600: "hour", 21600: "6 hours", 86400: "24 hours", 604800: "7 days", 2592000: "30 days" };
 
 async function loadHistory() {
   const error = document.getElementById("history-error");
@@ -718,23 +592,154 @@ async function loadHistory() {
     error.textContent = problem.message;
     error.hidden = false;
   }
+  if (Date.now() - past.diskAt > 5 * 60000) loadDisk();
+}
+
+async function loadDisk() {
+  past.diskAt = Date.now();
+  try {
+    const response = await fetch("/api/storage");
+    const data = await response.json();
+    past.disk = response.ok ? data : { problem: data.error || "Disk use could not be read." };
+  } catch {
+    past.disk = { problem: "Disk use could not be read." };
+  }
+  drawDisk();
 }
 
 function drawHistory() {
   const data = past.data;
   if (!data) return;
-  drawFilter();
-  past.charts ??= chartSet(document.getElementById("history-charts"));
-  const bucket = data.bucket_seconds;
-  drawCharts(past.charts, data.samples, { start: data.start, end: data.end, gap: bucket * 1.5, dateAxis: true, gpuName: live.gpu.name, parallel: live.parallel });
-  const timelineCard = document.getElementById("history-timeline-card");
-  timelineCard.hidden = past.range > 86400;
-  if (!timelineCard.hidden) drawTimeline(document.getElementById("history-timeline"), data.calls, { start: data.start, end: data.end, now: data.end });
-  groupsTable(document.getElementById("groups"), data.groups);
-  eventsTable(document.getElementById("events"), data.events);
+  const counted = new Map();
+  for (const g of data.groups || []) counted.set(g.app, (counted.get(g.app) || 0) + g.calls);
+  drawApps(counted, [...counted.values()].reduce((a, b) => a + b, 0));
+  const range = data.end - data.start;
   const shown = data.calls.length < data.calls_total ? ` · verdict from the latest ${num(data.calls.length)} of ${num(data.calls_total)} calls` : "";
-  document.getElementById("history-note").textContent = `Stored in the lunamonitor database, in ${ms(bucket * 1000)} steps${shown}.`;
-  drawVerdict(document.getElementById("history-verdict"), data.signals, filtering() ? "The chosen calls in this range" : "This range");
+  document.getElementById("history-note").textContent = `From the monitor's database · the last ${RANGE_LABELS[past.range] || span(range)}${shown}`;
+  drawHistoryTotals(data, range);
+  drawBusy(data);
+  drawAppCalls(document.getElementById("history-apps"), data.groups || []);
+  drawVerdict(document.getElementById("history-verdict"), data.signals, filtering() ? "The chosen apps' calls in this range" : "This range");
+  drawEvents(document.getElementById("history-events"), data.events || []);
+}
+
+function drawHistoryTotals(data, range) {
+  const signals = data.signals || {};
+  const summary = data.summary || {};
+  const groups = data.groups || [];
+  const calls = data.calls_total ?? groups.reduce((n, g) => n + g.calls, 0);
+  const problems = summary.problems ?? groups.reduce((n, g) => n + g.problems, 0);
+  const peak = Math.max(0, ...data.samples.map((s) => s.vram_used_mb || 0));
+  const total = Math.max(0, ...data.samples.map((s) => s.vram_total_mb || 0));
+  const tiles = [
+    ["Calls", num(calls), `${plural(new Set(groups.map((g) => g.app)).size, "app")}, ${plural(new Set(groups.map((g) => g.model)).size, "model")}`, ""],
+    ["Problems", num(problems), calls ? `${num((problems / calls) * 100, 1)}% of calls` : "no calls", problems ? "warn" : ""],
+    ["GPU busy", ms((signals.busy_seconds || 0) * 1000), `${num(((signals.busy_seconds || 0) / range) * 100, 1)}% of the time`, ""],
+    ["Typical call", ms(summary.wall_p50), `slowest 5%: ${ms(summary.wall_p95)}`, ""],
+    ["Output", `${num(signals.output_rate, 1)} tok/s`, `input ${num(signals.prompt_rate)} tok/s`, ""],
+    ["Peak VRAM", peak ? gb(peak) : "–", total ? `${gb(total - peak)} from full` : "", total && total - peak < 1024 ? "warn" : ""],
+  ];
+  put(document.getElementById("history-totals"), tiles.map(([k, v, note, tone]) => `<div class="sm-total"><span>${esc(k)}</span><strong>${esc(v)}</strong>
+    <span class="${tone ? `sm-${tone}` : ""}">${esc(note)}</span></div>`).join(""));
+}
+
+/* When the GPU was busy: a bar per stretch of the range, split by app, and VRAM over them. */
+function drawBusy(data) {
+  const container = document.getElementById("history-busy");
+  const bar = data.busy_bar_seconds;
+  if (!bar || !data.busy) {
+    put(container, `<p class="sm-empty">No busy time to show.</p>`);
+    return;
+  }
+  const bars = Math.round((data.end - data.start) / bar);
+  const columns = Array.from({ length: bars }, (_, i) => ({ at: data.start + i * bar, parts: new Map() }));
+  for (const row of data.busy) {
+    const column = columns[Math.min(Math.max(Math.floor((row.at - data.start) / bar + 0.001), 0), bars - 1)];
+    const part = column.parts.get(row.app) || { busy: 0, calls: 0 };
+    part.busy += row.busy_seconds || 0;
+    part.calls += row.calls || 0;
+    column.parts.set(row.app, part);
+  }
+  const apps = [...new Set(data.busy.map((row) => row.app))].sort(byApp);
+  // The bars' scale: the busiest bar, rounded up to a step, so a quiet range still shows its calls.
+  const busiest = Math.max(...columns.map((c) => [...c.parts.values()].reduce((n, p) => n + p.busy, 0) / bar), 0);
+  const top = [0.05, 0.1, 0.25, 0.5, 1].find((step) => busiest <= step) || 1;
+  const long = data.end - data.start > 86400;
+  const when = (at) => (long ? clock(at, true) : hourMinute(at));
+  const total = Math.max(0, ...data.samples.map((s) => s.vram_total_mb || 0)) || 1;
+  const points = data.samples.filter((s) => s.vram_used_mb !== null && s.vram_used_mb !== undefined)
+    .map((s) => `${(((s.at - data.start) / (data.end - data.start)) * 1000).toFixed(1)} ${(100 - (s.vram_used_mb / total) * 100).toFixed(1)}`);
+  const html = `<div class="sm-busy">
+      <span class="sm-busy-y" aria-hidden="true"><span>${Math.round(top * 100)}%</span><span>${num(top * 50, top < 0.1 ? 1 : 0)}%</span></span>
+      <div class="sm-busy-plot">
+        ${columns.map((column) => {
+          const parts = [...column.parts.entries()].sort((a, b) => byApp(a[0], b[0]));
+          const sum = parts.reduce((n, [, p]) => n + p.busy, 0);
+          const label = `${when(column.at)} to ${when(column.at + bar)}: ${sum ? parts.map(([app, p]) => `${shortName(app)} ${ms(p.busy * 1000)} in ${plural(p.calls, "call")}`).join(", ") : "idle"}`;
+          return `<span class="sm-busy-col" title="${esc(label)}" aria-label="${esc(label)}" role="img">${parts.map(([app, p]) =>
+            `<i style="height:${Math.min((p.busy / bar / top) * 100, 100).toFixed(2)}%;background:${appColor(app)}"></i>`).join("")}</span>`;
+        }).join("")}
+        ${points.length > 1 ? `<svg viewBox="0 0 1000 100" preserveAspectRatio="none" aria-hidden="true"><path d="M${points.join(" L")}"></path></svg>` : ""}
+      </div>
+    </div>
+    <div class="sm-busy-x" aria-hidden="true">${[0, 0.25, 0.5, 0.75].map((f) => `<span>${esc(when(data.start + f * (data.end - data.start)))}</span>`).join("")}<span>now</span></div>
+    <div class="sm-legend">${apps.map((app) => `<span><i class="sm-swatch" style="background:${appColor(app)}"></i>${esc(shortName(app))}</span>`).join("")}
+      <span><i class="sm-swatch dash"></i>VRAM in use (top: full)</span></div>`;
+  put(container, apps.length ? html : `<p class="sm-empty">No calls in this range.</p>`);
+  document.getElementById("busy-note").textContent = `Each bar: the share of ${span(bar)} spent on calls, by app · top of the scale: ${Math.round(top * 100)}%`;
+}
+
+function drawAppCalls(container, groups) {
+  if (!groups.length) {
+    put(container, `<p class="sm-empty">No calls in this range.</p>`);
+    return;
+  }
+  const max = Math.max(...groups.map((g) => g.wall_p95 || 0), 1);
+  const sorted = groups.slice().sort((a, b) => byApp(a.app, b.app) || b.calls - a.calls);
+  put(container, sorted.map((g) => {
+    const out = tokensPerSecond(g.output_tokens, g.output_ms);
+    const wait = g.wall_sum ? g.wait_sum / g.wall_sum : null;
+    return `<div class="sm-app-row">
+      <span class="sm-app-name" style="color:${appColor(g.app)}">${esc(shortName(g.app))}</span>
+      <span class="sm-app-bars">
+        <span class="sm-range" aria-hidden="true"><i class="sm-p95" style="width:${(((g.wall_p95 || 0) / max) * 100).toFixed(1)}%;--app:${appColor(g.app)}"></i><i class="sm-p50" style="width:${(((g.wall_p50 || 0) / max) * 100).toFixed(1)}%;--app:${appColor(g.app)}"></i></span>
+        <span class="sm-note">${esc(g.model)} · typical ${ms(g.wall_p50)} · slowest ${ms(g.wall_p95)}${out ? ` · ${num(out, 1)} tok/s out` : ""}${wait !== null ? ` · ${pct(wait)} waiting` : ""}</span>
+      </span>
+      <span class="sm-app-count"><strong>${num(g.calls)}</strong><span>calls</span></span>
+      <span class="sm-app-count"><strong class="${g.problems ? "sm-warn" : ""}">${num(g.problems)}</strong><span>problems</span></span>
+    </div>`;
+  }).join(""));
+}
+
+function drawEvents(container, events) {
+  if (!events.length) {
+    put(container, `<p class="sm-empty">Ollama did not load or unload a model in this range.</p>`);
+    return;
+  }
+  const long = past.range > 86400;
+  const loads = events.filter((e) => e.event === "loaded").length;
+  put(container, `<ul class="sm-events">${events.slice().reverse().slice(0, 12).map((e) => {
+    const loaded = e.event === "loaded";
+    return `<li><span class="sm-dim">${esc(long ? clock(e.at, true) : hourMinute(e.at))}</span>
+      <span class="sm-sign ${loaded ? "sm-good" : "sm-bad"}" aria-label="${esc(e.event)}">${loaded ? "+" : "−"}</span>
+      <span class="sm-event-model" title="${esc(`${e.model}${e.context ? ` · ${num(e.context)} context` : ""}`)}">${esc(e.model.split("/").pop())}</span>
+      <span class="sm-dim">${gb(e.vram_mb)}</span></li>`;
+  }).join("")}</ul>
+  <p class="sm-note">${plural(loads, "load")} and ${plural(events.length - loads, "unload")} in this range${events.length > 12 ? ", the latest 12 shown" : ""}</p>`);
+}
+
+function drawDisk() {
+  const container = document.getElementById("history-disk");
+  const disk = past.disk;
+  if (!disk) return put(container, `<p class="sm-empty">Measuring…</p>`);
+  if (disk.problem) return put(container, `<p class="sm-empty">${esc(disk.problem)}</p>`);
+  const apps = (disk.apps || []).filter((a) => a.total_bytes > 0);
+  const max = Math.max(...apps.map((a) => a.total_bytes), 1);
+  document.getElementById("disk-total").textContent = disk.volumes_size ? `${disk.volumes_size} in all` : "";
+  put(container, `${apps.length ? `<ul class="sm-disk">${apps.map((a) => `<li title="${esc([...a.databases, ...a.volumes].map((v) => `${v.name}: ${v.size || "–"}`).join("\n"))}">
+      <span class="sm-disk-top"><span>${esc(APP_NAMES[a.app] ? shortName(a.app) : a.app)}</span><span class="sm-dim">${esc(a.total)}</span></span>
+      <span class="sm-meter" aria-hidden="true"><i style="width:${((a.total_bytes / max) * 100).toFixed(1)}%"></i></span></li>`).join("")}</ul>` : `<p class="sm-empty">Nothing measured yet.</p>`}
+    ${(disk.notes || []).map((note) => `<p class="sm-note">${esc(note)}</p>`).join("")}`);
 }
 
 /* Sections and controls */
@@ -751,7 +756,6 @@ function show(section) {
     else item.removeAttribute("aria-current");
   });
   for (const id of ["live", "history", "guide"]) document.getElementById(id).hidden = id !== current;
-  document.getElementById("filter").hidden = current === "guide";
   hideTip();
   clearInterval(historyTimer);
   if (current === "live") drawLive();
@@ -765,33 +769,35 @@ function pressed(selector, attribute, value) {
   document.querySelectorAll(selector).forEach((button) => button.setAttribute("aria-pressed", String(Number(button.dataset[attribute]) === value)));
 }
 
-document.querySelectorAll(".lv-nav-item").forEach((item) => item.addEventListener("click", () => show(item.dataset.section)));
-document.querySelectorAll("[data-window]").forEach((button) =>
-  button.addEventListener("click", () => {
-    live.window = Number(button.dataset.window);
+document.addEventListener("click", (event) => {
+  const target = event.target.closest("[data-section], [data-app], [data-block], [data-call], [data-window], [data-range]");
+  if (!target) return;
+  const { section, app, block, call, window: win, range } = target.dataset;
+  if (section) {
+    show(section);
+    if (section === "guide") window.scrollTo({ top: 0 });
+  } else if (app !== undefined) {
+    if (!app) filter.apps.clear();
+    else if (filter.apps.has(app)) filter.apps.delete(app);
+    else filter.apps.add(app);
+    changeFilter();
+  } else if (block) {
+    live.block = live.block === block ? null : block;
+    drawLive();
+  } else if (call) {
+    live.openCall = live.openCall === call ? null : call;
+    drawLive();
+  } else if (win) {
+    live.window = Number(win);
     remember("window", live.window);
     pressed("[data-window]", "window", live.window);
     drawLive();
-  }));
-document.querySelectorAll("[data-range]").forEach((button) =>
-  button.addEventListener("click", () => {
-    past.range = Number(button.dataset.range);
+  } else if (range) {
+    past.range = Number(range);
     remember("range", past.range);
     pressed("[data-range]", "range", past.range);
     loadHistory();
-  }));
-document.getElementById("filter").addEventListener("click", (event) => {
-  const chip = event.target.closest("[data-filter]");
-  if (!chip) return;
-  const chosen = filter[chip.dataset.filter];
-  if (chosen.has(chip.dataset.name)) chosen.delete(chip.dataset.name);
-  else chosen.add(chip.dataset.name);
-  changeFilter();
-});
-document.getElementById("filter-clear").addEventListener("click", () => {
-  filter.apps.clear();
-  filter.models.clear();
-  changeFilter();
+  }
 });
 let resizeTimer = null;
 window.addEventListener("resize", () => {

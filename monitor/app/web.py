@@ -22,6 +22,7 @@ from starlette.staticfiles import StaticFiles
 from app.config import MonitorConfig
 from app.insights import signals
 from app.live import LiveState
+from app.storage import Storage
 from app.store import MAX_HISTORY_SECONDS, MonitorStore
 
 STATIC = Path(__file__).parent / "static"
@@ -106,7 +107,7 @@ def live_signals(live: LiveState, apps: list[str] | None = None, models: list[st
 
 
 def create_app(config: MonitorConfig, live: LiveState, store: MonitorStore | None,
-               auth_transport: httpx.AsyncBaseTransport | None = None) -> Starlette:
+               auth_transport: httpx.AsyncBaseTransport | None = None, storage: Storage | None = None) -> Starlette:
     sessions = Sessions(config, auth_transport)
 
     async def gate(request: Request) -> Response | None:
@@ -173,6 +174,19 @@ def create_app(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
         data["start"], data["end"] = end - span, end
         return JSONResponse(data)
 
+    async def disk(request: Request) -> Response:
+        """The disk each app takes, for the history page; the same report as the get_storage tool."""
+        if refused := await gate(request):
+            return refused
+        if storage is None or store is None:
+            return JSONResponse({"error": "Disk use is not measured here."}, 503)
+        databases, problem = None, None
+        try:
+            databases = await asyncio.to_thread(store.database_sizes)
+        except Exception as error:  # noqa: BLE001 - shown on the page
+            problem = str(error)
+        return JSONResponse(storage.report(databases, problem))
+
     async def logout(request: Request) -> Response:
         return RedirectResponse(f"{config.auth_public_url}/logout?next={quote(config.public_url + '/', safe='')}", 303)
 
@@ -183,6 +197,7 @@ def create_app(config: MonitorConfig, live: LiveState, store: MonitorStore | Non
         Route("/", index),
         Route("/api/live", live_stream),
         Route("/api/history", history),
+        Route("/api/storage", disk),
         Route("/logout", logout),
         Route("/health", health),
         Mount("/static", Assets(directory=STATIC), name="static"),

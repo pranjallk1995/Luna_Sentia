@@ -213,7 +213,7 @@ async def main() -> None:
                           config.guest_keep_alive, config.resident_idle_seconds, config.imagegen_url)
     proxy = OllamaProxy(live, config.upstream_url, residency=residency)
     storage = Storage(store, config.volumes_dir)
-    page = create_app(config, live, store)
+    page = create_app(config, live, store, storage=storage)
     servers = [
         uvicorn.Server(uvicorn.Config(proxy, host="0.0.0.0", port=MonitorConfig.PROXY_PORT, timeout_keep_alive=75,
                                       log_level="warning", access_log=False)),

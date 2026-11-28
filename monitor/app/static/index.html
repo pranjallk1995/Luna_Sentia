@@ -39,45 +39,48 @@
     </button>
   </nav>
 
-  <section class="sm-filter" id="filter" aria-label="Filter by app and model">
-    <div class="sm-filter-row"><span class="sm-filter-label">Apps</span><div class="sm-filter-chips" id="filter-apps" role="group" aria-label="Apps"></div></div>
-    <div class="sm-filter-row"><span class="sm-filter-label">Models</span><div class="sm-filter-chips" id="filter-models" role="group" aria-label="Models"></div></div>
-    <div class="sm-filter-foot"><span class="sm-note" id="filter-note">Showing every app and model. Pick some to see only their calls.</span>
-      <button type="button" class="sm-filter-clear" id="filter-clear" hidden>Show all</button></div>
-  </section>
-
   <section id="live" class="sm-section" aria-label="Live">
-    <div class="sm-bar">
-      <p class="sm-note" id="live-note">Every model call the Luna apps make passes through here.</p>
+    <p class="lv-alert lv-alert-error" id="live-problem" hidden></p>
+    <section class="sm-now" id="live-now" aria-label="Now"></section>
+
+    <section class="sm-card" aria-labelledby="gpu-title">
+      <div class="sm-card-head"><h2 id="gpu-title">What is on the GPU</h2><span class="sm-note" id="gpu-summary"></span></div>
+      <div class="sm-vram" id="gpu-bar" role="img"></div>
+      <div class="sm-blocks" id="gpu-blocks"></div>
+      <div id="gpu-idle"></div>
+      <p class="sm-note">WSL cannot split VRAM by process: the apps' blocks are their own reports, and the rest is everything else on the card.</p>
+    </section>
+
+    <div class="sm-toolbar">
+      <div class="sm-apps" data-apps role="group" aria-label="Show the calls of"></div>
       <div class="sm-seg" role="group" aria-label="Window">
         <button type="button" data-window="60">1 min</button>
         <button type="button" data-window="300">5 min</button>
         <button type="button" data-window="600">10 min</button>
       </div>
     </div>
-    <div class="sm-verdict" id="live-verdict"></div>
-    <div class="sm-charts" id="live-charts"></div>
-    <section class="sm-card" aria-labelledby="live-timeline-title">
-      <div class="sm-card-head"><h2 id="live-timeline-title">Call timeline</h2><div class="sm-legend" data-legend="phases"></div></div>
-      <div id="live-timeline"></div>
-    </section>
-    <section class="sm-card" aria-labelledby="models-title">
-      <div class="sm-card-head"><h2 id="models-title">Models</h2><span class="sm-note">Loaded now: Ollama's, the image model while it makes a picture, and the models the apps run themselves, whose calls are not in the timeline</span></div>
-      <div class="lv-table-scroll" id="models"></div>
-      <h3 class="sm-heading">Models by app</h3>
-      <div class="lv-table-scroll" id="models-by-app"></div>
-      <h3 class="sm-heading">Not loaded now</h3>
-      <div id="app-models"></div>
-    </section>
-    <section class="sm-card" aria-labelledby="live-calls-title">
-      <div class="sm-card-head"><h2 id="live-calls-title">Recent calls</h2><span class="sm-note" id="live-calls-note"></span></div>
-      <div class="lv-table-scroll" id="live-calls"></div>
-    </section>
+
+    <div class="sm-split">
+      <div class="sm-main">
+        <section class="sm-card" aria-labelledby="lanes-title">
+          <div class="sm-card-head"><h2 id="lanes-title">Calls, app by app</h2><div class="sm-legend" data-legend="phases"></div></div>
+          <div id="live-timeline"></div>
+        </section>
+        <section class="sm-card" aria-labelledby="live-calls-title">
+          <div class="sm-card-head"><h2 id="live-calls-title">Recent calls</h2><span class="sm-note" id="live-calls-note"></span></div>
+          <div class="sm-calls" id="live-calls"></div>
+        </section>
+      </div>
+      <aside class="sm-side" aria-label="Verdict">
+        <section class="sm-card sm-verdict" id="live-verdict"></section>
+        <section class="sm-card" id="live-totals"></section>
+      </aside>
+    </div>
   </section>
 
   <section id="history" class="sm-section" aria-label="History" hidden>
-    <div class="sm-bar">
-      <p class="sm-note" id="history-note">Stored in the lunamonitor database.</p>
+    <div class="sm-toolbar">
+      <p class="sm-note" id="history-note">From the monitor's database.</p>
       <div class="sm-seg" role="group" aria-label="Range">
         <button type="button" data-range="3600">1 hour</button>
         <button type="button" data-range="21600">6 hours</button>
@@ -86,21 +89,34 @@
         <button type="button" data-range="2592000">30 days</button>
       </div>
     </div>
+    <div class="sm-apps" data-apps role="group" aria-label="Show the calls of"></div>
     <p class="lv-alert lv-alert-error" id="history-error" hidden></p>
-    <div class="sm-verdict" id="history-verdict"></div>
-    <div class="sm-charts" id="history-charts"></div>
-    <section class="sm-card" aria-labelledby="history-timeline-title" id="history-timeline-card">
-      <div class="sm-card-head"><h2 id="history-timeline-title">Call timeline</h2><div class="sm-legend" data-legend="phases"></div></div>
-      <div id="history-timeline"></div>
+    <section class="sm-totals" id="history-totals" aria-label="Totals"></section>
+
+    <section class="sm-card" aria-labelledby="busy-title">
+      <div class="sm-card-head"><h2 id="busy-title">When the GPU was busy, and for whom</h2><span class="sm-note" id="busy-note"></span></div>
+      <div id="history-busy"></div>
     </section>
-    <section class="sm-card" aria-labelledby="groups-title">
-      <div class="sm-card-head"><h2 id="groups-title">By app and model</h2></div>
-      <div class="lv-table-scroll" id="groups"></div>
-    </section>
-    <section class="sm-card" aria-labelledby="events-title">
-      <div class="sm-card-head"><h2 id="events-title">Model loads and unloads</h2></div>
-      <div class="lv-table-scroll" id="events"></div>
-    </section>
+
+    <div class="sm-split">
+      <div class="sm-main">
+        <section class="sm-card" aria-labelledby="apps-title">
+          <div class="sm-card-head"><h2 id="apps-title">Each app's calls</h2><span class="sm-note">Typical and slowest 5%, on one scale</span></div>
+          <div id="history-apps"></div>
+        </section>
+      </div>
+      <aside class="sm-side">
+        <section class="sm-card sm-verdict" id="history-verdict"></section>
+        <section class="sm-card" aria-labelledby="events-title">
+          <div class="sm-card-head"><h2 id="events-title">Loads and unloads</h2></div>
+          <div id="history-events"></div>
+        </section>
+        <section class="sm-card" aria-labelledby="disk-title">
+          <div class="sm-card-head"><h2 id="disk-title">Disk, by app</h2><span class="sm-note" id="disk-total"></span></div>
+          <div id="history-disk"></div>
+        </section>
+      </aside>
+    </div>
   </section>
 
   <section id="guide" class="sm-section sm-guide" aria-label="Guide" hidden>
@@ -121,7 +137,7 @@
     </section>
     <section class="sm-card">
       <h2>Models outside Ollama</h2>
-      <p>Four apps run models of their own, inside their backend, on the same GPU. Their work never passes through the monitor, so it is missing from the call timeline and the verdict; each app counts it instead, and the <b>Models</b> card asks them every ten seconds: loaded ones are in its table beside Ollama's, the rest in the list below it. <b>Models by app</b> shows, for each app, the Ollama models it is set up to use with its calls to each, and the models it runs itself; a filled dot marks one loaded now. Those not loaded show their size: Ollama's and the image model's on disk, Socia's measured as they load, and Visia's, Lexia's and Vibia's as last seen loaded since the monitor started.</p>
+      <p>Four apps run models of their own, inside their backend, on the same GPU. Their work never passes through the monitor, so it is missing from the call lanes and the verdict; each app counts it instead, and <b>What is on the GPU</b> asks them every ten seconds. The bar splits the card's memory into Ollama's models, the image model while it makes a picture, each app's own models, and everything else (CUDA contexts and Windows, which WSL cannot split by process). Click a block or its card to pick it out. The line under the cards lists the models not loaded now with their size: Ollama's and the image model's on disk, Socia's measured as they load, and Visia's, Lexia's and Vibia's as last seen loaded since the monitor started.</p>
       <dl class="sm-terms">
         <dt>Luna Visia: SigLIP 2</dt>
         <dd>Turns every image, and every search, into an embedding for meaning search. GPU only; it loads on the first image or search and stays loaded.</dd>
@@ -132,19 +148,19 @@
         <dt>Luna Socia: Whisper, Kokoro and face recognition</dt>
         <dd>Whisper turns the owner's voice messages into text, Kokoro reads her replies aloud, and InsightFace's buffalo_l tells whose faces are in a photo, hers or the owner's. All three load on the GPU when Socia starts (about 2.3 GB together) and stay loaded; with <code>LUNASOCIA_VOICE_DEVICE=cpu</code> they run on the CPU. They run on ONNX Runtime and CTranslate2, not torch, so Socia cannot report their VRAM.</dd>
       </dl>
-      <p>For each, the card shows whether it is loaded and where, the GPU memory the app's process holds, and its calls and busy time since the app started. Those counts start again when an app restarts. Lexia's semantic search embeds with <code>qwen3-embedding</code> through Ollama, so that part is in the timeline.</p>
+      <p>For each, the card shows whether it is loaded and where, the GPU memory the app's process holds, and its calls and busy time since the app started. Those counts start again when an app restarts. Lexia's semantic search embeds with <code>qwen3-embedding</code> through Ollama, so that part is in the call lanes.</p>
     </section>
     <section class="sm-card">
-      <h2>The hardware charts</h2>
+      <h2>The Now row</h2>
       <dl class="sm-terms">
         <dt>GPU utilisation</dt>
         <dd>The share of time the GPU was running any work. It reads high while one request writes its reply, even though one request uses only a fraction of the GPU's compute. So a high number does not mean the GPU is full; it means it is never idle.</dd>
-        <dt>Memory bandwidth (in the GPU card's details)</dt>
+        <dt>Memory bandwidth (under the GPU number)</dt>
         <dd>The share of time VRAM was being read or written. Writing output is limited by this, which is why batching helps: several requests share each read of the weights.</dd>
         <dt>VRAM</dt>
-        <dd>The solid line is everything on the card: Ollama's models, Visia's SigLIP, Lexia's Docling, Vibia's CLAP, and Windows itself. Under WSL the driver cannot split that by process, so the dashed line shows the share Ollama reports for its loaded models, and <b>Models</b> shows what each app's own process holds, as torch reports it.</dd>
+        <dd>Everything on the card: Ollama's models, Visia's SigLIP, Lexia's Docling, Vibia's CLAP, and Windows itself. Under WSL the driver cannot split that by process, so the note under it gives the share Ollama reports for its loaded models, and <b>What is on the GPU</b> shows what each app's own process holds, as torch reports it.</dd>
         <dt>Requests</dt>
-        <dd>The solid line counts requests in flight; the dashed line counts those waiting, estimated from Ollama's one-at-a-time limit per model (OLLAMA_NUM_PARALLEL). Waiting above zero means apps are queueing behind each other.</dd>
+        <dd>Requests in flight, then those waiting, estimated from Ollama's one-at-a-time limit per model (OLLAMA_NUM_PARALLEL). Waiting above zero means apps are queueing behind each other.</dd>
         <dt>Power, temperature, and clocks</dt>
         <dd>Power rises with how hard the GPU works. A hot GPU (above about 83 °C) lowers its clocks, which slows every request; the SM clock is the core speed.</dd>
       </dl>
@@ -153,10 +169,10 @@
       <h2>Reading the pattern to decide on vLLM</h2>
       <p>vLLM is faster than Ollama mainly when several requests run at once, because it batches them. It also keeps a fixed share of VRAM reserved while it runs. So the decision rests on two questions the monitor answers:</p>
       <ol>
-        <li><b>Do requests overlap?</b> Look at the timeline: bars stacked in time across apps, long grey waiting segments, and a dashed waiting line above zero. If imports in Lexia, Fiora, Visia, and Vibia often run at the same time, batching has work to do. If bars sit end to end with gaps between them, it does not.</li>
+        <li><b>Do requests overlap?</b> Look at the lanes: calls in different lanes at the same moment, long grey waiting segments, and waiting requests above zero in the Now row. If imports in Lexia, Fiora, Visia, and Vibia often run at the same time, batching has work to do. If bars sit end to end with gaps between them, it does not.</li>
         <li><b>Is there room?</b> The least free VRAM during real use must leave space for vLLM's reservation on top of SigLIP, Docling, and CLAP. Under about 2 GB free, vLLM would starve the other models.</li>
       </ol>
-      <p>The verdict card weighs both with simple rules of thumb and shows its numbers. Leave the monitor running through a few real Drive and Gmail imports, ideally two apps at once, then compare the 24-hour and 7-day views.</p>
+      <p>The verdict beside the calls weighs both with simple rules of thumb: its meter leans toward whichever side more findings point to. Leave the monitor running through a few real Drive and Gmail imports, ideally two apps at once, then compare the 24-hour and 7-day views.</p>
       <p>Per-request speed matters too: <b>output tokens per second</b> on a single request is the baseline vLLM would have to beat when nothing overlaps.</p>
     </section>
   </section>

@@ -459,7 +459,10 @@ class ResidencyTests(unittest.TestCase):
 
 
 class ModelsByAppTests(unittest.TestCase):
-    """The page's "Models by app" lists the Ollama models the README's Models table gives each app."""
+    """The page's app filter offers the Ollama models a Models table gives each app.
+
+    The table moved from the README to the wiki's Architecture page, which this repository does not hold;
+    the test runs again if a Models table comes back to the README."""
 
     ROOT = __import__("pathlib").Path(__file__).resolve().parents[2]
     APPS = {"Socia": "socia", "Visia": "visia", "Lexia": "lexia", "Vibia": "vibia", "Fiora": "fiora",
@@ -489,6 +492,8 @@ class ModelsByAppTests(unittest.TestCase):
     def test_the_page_and_the_readme_agree(self):
         if not (self.ROOT / "README.md").exists():
             self.skipTest("needs the repository's README")
+        if "## Models" not in (self.ROOT / "README.md").read_text():
+            self.skipTest("the Models table is in the wiki's Architecture page, not the README")
         self.assertEqual(self.page_table(), self.readme_table())
 
 
