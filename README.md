@@ -763,6 +763,132 @@ With a tunnel, route a hostname under `SENTIA_AUTH_COOKIE_DOMAIN` (such as
 `sentia-mcp.example.com`) to `http://localhost:18003`, set it as `SENTIA_MCP_PUBLIC_URL`,
 restart the monitor, and add `<SENTIA_MCP_PUBLIC_URL>/mcp` as a custom connector.
 
+## Data model
+
+Sentia's own databases, drawn from the live database (`public` schema). Lines are foreign keys; `PK` marks primary keys, `FK` foreign keys, `UK` unique columns. Each app's tables are in its own README.
+
+### `lunaauth`: sign-in, people, and connectors
+
+```mermaid
+erDiagram
+    hidden_apps {
+        text app PK
+    }
+    hidden_pins {
+        text user_id PK, FK
+        bytea salt
+        bytea pin_hash
+        int4 iterations
+        int4 failed_attempts
+        timestamptz locked_until
+        timestamptz updated_at
+    }
+    oauth_clients {
+        text client_id PK
+        text client_name
+        text_array redirect_uris
+        bpchar secret_hash
+        timestamptz created_at
+        timestamptz last_used_at
+    }
+    oauth_codes {
+        bpchar code_hash PK
+        text client_id FK
+        text user_id FK
+        text redirect_uri
+        text code_challenge
+        text resource
+        text scope
+        timestamptz expires_at
+    }
+    oauth_tokens {
+        bpchar token_hash PK
+        text kind
+        text client_id FK
+        text user_id FK
+        text resource
+        text scope
+        timestamptz expires_at
+    }
+    sessions {
+        bpchar token_hash PK
+        text email
+        text name
+        text picture
+        timestamptz created_at
+        timestamptz last_seen_at
+        timestamptz expires_at
+    }
+    users {
+        text id PK
+        text email UK
+        bool active
+        timestamptz created_at
+        text_array removing
+    }
+    oauth_clients ||--o{ oauth_codes : "client_id"
+    users ||--o{ oauth_codes : "user_id"
+    oauth_clients ||--o{ oauth_tokens : "client_id"
+    users ||--o{ oauth_tokens : "user_id"
+    users ||--o{ hidden_pins : "user_id"
+```
+
+### `lunamonitor`: model calls and GPU samples
+
+```mermaid
+erDiagram
+    gpu_samples {
+        timestamptz at PK
+        float4 gpu_util_avg
+        float4 gpu_util_max
+        float4 mem_util_avg
+        float4 vram_used_mb_max
+        float4 vram_total_mb
+        float4 ollama_vram_mb_max
+        float4 power_w_avg
+        float4 temp_c_max
+        float4 sm_clock_mhz_avg
+        float4 mem_clock_mhz_avg
+        float4 fan_pct_avg
+        int4 in_flight_max
+        int4 waiting_max
+        float4 busy_pct
+    }
+    model_calls {
+        int8 id PK
+        timestamptz started_at
+        timestamptz finished_at
+        text app
+        text endpoint
+        text model
+        int4 status
+        text outcome
+        bool streamed
+        bool structured
+        int4 images
+        int4 num_ctx
+        int4 request_bytes
+        int4 response_bytes
+        int4 ahead
+        float4 wall_ms
+        float4 ttfb_ms
+        float4 wait_ms
+        float4 load_ms
+        float4 prompt_ms
+        float4 output_ms
+        int4 prompt_tokens
+        int4 output_tokens
+        text error
+    }
+    model_events {
+        timestamptz at
+        text model
+        text event
+        float4 vram_mb
+        int4 context
+    }
+```
+
 ## Database UI
 
 Adminer is available at <http://127.0.0.1:19000> and is bound to localhost. It
