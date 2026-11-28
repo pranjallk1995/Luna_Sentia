@@ -91,7 +91,7 @@ it. The latest releases:
 
 | App | Latest release |
 | --- | --- |
-| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v2.0.7](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v2.0.7) |
+| [Luna Sentia](https://github.com/pranjallk1995/Luna_Sentia) | [v2.0.8](https://github.com/pranjallk1995/Luna_Sentia/releases/tag/v2.0.8) |
 | [Luna Fiora](https://github.com/pranjallk1995/Luna_Fiora) | Early access: no releases yet, `latest` images from `main` |
 | [Luna Lexia](https://github.com/pranjallk1995/Luna_Lexia) | [v2.4.2](https://github.com/pranjallk1995/Luna_Lexia/releases/tag/v2.4.2) |
 | [Luna Lumia](https://github.com/pranjallk1995/Luna_Lumia) | [v2.2.0](https://github.com/pranjallk1995/Luna_Lumia/releases/tag/v2.2.0) |
